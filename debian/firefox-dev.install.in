@@ -1,0 +1,16 @@
+debian/tmp@MOZ_INCDIR@/
+debian/tmp@MOZ_IDLDIR@/
+
+debian/tmp@MOZ_SDKDIR@/sdk/lib/*.a
+debian/tmp@MOZ_SDKDIR@/*.h
+debian/tmp@MOZ_SDKDIR@/bin
+debian/tmp@MOZ_SDKDIR@/idl
+debian/tmp@MOZ_SDKDIR@/include
+debian/tmp@MOZ_SDKDIR@/lib
+debian/tmp@MOZ_SDKDIR@/sdk/bin/
+
+%%ifndef MOZ_USE_SYSTEM_NSPR
+debian/pkgconfig/mozilla-nspr.pc /usr/lib/pkgconfig
+%%endif
+debian/pkgconfig/mozilla-plugin.pc /usr/lib/pkgconfig
+debian/pkgconfig/libxul.pc /usr/lib/pkgconfig

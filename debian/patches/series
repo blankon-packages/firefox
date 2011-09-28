@@ -1,0 +1,14 @@
+reload-new-plugins.patch
+distro-locale-searchplugins.patch
+normalize-distribution-searchplugins.patch
+#dont-reset-user-prefs-on-upgrade.patch
+plugin-for-mimetype-pref.patch
+allow-lockPref-everywhere.patch
+mozilla-kde.patch
+firefox-kde.patch
+unity-globalmenu-build-support.patch
+#fix-selection-drag-autoscroll.patch
+printf-fix.patch
+only-add-ENABLE_JIT-to-CXXFLAGS-if-jit-is-enabled.patch
+build-fix-for-no-ENABLE_YARR_JIT.patch
+compile-pldhash-as-C++.patch

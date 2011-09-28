@@ -1,0 +1,5 @@
+/usr/lib/@MOZ_APP_NAME@-addons/extensions
+/usr/lib/@MOZ_APP_NAME@-addons/plugins
+/etc/apparmor.d/disable
+/etc/apport/native-origins.d
+/etc/apport/blacklist.d

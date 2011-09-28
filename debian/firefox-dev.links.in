@@ -1,0 +1,16 @@
+%%ifdef MOZ_USE_SYSTEM_NSPR
+/usr/include/nspr @MOZ_INCDIR@/nspr
+/usr/bin/nspr-config @MOZ_SDKDIR@/sdk/bin/nspr-config
+%%else
+@MOZ_LIBDIR@/libnspr4.so @MOZ_SDKDIR@/sdk/lib/libnspr4.so
+@MOZ_LIBDIR@/libplc4.so @MOZ_SDKDIR@/sdk/lib/libplc4.so
+@MOZ_LIBDIR@/libplds4.so @MOZ_SDKDIR@/sdk/lib/libplds4.so
+%%endif
+%%ifdef MOZ_USE_SYSTEM_CAIRO
+/usr/include/cairo @MOZ_INCDIR@/cairo
+%%endif
+@MOZ_LIBDIR@/libmozalloc.so @MOZ_SDKDIR@/sdk/lib/libmozalloc.so
+@MOZ_LIBDIR@/libxpcom.so @MOZ_SDKDIR@/sdk/lib/libxpcom.so
+@MOZ_LIBDIR@/libxul.so @MOZ_SDKDIR@/sdk/lib/libxul.so
+@MOZ_SDKDIR@/sdk/bin/xpidl @MOZ_LIBDIR@/xpidl
+@MOZ_SDKDIR@/sdk/bin/xpt.py @MOZ_LIBDIR@/xpt.py

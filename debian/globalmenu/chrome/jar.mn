@@ -1,0 +1,8 @@
+globalmenu.jar:
+% content globalmenu  %content/
+  content/firefoxOverlay.xul  (content/firefoxOverlay.xul)
+  content/firefoxMenu.js  (content/firefoxMenu.js)
+  content/thunderbirdOverlay.xul (content/thunderbirdOverlay.xul)
+  content/thunderbirdMenu.js (content/thunderbirdMenu.js)
+% overlay chrome://browser/content/browser.xul  chrome://globalmenu/content/firefoxOverlay.xul application={ec8030f7-c20a-464f-9b0e-13a3a9e97384}
+% overlay chrome://messenger/content/messenger.xul chrome://globalmenu/content/thunderbirdOverlay.xul application={3550f703-e582-4d05-9a08-453d09bdfdc6}

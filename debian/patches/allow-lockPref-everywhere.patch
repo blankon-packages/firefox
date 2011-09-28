@@ -1,0 +1,99 @@
+Description: Allow use of lockPref in all preference files
+Author: Alexander Sack <asac@ubuntu.com>
+Bug: https://bugzilla.mozilla.org/show_bug.cgi?id=467738
+Forwarded: https://bugzilla.mozilla.org/attachment.cgi?id=351145
+
+--- a/modules/libpref/src/prefread.cpp
++++ b/modules/libpref/src/prefread.cpp
+@@ -75,6 +75,7 @@ enum {
+ #define BITS_PER_HEX_DIGIT      4
+ 
+ static const char kUserPref[] = "user_pref";
++static const char kLockPref[] = "lockPref";
+ static const char kPref[] = "pref";
+ static const char kTrue[] = "true";
+ static const char kFalse[] = "false";
+@@ -161,7 +162,7 @@ pref_DoCallback(PrefParseState *ps)
+     default:
+         break;
+     }
+-    (*ps->reader)(ps->closure, ps->lb, value, ps->vtype, ps->fdefault);
++    (*ps->reader)(ps->closure, ps->lb, value, ps->vtype, ps->fdefault, ps->flock);
+     return PR_TRUE;
+ }
+ 
+@@ -220,6 +221,7 @@ PREF_ParseBuf(PrefParseState *ps, const
+                 ps->vb    = NULL;
+                 ps->vtype = PREF_INVALID;
+                 ps->fdefault = PR_FALSE;
++                ps->flock = PR_FALSE;
+             }
+             switch (c) {
+             case '/':       /* begin comment block or line? */
+@@ -230,7 +232,9 @@ PREF_ParseBuf(PrefParseState *ps, const
+                 break;
+             case 'u':       /* indicating user_pref */
+             case 'p':       /* indicating pref */
+-                ps->smatch = (c == 'u' ? kUserPref : kPref);
++            case 'l':       /* indicating lockPref */
++                ps->smatch = (c == 'u' ? kUserPref :
++                                         (c == 'p' ? kPref : kLockPref));
+                 ps->sindex = 1;
+                 ps->nextstate = PREF_PARSE_UNTIL_OPEN_PAREN;
+                 state = PREF_PARSE_MATCH_STRING;
+@@ -274,7 +278,8 @@ PREF_ParseBuf(PrefParseState *ps, const
+         /* name parsing */
+         case PREF_PARSE_UNTIL_NAME:
+             if (c == '\"' || c == '\'') {
+-                ps->fdefault = (ps->smatch == kPref);
++                ps->fdefault = (ps->smatch != kUserPref);
++                ps->flock = (ps->smatch == kLockPref);
+                 ps->quotechar = c;
+                 ps->nextstate = PREF_PARSE_UNTIL_COMMA; /* return here when done */
+                 state = PREF_PARSE_QUOTED_STRING;
+--- a/modules/libpref/src/prefread.h
++++ b/modules/libpref/src/prefread.h
+@@ -62,7 +62,8 @@ typedef void (*PrefReader)(void       *c
+                            const char *pref,
+                            PrefValue   val,
+                            PrefType    type,
+-                           PRBool      defPref);
++                           PRBool      defPref,
++                           PRBool      lockPref);
+ 
+ /* structure fields are private */
+ typedef struct PrefParseState {
+@@ -83,6 +84,7 @@ typedef struct PrefParseState {
+     char       *vb;         /* value buffer (ptr into lb)    */
+     PrefType    vtype;      /* PREF_STRING,INT,BOOL          */
+     PRBool      fdefault;   /* PR_TRUE if (default) pref     */
++    PRBool      flock;      /* PR_TRUE if pref to be locked  */
+ } PrefParseState;
+ 
+ /**
+--- a/modules/libpref/src/prefapi.cpp
++++ b/modules/libpref/src/prefapi.cpp
+@@ -942,7 +942,10 @@ void PREF_ReaderCallback(void       *clo
+                          const char *pref,
+                          PrefValue   value,
+                          PrefType    type,
+-                         PRBool      isDefault)
++                         PRBool      isDefault,
++                         PRBool      isLocked)
+ {
+     pref_HashPref(pref, value, type, isDefault);
++    if (isLocked)
++        PREF_LockPref(pref, PR_TRUE);
+ }
+--- a/modules/libpref/src/prefapi.h
++++ b/modules/libpref/src/prefapi.h
+@@ -207,7 +207,8 @@ void PREF_ReaderCallback( void *closure,
+                           const char *pref,
+                           PrefValue   value,
+                           PrefType    type,
+-                          PRBool      isDefault);
++                          PRBool      isDefault,
++                          PRBool      isLocked);
+ 
+ PR_END_EXTERN_C
+ #endif
