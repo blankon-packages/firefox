@@ -43,8 +43,7 @@ Architecture: any
 Depends: lsb-release,
 	${misc:Depends},
 	${shlibs:Depends}
-Recommends: blankfox,
-	@MOZ_APP_NAME@-globalmenu
+Recommends: blankfox
 Provides: www-browser,
 	iceweasel,
 	gnome-www-browser,

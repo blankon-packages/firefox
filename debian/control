@@ -45,7 +45,7 @@ Architecture: any
 Depends: lsb-release,
 	${misc:Depends},
 	${shlibs:Depends}
-Recommends: blankfox, firefox-globalmenu
+Recommends: blankfox
 Provides: www-browser,
 	iceweasel,
 	gnome-www-browser,
