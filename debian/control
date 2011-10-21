@@ -4,67 +4,58 @@ Priority: optional
 Maintainer: BlankOn Developers <BlankOn-dev@googlegroups.com>
 XSBC-Original-Maintainer: Ubuntu Mozilla Team <ubuntu-mozillateam@lists.ubuntu.com>
 Vcs-Bzr: https://code.launchpad.net/~mozillateam/firefox/firefox-beta.head
-Build-Depends: cdbs, 
-	debhelper (>= 5), 
+Build-Depends: cdbs,
+	debhelper (>= 5),
 	m4,
-	autotools-dev, 
+	autotools-dev,
 	autoconf2.13,
-	quilt, 
-	patchutils (>= 0.2.25),
-	bzip2, 
+	quilt,
 	zip,
-	libx11-dev, 
+	libx11-dev,
 	libxt-dev,
+	libxext-dev,
 	libgtk2.0-dev (>= 2.10),
-	liborbit2-dev, 
+	libglib2.0-dev,
+	libpango1.0-dev (>= 1.14.0),
 	libidl-dev (>= 0.8.0),
-	libxft-dev, 
-	libfreetype6-dev,
-	libxrender-dev, 
-	libxinerama-dev,
-	libgnome2-dev, 
-	libgconf2-dev, 
-	libgnomeui-dev,
+	libfontconfig1-dev,
+	libgconf2-dev (>= 1.2.1),
+	libgnomeui-dev (>= 2.2.0),
 	libstartup-notification0-dev,
 	libasound2-dev,
 	libcurl4-openssl-dev,
 	libdbus-glib-1-dev (>= 0.60),
-	mozilla-devscripts (>= 0.10~),
 	hardening-wrapper,
 	lsb-release,
 	libiw-dev,
 	mesa-common-dev,
-	libnotify-dev (>= 0.4), 
-	libgnomevfs2-dev, 
-        yasm,
+	libnotify-dev (>= 0.4),  
+	libxrender-dev, 
+	libfreetype6-dev (>= 2.0.1),
+	libgnomevfs2-dev (>= 1:2.0),
+        yasm (>= 1.1),
 	xvfb,
 	imagemagick,
-	libdbusmenu-gtk-dev
+	libdbusmenu-gtk-dev,
+	unzip
 Standards-Version: 3.9.1
 
 Package: firefox
 Architecture: any
-Depends: fontconfig,
-	psmisc,
-	lsb-release,
-	debianutils (>= 1.16),
+Depends: lsb-release,
 	${misc:Depends},
 	${shlibs:Depends}
-Recommends: blankfox,
-	firefox-globalmenu
+Recommends: blankfox, firefox-globalmenu
 Provides: www-browser,
 	iceweasel,
-	gnome-www-browser
+	gnome-www-browser,
+	${app:Provides}
 Suggests: firefox-gnome-support | firefox-kde-support,
 	latex-xft-fonts,
 	libthai0
-Replaces: abrowser,
-	abrowser-branding,
-	firefox-branding,
-	kubuntu-firefox-installer
-Breaks: abrowser (<= 4.0~b11+build3+nobinonly-0ubuntu1),
-	abrowser-branding (<= 4.0~b11+build3+nobinonly-0ubuntu1),
-	firefox-branding (<= 4.0~b11+build3+nobinonly-0ubuntu1)
+Breaks: ${app:Breaks}
+Replaces: ${app:Replaces}
+Conflicts: ${app:Conflicts}
 XB-Xul-AppId: {ec8030f7-c20a-464f-9b0e-13a3a9e97384}
 Description: Safe and easy web browser from Mozilla
  Firefox delivers safe, easy web browsing. A familiar user interface,
@@ -77,6 +68,10 @@ Section: gnome
 Depends: ${shlibs:Depends}, 
 	${misc:Depends}, 
 	firefox
+Provides: ${gs:Provides}
+Breaks: ${gs:Breaks}
+Replaces: ${gs:Replaces}
+Conflicts: ${gs:Conflicts}
 Description: Safe and easy web browser from Mozilla - GNOME support
  Firefox delivers safe, easy web browsing. A familiar user interface,
  enhanced security features including protection from online identity theft,
@@ -92,6 +87,10 @@ Priority: extra
 Depends: ${shlibs:Depends}, 
 	${misc:Depends}, 
 	firefox (= ${binary:Version})
+Provides: ${dbg:Provides}
+Replaces: ${dbg:Replaces}
+Breaks: ${dbg:Breaks}
+Conflicts: ${dbg:Conflicts}
 Description: Safe and easy web browser from Mozilla - debug symbols
  Firefox delivers safe, easy web browsing. A familiar user interface,
  enhanced security features including protection from online identity theft,
@@ -110,8 +109,12 @@ Depends: ${shlibs:Depends},
 	${nspr:Depends},
 	${nss:Depends},
 	${cairo:Depends}
+Provides: ${dev:Provides}
 Conflicts: xulrunner-2.0-dev,
-	xulrunner-1.9.2-dev
+	xulrunner-1.9.2-dev,
+	${dev:Conflicts}
+Replaces: ${dev:Replaces}
+Breaks: ${dev:Breaks}
 Description: Safe and easy web browser from Mozilla - development files
  Firefox delivers safe, easy web browsing. A familiar user interface,
  enhanced security features including protection from online identity theft,
@@ -192,6 +195,15 @@ Replaces: language-pack-ar-base
 Description: Arabic language pack for Firefox
  This package contains Arabic translations and search plugins
  for Firefox
+
+Package: firefox-locale-as
+Architecture: all
+Depends: ${misc:Depends}
+Description: Transitional package for unavailable language
+ This language is unavailable for the current version of Firefox
+ .
+ This is an empty transitional package to ensure a clean upgrade
+ process. You can safely remove this package after installation.
 
 Package: firefox-locale-ast
 Architecture: all
@@ -465,6 +477,15 @@ Description: Japanese language pack for Firefox
  This package contains Japanese translations and search plugins
  for Firefox
 
+Package: firefox-locale-ka
+Architecture: all
+Depends: ${misc:Depends}
+Description: Transitional package for unavailable language
+ This language is unavailable for the current version of Firefox
+ .
+ This is an empty transitional package to ensure a clean upgrade
+ process. You can safely remove this package after installation.
+
 Package: firefox-locale-kk
 Architecture: all
 Depends: ${misc:Depends}
@@ -545,6 +566,14 @@ Description: Malayalam language pack for Firefox
  This package contains Malayalam translations and search plugins
  for Firefox
 
+Package: firefox-locale-mn
+Architecture: all
+Depends: ${misc:Depends}
+Replaces: language-pack-mn-base
+Description: Mongolian language pack for Firefox
+ This package contains Mongolian translations and search plugins
+ for Firefox
+
 Package: firefox-locale-mr
 Architecture: all
 Depends: ${misc:Depends}
@@ -557,8 +586,8 @@ Package: firefox-locale-nb
 Architecture: all
 Depends: ${misc:Depends}
 Replaces: language-pack-nb-base
-Description: Norwegian language pack for Firefox
- This package contains Norwegian translations and search plugins
+Description: Bokmål, Norwegian; Norwegian Bokmål language pack for Firefox
+ This package contains Bokmål, Norwegian; Norwegian Bokmål translations and search plugins
  for Firefox
 
 Package: firefox-locale-nl
@@ -584,6 +613,15 @@ Replaces: language-pack-nso-base
 Description: Sotho, Northern language pack for Firefox
  This package contains Sotho, Northern translations and search plugins
  for Firefox
+
+Package: firefox-locale-oc
+Architecture: all
+Depends: ${misc:Depends}
+Description: Transitional package for unavailable language
+ This language is unavailable for the current version of Firefox
+ .
+ This is an empty transitional package to ensure a clean upgrade
+ process. You can safely remove this package after installation.
 
 Package: firefox-locale-or
 Architecture: all
@@ -681,6 +719,14 @@ Description: Swedish language pack for Firefox
  This package contains Swedish translations and search plugins
  for Firefox
 
+Package: firefox-locale-sw
+Architecture: all
+Depends: ${misc:Depends}
+Replaces: language-pack-sw-base
+Description: Swahili language pack for Firefox
+ This package contains Swahili translations and search plugins
+ for Firefox
+
 Package: firefox-locale-ta
 Architecture: all
 Depends: ${misc:Depends}
@@ -752,48 +798,3 @@ Replaces: language-pack-zu-base
 Description: Zulu language pack for Firefox
  This package contains Zulu translations and search plugins
  for Firefox
-
-Package: firefox-locale-as
-Architecture: all
-Depends: ${misc:Depends}
-Description: Transitional package for unavailable language
- This language is unavailable for the current version of Firefox
- .
- This is an empty transitional package to ensure a clean upgrade
- process. You can safely remove this package after installation.
-
-Package: firefox-locale-ka
-Architecture: all
-Depends: ${misc:Depends}
-Description: Transitional package for unavailable language
- This language is unavailable for the current version of Firefox
- .
- This is an empty transitional package to ensure a clean upgrade
- process. You can safely remove this package after installation.
-
-Package: firefox-locale-mn
-Architecture: all
-Depends: ${misc:Depends}
-Description: Transitional package for unavailable language
- This language is unavailable for the current version of Firefox
- .
- This is an empty transitional package to ensure a clean upgrade
- process. You can safely remove this package after installation.
-
-Package: firefox-locale-oc
-Architecture: all
-Depends: ${misc:Depends}
-Description: Transitional package for unavailable language
- This language is unavailable for the current version of Firefox
- .
- This is an empty transitional package to ensure a clean upgrade
- process. You can safely remove this package after installation.
-
-Package: firefox-locale-sw
-Architecture: all
-Depends: ${misc:Depends}
-Description: Transitional package for unavailable language
- This language is unavailable for the current version of Firefox
- .
- This is an empty transitional package to ensure a clean upgrade
- process. You can safely remove this package after installation.

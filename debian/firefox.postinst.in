@@ -127,14 +127,11 @@ configure)
         mv_conffile "/etc/${MOZ_APP_NAME}/pref/firefox.js" "/etc/${MOZ_APP_NAME}/syspref.js"
     fi
 
-    # XXX: Remove this in the next upstream version, as this install location changes anyway
-    if dpkg --compare-versions "$2" le "7.0+build2+nobinonly-0ubuntu3"; then
-        if [ -d /usr/lib/firefox-7.0/distribution ] && [ ! -h /usr/lib/firefox-7.0/distribution ]; then \
-            rmdir --ignore-fail-on-non-empty /usr/lib/firefox-7.0/distribution
-        fi
-        if [ ! -e /usr/lib/firefox-7.0/distribution ]; then
-            ln -s /usr/lib/firefox-addons/distribution /usr/lib/firefox-7.0/distribution
-        fi
+    if [ -d $MOZ_LIBDIR/distribution ] && [ ! -h $MOZ_LIBDIR/distribution ]; then \
+        rmdir --ignore-fail-on-non-empty $MOZ_LIBDIR/distribution
+    fi
+    if [ ! -e $MOZ_LIBDIR/distribution ]; then
+        ln -s /usr/lib/firefox-addons/distribution $MOZ_LIBDIR/distribution
     fi
 esac
 

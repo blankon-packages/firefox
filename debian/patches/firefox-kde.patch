@@ -6,8 +6,10 @@ Bug-Ubuntu: https://launchpad.net/bugs/494067
 Bug-OpenSUSE: https://bugzilla.novell.com/show_bug.cgi?id=170055
 Forwarded: no
 
---- a/browser/base/content/browser-kde.xul
-+++ b/browser/base/content/browser-kde.xul
+Index: mozilla/browser/base/content/browser-kde.xul
+===================================================================
+--- mozilla.orig/browser/base/content/browser-kde.xul	2011-09-29 09:34:36.627461149 +0100
++++ mozilla/browser/base/content/browser-kde.xul	2011-09-29 09:45:19.723449721 +0100
 @@ -200,7 +200,7 @@
        </row>
        <vbox id="editBookmarkPanelContent" flex="1" hidden="true"/>
@@ -17,19 +19,23 @@ Forwarded: no
          <button id="editBookmarkPanelDoneButton"
                  class="editBookmarkPanelBottomButton"
                  label="&editBookmark.done.label;"
---- a/browser/base/jar.mn
-+++ b/browser/base/jar.mn
-@@ -28,6 +28,8 @@ browser.jar:
+Index: mozilla/browser/base/jar.mn
+===================================================================
+--- mozilla.orig/browser/base/jar.mn	2011-09-29 00:55:19.000000000 +0100
++++ mozilla/browser/base/jar.mn	2011-09-29 09:45:19.723449721 +0100
+@@ -28,6 +28,8 @@
  *       content/browser/browser.css                   (content/browser.css)
  *       content/browser/browser.js                    (content/browser.js)
  *       content/browser/browser.xul                   (content/browser.xul)
 +*       content/browser/browser-kde.xul               (content/browser-kde.xul)
 +%       override chrome://browser/content/browser.xul chrome://browser/content/browser-kde.xul desktop=kde
  *       content/browser/browser-tabPreviews.xml       (content/browser-tabPreviews.xml)
+ *       content/browser/content.js                    (content/content.js)
  *       content/browser/fullscreen-video.xhtml        (content/fullscreen-video.xhtml)
-         content/browser/highlighter.xhtml             (content/highlighter.xhtml)
---- a/browser/components/build/nsModule.cpp
-+++ b/browser/components/build/nsModule.cpp
+Index: mozilla/browser/components/build/nsModule.cpp
+===================================================================
+--- mozilla.orig/browser/components/build/nsModule.cpp	2011-09-29 00:55:20.000000000 +0100
++++ mozilla/browser/components/build/nsModule.cpp	2011-09-29 09:45:19.723449721 +0100
 @@ -46,7 +46,7 @@
  #elif defined(XP_MACOSX)
  #include "nsMacShellService.h"
@@ -39,7 +45,7 @@ Forwarded: no
  #endif
  
  #include "nsProfileMigrator.h"
-@@ -77,8 +77,6 @@ NS_GENERIC_FACTORY_CONSTRUCTOR(Directory
+@@ -77,8 +77,6 @@
  NS_GENERIC_FACTORY_CONSTRUCTOR(nsWindowsShellService)
  #elif defined(XP_MACOSX)
  NS_GENERIC_FACTORY_CONSTRUCTOR(nsMacShellService)
@@ -48,7 +54,7 @@ Forwarded: no
  #endif
  
  #if !defined(XP_OS2)
-@@ -122,7 +120,7 @@ static const mozilla::Module::CIDEntry k
+@@ -122,7 +120,7 @@
  #if defined(XP_WIN)
      { &kNS_SHELLSERVICE_CID, false, NULL, nsWindowsShellServiceConstructor },
  #elif defined(MOZ_WIDGET_GTK2)
@@ -57,9 +63,11 @@ Forwarded: no
  #endif
      { &kNS_FEEDSNIFFER_CID, false, NULL, nsFeedSnifferConstructor },
      { &kNS_BROWSER_ABOUT_REDIRECTOR_CID, false, NULL, AboutRedirector::Create },
---- a/browser/components/shell/src/Makefile.in
-+++ b/browser/components/shell/src/Makefile.in
-@@ -57,7 +57,8 @@ ifeq (cocoa,$(MOZ_WIDGET_TOOLKIT))
+Index: mozilla/browser/components/shell/src/Makefile.in
+===================================================================
+--- mozilla.orig/browser/components/shell/src/Makefile.in	2011-09-29 00:55:25.000000000 +0100
++++ mozilla/browser/components/shell/src/Makefile.in	2011-09-29 09:45:19.723449721 +0100
+@@ -57,7 +57,8 @@
  CPPSRCS = nsMacShellService.cpp
  else
  ifeq ($(MOZ_WIDGET_TOOLKIT), gtk2)
@@ -69,8 +77,10 @@ Forwarded: no
  endif
  endif
  endif
---- /dev/null
-+++ b/browser/components/shell/src/nsKDEShellService.cpp
+Index: mozilla/browser/components/shell/src/nsKDEShellService.cpp
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ mozilla/browser/components/shell/src/nsKDEShellService.cpp	2011-09-29 09:45:19.723449721 +0100
 @@ -0,0 +1,193 @@
 +/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 +/* ***** BEGIN LICENSE BLOCK *****
@@ -265,8 +275,10 @@ Forwarded: no
 +    NS_ADDREF(*_retval = defaultReader);
 +    return NS_OK;
 +    }
---- /dev/null
-+++ b/browser/components/shell/src/nsKDEShellService.h
+Index: mozilla/browser/components/shell/src/nsKDEShellService.h
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ mozilla/browser/components/shell/src/nsKDEShellService.h	2011-09-29 09:45:19.723449721 +0100
 @@ -0,0 +1,59 @@
 +/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 +/* ***** BEGIN LICENSE BLOCK *****
@@ -327,8 +339,10 @@ Forwarded: no
 +};
 +
 +#endif // nskdeshellservice_h____
---- /dev/null
-+++ b/browser/components/shell/src/nsUnixShellService.cpp
+Index: mozilla/browser/components/shell/src/nsUnixShellService.cpp
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ mozilla/browser/components/shell/src/nsUnixShellService.cpp	2011-09-29 09:45:19.723449721 +0100
 @@ -0,0 +1,52 @@
 +/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 +/* ***** BEGIN LICENSE BLOCK *****
@@ -382,8 +396,10 @@ Forwarded: no
 +        return nsKDEShellServiceConstructor( aOuter, aIID, aResult );
 +    return nsGNOMEShellServiceConstructor( aOuter, aIID, aResult );
 +}
---- /dev/null
-+++ b/browser/components/shell/src/nsUnixShellService.h
+Index: mozilla/browser/components/shell/src/nsUnixShellService.h
+===================================================================
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ mozilla/browser/components/shell/src/nsUnixShellService.h	2011-09-29 09:45:19.723449721 +0100
 @@ -0,0 +1,45 @@
 +/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 +/* ***** BEGIN LICENSE BLOCK *****

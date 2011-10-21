@@ -191,5 +191,5 @@ Name[ug]=يېڭى كۆزنەك ئېچىش
 Name[uk]=Відкрити нове вікно
 Name[zh_CN]=新建窗口
 Name[zh_TW]=開啟新視窗
-Exec=@MOZ_APP_NAME@ -new-window about:blank
+Exec=@MOZ_APP_NAME@ -new-window
 TargetEnvironment=Unity

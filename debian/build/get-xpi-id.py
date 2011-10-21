@@ -10,10 +10,7 @@ if __name__ == '__main__':
         print "Must specify an xpi"
         exit(1)
 
-    try:
-        dom_doc = xml.dom.minidom.parseString(zipfile.ZipFile(sys.argv[1]).open('install.rdf').read())
-    except ExpatError as e:
-        exit(1)
+    dom_doc = xml.dom.minidom.parseString(zipfile.ZipFile(sys.argv[1]).open('install.rdf').read().strip())
 
     try:
         attr = dom_doc.getElementsByTagName('RDF:Description')[0].attributes['em:id']

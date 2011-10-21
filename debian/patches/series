@@ -10,5 +10,4 @@ unity-globalmenu-build-support.patch
 #fix-selection-drag-autoscroll.patch
 printf-fix.patch
 only-add-ENABLE_JIT-to-CXXFLAGS-if-jit-is-enabled.patch
-build-fix-for-no-ENABLE_YARR_JIT.patch
-compile-pldhash-as-C++.patch
+

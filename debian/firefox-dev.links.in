@@ -1,12 +1,12 @@
-%%ifdef MOZ_USE_SYSTEM_NSPR
-/usr/include/nspr @MOZ_INCDIR@/nspr
-/usr/bin/nspr-config @MOZ_SDKDIR@/sdk/bin/nspr-config
-%%else
+%%ifdef MOZ_TREE_NSPR
 @MOZ_LIBDIR@/libnspr4.so @MOZ_SDKDIR@/sdk/lib/libnspr4.so
 @MOZ_LIBDIR@/libplc4.so @MOZ_SDKDIR@/sdk/lib/libplc4.so
 @MOZ_LIBDIR@/libplds4.so @MOZ_SDKDIR@/sdk/lib/libplds4.so
+%%else
+/usr/include/nspr @MOZ_INCDIR@/nspr
+/usr/bin/nspr-config @MOZ_SDKDIR@/sdk/bin/nspr-config
 %%endif
-%%ifdef MOZ_USE_SYSTEM_CAIRO
+%%ifndef MOZ_TREE_CAIRO
 /usr/include/cairo @MOZ_INCDIR@/cairo
 %%endif
 @MOZ_LIBDIR@/libmozalloc.so @MOZ_SDKDIR@/sdk/lib/libmozalloc.so

@@ -77,6 +77,7 @@ mozilla/security/nss/tests/pkcs11/netscape/suites/security/config.mk
 mozilla/security/nss/tests/pkcs11/netscape/suites/security/pkcs11/config.mk
 mozilla/security/nss/tests/pkcs11/netscape/suites/security/ssl/config.mk
 mozilla/security/nss/tests/pkcs11/netscape/trivial/config.h.in
+mozilla/testing/tps/config/config.json.in
 mozilla/toolkit/components/viewconfig/content/config.js
 mozilla/toolkit/components/viewconfig/content/config.xul
 mozilla/toolkit/crashreporter/google-breakpad/autotools/config.guess
@@ -194,6 +195,8 @@ mozilla/l10n/mk/toolkit/chrome/global/config.dtd
 mozilla/l10n/mk/toolkit/chrome/global/config.properties
 mozilla/l10n/ml/toolkit/chrome/global/config.dtd
 mozilla/l10n/ml/toolkit/chrome/global/config.properties
+mozilla/l10n/mn/toolkit/chrome/global/config.dtd
+mozilla/l10n/mn/toolkit/chrome/global/config.properties
 mozilla/l10n/mr/toolkit/chrome/global/config.dtd
 mozilla/l10n/mr/toolkit/chrome/global/config.properties
 mozilla/l10n/nb-NO/toolkit/chrome/global/config.dtd
@@ -218,7 +221,6 @@ mozilla/l10n/rm/toolkit/chrome/global/config.dtd
 mozilla/l10n/rm/toolkit/chrome/global/config.properties
 mozilla/l10n/ro/toolkit/chrome/global/config.dtd
 mozilla/l10n/ro/toolkit/chrome/global/config.properties
-mozilla/l10n/ro/chrome/config.dtd
 mozilla/l10n/ru/toolkit/chrome/global/config.dtd
 mozilla/l10n/ru/toolkit/chrome/global/config.properties
 mozilla/l10n/si/toolkit/chrome/global/config.dtd
@@ -235,6 +237,8 @@ mozilla/l10n/sr/toolkit/chrome/global/config.dtd
 mozilla/l10n/sr/toolkit/chrome/global/config.properties
 mozilla/l10n/sv-SE/toolkit/chrome/global/config.dtd
 mozilla/l10n/sv-SE/toolkit/chrome/global/config.properties
+mozilla/l10n/sw/toolkit/chrome/global/config.dtd
+mozilla/l10n/sw/toolkit/chrome/global/config.properties
 mozilla/l10n/ta/toolkit/chrome/global/config.dtd
 mozilla/l10n/ta/toolkit/chrome/global/config.properties
 mozilla/l10n/ta-LK/toolkit/chrome/global/config.dtd

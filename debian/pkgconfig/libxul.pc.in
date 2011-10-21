@@ -6,10 +6,10 @@ idldir=@MOZ_IDLDIR@
 Name: libxul
 Description: The Mozilla Runtime and Embedding Engine
 Version: @MOZ_VERSION@
-%%ifdef MOZ_USE_SYSTEM_NSPR
-Requires: nspr
-%%else
+%%ifdef MOZ_TREE_NSPR
 Requires: mozilla-nspr
+%%else
+Requires: nspr
 %%endif
 Libs: -L${sdkdir}/lib -lxpcomglue_s -lxul -lxpcom -lmozalloc
 Cflags: -I${includedir} @WCHAR_CFLAGS@

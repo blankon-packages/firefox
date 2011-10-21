@@ -1,11 +1,207 @@
-firefox (7.0+build2+nobinonly-0ubuntu4+blankon1) rote; urgency=low
+firefox (8.0~b4+build1-0ubuntu1+blankon1) rote; urgency=low
 
   * Initial impor
   * distribution.in branding to BlankOn
   * debian/control* blankfox
   * drop ubuntu.patch
+  
+ -- Rahman Yusri Aftian <aftian@di.blankon.in>  Fri, 21 Oct 2011 18:28:09 +0700
 
- -- Rahman Yusri Aftian <aftian@di.blankon.in>  Wed, 28 Sep 2011 21:13:03 +0700
+firefox (8.0~b4+build1-0ubuntu1) precise; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_8_0b4_BUILD1)
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Thu, 20 Oct 2011 13:33:48 +0100
+
+firefox (8.0~b3+build1-0ubuntu1) precise; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_8_0b3_BUILD1)
+
+  [ Chris Coulson <chris.coulson@canonical.com> ]
+  * Provide a useful error message when trying to build the source package
+    with an out of date control file
+    - update debian/rules
+  * Provide a way to prevent the source package from being built if the list
+    of shipped locales changed upstream. Note that this is disabled on
+    nightly and aurora
+    - update debian/rules
+    - add debian/extract-file.py
+  * Move custom scripts to debian/build
+    - move debian/get-xpi-id.py to debian/build/get-xpi-id.py
+    - move debian/refresh-supported-locales.pl to
+       debian/build/refresh-supported-locales.pl
+    - move debian/extract-file.py to debian/build/extract-file.py
+    - update debian/rules
+  * Dropped patches fixed upstream:
+    - remove debian/patches/build-fix-for-no-ENABLE_YARR_JIT.patch
+    - remove debian/patches/compile-pldhash-as-C++.patch
+    - update debian/patches/series
+  * Refresh patches:
+    - update debian/patches/firefox-kde.patch
+    - update debian/patches/mozilla-kde.patch
+    - update debian/patches/ubuntu-codes-google.patch
+  * Update support for doing PGO builds:
+    - Add "mk_add_options MOZ_PGO=1" to mozconfig when doing a PGO build,
+      rather than changing the make target to "profiledbuild"
+      - update debian/mozconfig.in
+      - update debian/rules
+    - Run the profiling 10 times
+      - update debian/mozconfig.in
+    - Don't turn off the crash reporter or force unofficial branding for PGO
+      builds
+      - update debian/rules
+    - Don't force the compiler to gcc-4.5 when doing PGO builds. Instead,
+      we will just rely on the default compiler and not enable PGO on
+      Ubuntu versions which don't have a new enough toolchain
+      - update debian/rules
+  * Shrink the default mozconfig right down, by using defaults rather than
+    forcing things like --disable-system-cairo and friends. We still retain
+    the ability to override the defaults though by setting MOZ_OVERRIDE_SHLIBS
+    to either "tree" or "system", but we use upstream defaults now. We also
+    drop the pkg-config checks in debian/rules which allowed a fallback build
+    configuration when dependencies aren't satisfied. Really, the build should
+    just fail here rather than continuing in some undesirable fallback mode
+    - update debian/firefox-dev.install.in
+    - update debian/firefox-dev.links.in 
+    - update debian/mozconfig.in
+    - update debian/pkgconfig/libxul.pc.in
+    - update debian/control.in
+    - update debian/rules
+  * Refresh build-depends, as this hasn't been done for a while:
+    - Drop patchutils, libxft-dev, libxinerama-dev, libgnome2-dev and bzip2.
+      These don't appear to be needed
+    - Drop liborbit2-dev - only appears to be required if there is no libidl
+    - Add libglib2.0-dev, libext-dev, libfontconfig1-dev and libpango1.0-dev,
+      as the configure script checks for these directly
+    - Add minimum versions to libgconf2-dev, libgnomevfs2-dev, yasm and
+      libgnomeui-dev
+    - Specify minimum versions for libnspr4-dev, libcairo2-dev, libsqlite3-dev
+      and libnss3-dev when using system versions of those libs
+  * Disable gconf support on >= 12.04
+    - update debian/rules
+    - update debian/mozconfig.in
+  * Refresh binary dependencies:
+    - Change ubufox recommends to xul-ext-ubufox
+    - Drop psmisc and fontconfig depends. We don't use any binaries
+      from either of these packages
+    - Drop debianutils dependency. This is an essential package
+  * Disable printing of a lot of makefile commands to reduce noise. Also
+    add some headers in various places
+    - update debian/rules
+  * Introduce a branch-specific config file (debian/config/branch.mk) which
+    will hold settings that are tied to a specific branch, and which shouldn't
+    be merged between branches when merging new Firefox versions (eg, whether
+    the crash reporter should be enabled on a branch). The idea is to confine
+    these types of settings to a single file
+    - add debian/config/branch.mk
+    - update debian/rules
+  * Move debian/locales.* to debian/config
+    - move debian/locales.shipped => debian/config/locales.shipped
+    - move debian/locales.unavail => debian/config/locales.unavail
+    - move debian/locales.blacklist => debian/config/locales.blacklist
+    - update debian/rules
+    - update debian/build/refresh-supported-locales.pl
+  * Move debian/testsuite.mk to debian/build
+  * Don't open about:blank from the New Window quicklist entry
+    - update debian/firefox.desktop.in
+  * We need to keep the complete list of language packs (shipped and
+    transitional) in sync between branches. However, this was proving to be
+    difficult because the list was split across 2 files (locales.shipped
+    and locales.unavailable). Rework this so that we have a locales.all
+    (containing the list of current and past language packs), and a
+    locales.shipped. The locales.all can be easily kept in sync between
+    branches now, so we end up with the correct transitional language packs
+    on branches which have some languages disabled. This also makes it
+    more complicated to add the language packs to debian/control though, so
+    we offload this to a new perl script now rather than trying to do it all
+    in bash
+    - add debian/build/dump-langpack-control-entries.pl
+    - update debian/build/refresh-supported-locales.pl
+    - add debian/config/locales.all
+    - update debian/config/locales.shipped
+    - remove debian/config/locales.unavailable
+    - update debian/control
+    - update debian/rules
+  * Touch debian/control.in during clean to force a refresh of debian/control,
+    so we can check if it is out-of-date and fail if it is
+    - update debian/rules
+  * Ensure that we get the correct package relationships depending on the
+    target distro version
+    - update debian/control.in
+    - update debian/rules
+    - refresh debian/control
+  * Drop the mozilla-devscripts dependency. We were only using this for creating
+    tarballs anyway. Instead, implement our own get-orig-source target, which
+    also fixes some problems we were having
+    - update debian/control.in
+    - remove debian/moz-rev.sh
+    - update debian/rules
+    - remove debian/mozclient/firefox.mk
+    - remove debian/mozclient/firefox.conf
+    - update debian/config/branch.mk
+    - add debian/build/create-source
+    - add debian/build/get-orig-source.mk
+  * Drop the 'nobinonly' suffix from the version number. All this really does
+    is make the version number longer without adding any useful information,
+    because:
+    - We don't strip all binary files as there are a lot remaining which are
+      used by the test-suite (eg, images, fonts, videos, sqlite dbs, extensions)
+    - Stripping binary files from the source tarball isn't the only change we
+      make to it. We also merge in the upstream l10n data, but we don't
+      indicate that in the version number
+  * Keep a copy of shipped-locales outside of the embedded tar.bz2. This
+    makes it faster to verify the list of shipped locales when creating
+    source packages
+    - update debian/build/create-tarball.py
+    - update debian/build/extract-file.py
+    - update debian/rules
+  * When calling refresh-supported-locales, automatically refresh
+    debian/control too
+    - update debian/rules
+  * Don't fail to create the tarball if locales listed in all-locales don't
+    really exist upstream. We already check that everything in shipped-locales
+    exists
+    - update debian/build/create-tarball.py
+  * Refresh shipped locales for beta
+  * Don't fail to create a tarball when not using a local cache
+    - update debian/build/create-tarball.py
+  * Modify the UA string to add "Ubuntu" to the platform component
+    - add debian/patches/ubuntu-ua-string-changes.patch
+    - update debian/patches/series
+    - update debian/rules
+
+  [ Brian Murray <brian@ubuntu.com> ]
+  * Fix LP: #758111 - update ubuntulinux.org bookmark - thanks to Jonathan
+    Rothwell for the patch
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Tue, 18 Oct 2011 14:10:41 +0100
+
+firefox (7.0.1+build1+nobinonly-0ubuntu2) oneiric-proposed; urgency=low
+
+  * We need to keep the postinst magic for the distribution.ini folder ->
+    symlink transition permanently to handle upgrades from Natty, as Natty
+    users are upgrading from the the same upstream version of Firefox as
+    Oneiric, and always will be. This means that we can't rely on the install
+    location changing during the upgrade (LP: #869311)
+    - update debian/firefox.postinst.in
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Sat, 08 Oct 2011 01:03:07 +0100
+
+firefox (7.0.1+build1+nobinonly-0ubuntu1) oneiric; urgency=low
+
+  * New upstream stable release (FIREFOX_7_0_1_BUILD1)
+    - Fixes LP: #861664
+
+  * Add Mongolian and Swahili to locale blacklist. These aren't meant to be
+    built on the release channel, but they still appear in the upstream
+    shipped-locales
+    - update debian/locales.blacklist
+  * Drop the temporary postinst magic for the distribution.ini folder ->
+    symlink transition. The new upstream release means that the install
+    location changes, so this is redundant now
+    - update debian/firefox.postinst.in
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Wed, 28 Sep 2011 23:53:21 +0100
 
 firefox (7.0+build2+nobinonly-0ubuntu4) oneiric; urgency=low
 
