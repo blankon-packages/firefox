@@ -3,8 +3,9 @@ Section: web
 Priority: optional
 Maintainer: BlankOn Developers <BlankOn-dev@googlegroups.com>
 XSBC-Original-Maintainer: Ubuntu Mozilla Team <ubuntu-mozillateam@lists.ubuntu.com>
-Vcs-Bzr: https://code.launchpad.net/~mozillateam/firefox/firefox-beta.head
+Vcs-Bzr: http://dev.blankonlinux.or.id/bzr/rote/firefox
 Build-Depends: cdbs,
+	locales,
 	debhelper (>= 5),
 	m4,
 	autotools-dev,
@@ -45,14 +46,15 @@ Architecture: any
 Depends: lsb-release,
 	${misc:Depends},
 	${shlibs:Depends}
-Recommends: blankfox
+Recommends: blankfox,
+	firefox-globalmenu
 Provides: www-browser,
 	iceweasel,
 	gnome-www-browser,
 	${app:Provides}
-Suggests: firefox-gnome-support | firefox-kde-support,
-	latex-xft-fonts,
-	libthai0
+Suggests: latex-xft-fonts,
+	libthai0,
+	${app:Suggests}
 Breaks: ${app:Breaks}
 Replaces: ${app:Replaces}
 Conflicts: ${app:Conflicts}
@@ -69,7 +71,6 @@ Depends: ${shlibs:Depends},
 	${misc:Depends}, 
 	firefox
 Provides: ${gs:Provides}
-Breaks: ${gs:Breaks}
 Replaces: ${gs:Replaces}
 Conflicts: ${gs:Conflicts}
 Description: Safe and easy web browser from Mozilla - GNOME support
@@ -89,7 +90,6 @@ Depends: ${shlibs:Depends},
 	firefox (= ${binary:Version})
 Provides: ${dbg:Provides}
 Replaces: ${dbg:Replaces}
-Breaks: ${dbg:Breaks}
 Conflicts: ${dbg:Conflicts}
 Description: Safe and easy web browser from Mozilla - debug symbols
  Firefox delivers safe, easy web browsing. A familiar user interface,
@@ -114,7 +114,6 @@ Conflicts: xulrunner-2.0-dev,
 	xulrunner-1.9.2-dev,
 	${dev:Conflicts}
 Replaces: ${dev:Replaces}
-Breaks: ${dev:Breaks}
 Description: Safe and easy web browser from Mozilla - development files
  Firefox delivers safe, easy web browsing. A familiar user interface,
  enhanced security features including protection from online identity theft,
@@ -150,21 +149,21 @@ Description: Unity appmenu integration for Firefox
 
 Package: abrowser
 Architecture: any
-Depends: ${misc:Depends}, firefox
+Depends: ${misc:Depends}, firefox (>= 9.0)
 Description: Safe and easy web browser from Mozilla - transitional package
  This is a transitional package to ensure that upgrades work correctly.
  It can be safely removed
 
 Package: firefox-branding
 Architecture: any
-Depends: ${misc:Depends}, firefox
+Depends: ${misc:Depends}, firefox (>= 9.0)
 Description: Safe and easy web browser from Mozilla - transitional package
  This is a transitional package to ensure that upgrades work correctly.
  It can be safely removed
 
 Package: abrowser-branding
 Architecture: any
-Depends: ${misc:Depends}, firefox
+Depends: ${misc:Depends}, firefox (>= 9.0)
 Description: Safe and easy web browser from Mozilla - transitional package
  This is a transitional package to ensure that upgrades work correctly.
  It can be safely removed
@@ -199,11 +198,10 @@ Description: Arabic language pack for Firefox
 Package: firefox-locale-as
 Architecture: all
 Depends: ${misc:Depends}
-Description: Transitional package for unavailable language
- This language is unavailable for the current version of Firefox
- .
- This is an empty transitional package to ensure a clean upgrade
- process. You can safely remove this package after installation.
+Replaces: language-pack-as-base
+Description: Assamese language pack for Firefox
+ This package contains Assamese translations and search plugins
+ for Firefox
 
 Package: firefox-locale-ast
 Architecture: all
@@ -267,6 +265,14 @@ Depends: ${misc:Depends}
 Replaces: language-pack-cs-base
 Description: Czech language pack for Firefox
  This package contains Czech translations and search plugins
+ for Firefox
+
+Package: firefox-locale-csb
+Architecture: all
+Depends: ${misc:Depends}
+Replaces: language-pack-csb-base
+Description: Kashubian language pack for Firefox
+ This package contains Kashubian translations and search plugins
  for Firefox
 
 Package: firefox-locale-cy

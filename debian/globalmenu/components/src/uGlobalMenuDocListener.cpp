@@ -57,7 +57,11 @@ uGlobalMenuDocListener::Init(nsIContent *rootNode)
 {
   NS_ENSURE_ARG(rootNode);
 
+#if MOZILLA_BRANCH_MAJOR_VERSION >= 10
+  mDocument = rootNode->OwnerDoc();
+#else
   mDocument = rootNode->GetOwnerDoc();
+#endif
   if (!mDocument)
     return NS_ERROR_FAILURE;
   mDocument->AddMutationObserver(this);

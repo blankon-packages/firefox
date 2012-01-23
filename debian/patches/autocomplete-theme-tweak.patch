@@ -1,0 +1,30 @@
+# HG changeset patch
+# Parent c842e1cec6e374e4c692138ae9b52a1c2a273bc2
+# User Chris Coulson <chris.coulson@canonical.com>
+
+diff --git a/toolkit/themes/gnomestripe/global/autocomplete.css b/toolkit/themes/gnomestripe/global/autocomplete.css
+--- a/toolkit/themes/gnomestripe/global/autocomplete.css
++++ b/toolkit/themes/gnomestripe/global/autocomplete.css
+@@ -145,20 +145,18 @@ treechildren.autocomplete-treebody::-moz
+ .autocomplete-richlistitem[selected="true"] {
+   background-color: Highlight;
+   color: HighlightText;
+ }
+ 
+ .autocomplete-richlistitem {
+   padding: 1px 2px;
+   color: MenuText;
+-}
+-
+-.autocomplete-richlistitem:not(:first-child) {
+-  border-top: 1px solid ThreeDLightShadow;
++  border-top: 3px solid transparent;
++  border-bottom: 3px solid transparent; 
+ }
+ 
+ .ac-site-icon {
+   width: 16px; 
+   height: 16px;
+   margin: 0 5px -3px 3px;
+ }
+ 

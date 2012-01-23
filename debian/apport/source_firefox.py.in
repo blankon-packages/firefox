@@ -899,7 +899,8 @@ def add_info(report, ui):
     if '@MOZ_APP_NAME@' == 'firefox-trunk':
         report["Channel"] = 'nightly'
         append_tag('nightly-channel')
-        report["SourcePackage"] = 'firefox'
+        if report["SourcePackage"] == 'firefox-trunk':
+            report["SourcePackage"] = 'firefox'
     else:
         channelpref = PrefFile("@MOZ_LIBDIR@/defaults/pref/channel-prefs.js", whitelist = [ r'app\.update\.channel' ])
         if channelpref.available == False:
@@ -908,6 +909,8 @@ def add_info(report, ui):
             if "app.update.channel" in channelpref:
                 report["Channel"] = channelpref["app.update.channel"]
                 append_tag(channelpref["app.update.channel"] + '-channel')
+            else:
+                report["Channel"] = 'Unavailable'
 
     if os.path.exists('/sys/bus/pci'):
         report['Lspci'] = command_output(['lspci','-vvnn'])

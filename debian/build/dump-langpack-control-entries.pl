@@ -39,26 +39,22 @@ my $shipped_file;
 open($all_file, "$ip_dir/locales.all") or die "Failed to open $ip_dir/locales.all";
 open($shipped_file, "$ip_dir/locales.shipped") or die "Failed to open $ip_dir/locales.shipped";
 while (<$all_file>) {
-    if ((not $_ =~ /^$/) && (not $_ =~ /^#.*/)) {
-        my $line = $_;
-        chomp($line);
-        my $pkgname = $line;
-        my $desc = $line;
-        $pkgname =~ s/([^:]*):*([^:]*)/$1/;
-        $desc =~ s/([^:]*):*([^:]*)/$2/;
+    my $line = $_;
+    chomp($line);
+    $line =~ /^([^:#]*):([^:]*)$/ && do {
+        my $pkgname = $1;
+        my $desc = $2;
         if ($desc eq "") { die "Malformed locales.all"; }
         $all{$pkgname} = $desc;
     }
 }
 
 while (<$shipped_file>) {
-    if ((not $_ =~ /^$/) && (not $_ =~ /^#.*/)) {
-        my $line = $_;
-        chomp($line);
-        my $locale = $line;
-        my $pkgname = $line;
-        $locale =~ s/([^:]*):*([^:]*)/$1/;
-        $pkgname =~ s/([^:]*):*([^:]*)/$2/;
+    my $line = $_;
+    chomp($line);
+    $line =~ /^([^:#]*):([^:]*)$/ && do {
+        my $locale = $1;
+        my $pkgname = $2;
         if ($pkgname eq "") { die "Malformed locales.shipped"; }
         $shipped{$pkgname} = 1;
     }

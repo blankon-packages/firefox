@@ -1,11 +1,277 @@
-firefox (8.0~b4+build1-0ubuntu1+blankon1) rote; urgency=low
+firefox (10.0~b5+build1-0ubuntu1+blankon1) rote; urgency=low
 
   * Initial impor
   * distribution.in branding to BlankOn
   * debian/control* blankfox
   * drop ubuntu.patch
-  
- -- Rahman Yusri Aftian <aftian@di.blankon.in>  Fri, 21 Oct 2011 18:28:09 +0700
+
+ -- Rahman Yusri Aftian <aftian@di.blankon.in>  Mon, 23 Jan 2012 08:06:18 +0700
+
+firefox (10.0~b5+build1-0ubuntu1) precise; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_10_0b5_BUILD1)
+
+  [ Micah Gersten <micahg@ubuntu.com> ]
+  * Fix LP: #917529 - Make sure new transitional packages have a versioned
+    dependency on Firefox so as to not break Firefox during partial upgrades
+    - update debian/control{,.in}
+
+  [ Chris Coulson <chris.coulson@canonical.com> ]
+  * Make it possible to have per-arch patches
+    - update debian/build/enable-dist-patches.pl
+    - update debian/rules
+    - update debian/patches/series
+  * Drop the solid white separators from the addressbar autocomplete dropdown,
+    and increase padding so that it doesn't look so bad with dark themes
+    - add debian/patches/autocomplete-theme-tweak.patch
+    - update debian/patches/series
+  * Fix LP: #908508 - Add patch from upstream to fix powerpc build failure.
+    Only apply this patch on powerpc to avoid compromising the quality of
+    the architectures that we care about
+    - add debian/patches/fix-build-failure-without-yarr-jit2.patch
+    - update debian/patches/series
+  * Also make the previous powerpc build fix apply on ppc only
+    - update debian/patches/series
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Thu, 19 Jan 2012 21:33:22 +0000
+
+firefox (10.0~b4+build1-0ubuntu1) precise; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_10_0b4_BUILD1)
+
+  [ Jamie Strandboge <jamie@ubuntu.com> ]
+  * debian/usr.bin.firefox.apparmor.12.04: update comment for Ux rules
+
+  [ Chris Coulson ]
+  * Refresh shipped locales for the current beta (adds Assamese)
+    - refresh debian/config/locales.shipped
+    - refresh debian/control
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Fri, 13 Jan 2012 10:25:10 +0000
+
+firefox (10.0~b3+build2-0ubuntu1) precise; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_10_0b3_BUILD2)
+
+  * "Fix" LP: #897794 - some websites expect "X11" to be the first token of
+    the platform component in the UA string
+    - update debian/patches/ubuntu-ua-string-changes.patch
+  * Defuzz ubuntu-codes-google.patch
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Thu, 05 Jan 2012 16:43:28 +0000
+
+firefox (10.0~b2+build1-0ubuntu1) precise; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_10_0b2_BUILD1)
+
+  * Disable the tests on powerpc, because it sucks too much to run them
+    - update debian/rules
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Mon, 02 Jan 2012 17:41:18 +0000
+
+firefox (10.0~b1+build1-0ubuntu1) precise; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_10_0b1_BUILD1)
+
+  [ Chris Coulson <chris.coulson@canonical.com> ]
+  * Update patches for PRBool -> bool transition
+    - refresh debian/patches/firefox-kde.patch
+    - refresh debian/patches/mozilla-kde.patch
+    - refresh debian/patches/ubuntu-ua-string-changes.patch
+  * Drop some more hanging IPC xpcshell tests
+    - update debian/build/testsuite.mk
+  * Borrow functionality from Chromium package to have distro
+    specific patches
+    - update debian/rules
+    - add debian/build/enable-dist-patches.pl
+  * Don't enable unity-globalmenu-build-support.patch on lucid and maverick
+    - update debian/patches/series
+  * Remove prerm hook for cleaning up pyc files in the apport package-hooks
+    folder. Nothing creates these
+    - update debian/firefox.prerm.in
+  * Set up alternatives in the postinst script on abort-remove too
+    - update debian/firefox.postinst.in
+  * Imporove maintainer script magic for moving the system pref file and
+    removing obsolete conffiles when upgrading from 3.6, by doing what
+    dpkg-maintscripts-helper does
+    - update debian/firefox.postinst.in
+    - update debian/firefox.postrm.in
+    - update debian/firefox.preinst.in
+  * Only run the Apparmor stuff in the postinst script on configure, and
+    in the preinst script on install or upgrade, to handle upgrade failures
+    more gracefully
+    - update debian/firefox.postinst.in
+    - update debian/firefox.preinst.in
+  * Add add-syspref-dir.patch for Lucid and Maverick builds only, so we get
+    nightly/aurora coverage for this
+    - add debian/patches/add-syspref-dir.patch
+    - update debian/patches/series
+    - update debian/rules
+    - update debian/firefox.install.in
+    - update debian/firefox.links.in
+    - update debian/firefox.postinst.in
+    - update debian/firefox.postrm.in
+    - update debian/firefox.preinst.in
+  * Drop the Ubuntuzilla workarounds now
+    - update debian/firefox.postinst.in
+  * Refresh patches
+    - update debian/patches/mozilla-kde.patch
+    - update debian/patches/allow-lockPref-everywhere.patch
+    - update debian/patches/ubuntu_bookmarks.patch
+  * Turn off Network Manager integration for now, as it causes Firefox to
+    always start in offline mode. In any case, probing Network Manager isn't
+    the most reliable way to test if there is a connection
+    - update debian/vendor.js
+  * Update after landing of bmo: #701875 - Rename omni.jar to omni.ja
+    - update debian/firefox.install.in
+  * Update mozilla-kde.patch and firefox-kde.patch to remove the use of
+    nsCStringArray, which was dropped from Firefox 10
+  * Disable KDE patches, which currently don't work with Firefox 10
+    - update debian/patches/series
+  * Drop the firefox-kde-support suggest on precise onwards, whilst the
+    patches are disabled
+    - update debian/rules
+    - update debian/control{,.in}
+
+  [ Micah Gersten <micahg@ubuntu.com> ]
+  * Rebase patches for PRBool -> bool transition (bmo: 675553)
+    - update debian/patches/allow-lockPref-everywhere.patch
+    - update debian/patches/mozilla-kde.patch
+  * Drop patch after upstream landing of (bmo: 690432) aka Logging.h passes a
+    string directly to printf
+    - drop debian/patches/printf-fix.patch
+    - update debian/patches/series
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Thu, 22 Dec 2011 23:26:50 +0000
+
+firefox (9.0~b6+build1-0ubuntu1) precise; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_9_0b6_BUILD1)
+
+  [ Jamie Strandboge <jamie@ubuntu.com> ]
+  * add debian/usr.bin.firefox.apparmor.12.04 and adjust it to declare a
+    @{MOZ_LIBDIR} which will help with overrides
+  * debian/rules: adjust to install the profile on 12.04
+  * debian/usr.bin.firefox.apparmor.12.04: don't use @{MOZ_LIBDIR} variable
+    for the binary names
+
+  [ Chris Coulson <chris.coulson@canonical.com> ]
+  * Fix LP: #901838 - Ugly busy pointer, due to libxcursor no longer matching
+    the cursor bitmap to a nice themed pointer
+    - add debian/patches/fix-cursor-handling.patch
+    - update debian/patches/series
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Thu, 15 Dec 2011 14:00:30 +0000
+
+firefox (9.0~b5+build1-0ubuntu1) precise; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_9_0b5_BUILD1)
+
+  [ Micah Gersten <micahg@ubuntu.com> ]
+  * Add patch from upstream to hopefully fix PowerPC FTBFS (bmo: 703534) aka
+    Build failure on platforms without YARR JIT
+    - add debian/patches/fix-build-failure-without-yarr-jit.patch
+    - update debian/patches/series
+
+  [ Chris Coulson <chris.coulson@canonical.com> ]
+  * Don't install the libxul pkgconfig file in precise. Mozvoikko doesn't
+    need this anymore
+    - update debian/rules
+    - update debian/firefox-dev.install.in
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Fri, 09 Dec 2011 13:29:20 +0000
+
+firefox (9.0~b4+build1-0ubuntu2) precise; urgency=low
+
+  * Add missing build-dep on non-essential locales, since we use it.
+
+ -- Adam Conrad <adconrad@ubuntu.com>  Fri, 02 Dec 2011 23:24:05 -0700
+
+firefox (9.0~b4+build1-0ubuntu1) precise; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_9_0b4_BUILD1)
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Fri, 02 Dec 2011 11:27:15 +0000
+
+firefox (9.0~b3+build1-0ubuntu1) precise; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_9_0b3_BUILD1)
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Thu, 24 Nov 2011 17:04:18 +0000
+
+firefox (9.0~b2+build1-0ubuntu1) precise; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_9_0b2_BUILD1)
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Thu, 17 Nov 2011 22:15:30 +0000
+
+firefox (9.0~b1+build1-0ubuntu1) precise; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_9_0b1_BUILD1)
+
+  * Update globalmenu-extension to 2.0.2
+  * Install the Apport hook as a source package hook
+    - rename debian/apport/firefox.py.in => debian/apport/source_firefox.py.in
+    - update debian/firefox.install.in
+    - update debian/rules
+  * Don't unconditionally overwrite SourcePackage when reporting bugs with
+    the nightly apport hook
+    - update debian/apport/source_firefox.py.in
+  * Set "Channel = Unavailable" if channel-prefs.js doesn't contain a
+    channel name
+    - update debian/apport/source_firefox.py.in
+  * Ensure that create-tarball can handle there not being a locale blacklist
+    - update debian/build/create-tarball.py
+  * Drop xpt.py and xpidl from $LIBDIR. xpidl is gone, and xpt.py isn't included
+    there in the upstream SDK
+    - update debian/firefox-dev.links.in
+  * Refresh patches
+    - update debian/patches/firefox-kde.patch
+    - update debian/patches/mozilla-kde.patch
+  * Drop patches fixed upstream
+    - remove debian/patches/only-add-ENABLE_JIT-to-CXXFLAGS-if-jit-is-enabled.patch
+    - update debian/patches/series
+  * Turn off the one-time addon selection dialog (LP: #888307)
+    - update debian/vendor.js
+  * Ensure we include locales in the tarball if they are in shipped-locales
+    but not in all-locales
+    - update debian/build/create-tarball.py
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Tue, 15 Nov 2011 21:26:09 +0000
+
+firefox (8.0+build1-0ubuntu1) precise; urgency=low
+
+  * New upstream stable release (FIREFOX_8_0_BUILD1)
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Sun, 06 Nov 2011 20:55:39 +0000
+
+firefox (8.0~b6+build2-0ubuntu1) precise; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_8_0b6_BUILD2)
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Thu, 03 Nov 2011 10:16:44 -0400
+
+firefox (8.0~b6+build1-0ubuntu1) precise; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_8_0b6_BUILD1)
+
+  * Don't disable our bundled addons on upgrade
+    - update debian/vendor.js
+  * Refresh supported locales as upstream added Kashubian for beta
+    - refresh debian/config/locales.all
+    - refresh debian/config/locales.shipped
+    - refresh debian/control
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Tue, 01 Nov 2011 17:54:35 -0400
+
+firefox (8.0~b4+build1-0ubuntu2) precise; urgency=low
+
+  * Backport patch from aurora to correctly handle EOF in 
+    js::TokenStream::getAtSourceMappingURL on platforms with unsigned chars
+    - add debian/patches/correctly-handle-EOF.patch
+    - update debian/patches/series
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Sun, 23 Oct 2011 00:02:42 +0100
 
 firefox (8.0~b4+build1-0ubuntu1) precise; urgency=low
 

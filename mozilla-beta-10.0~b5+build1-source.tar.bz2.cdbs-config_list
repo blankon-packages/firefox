@@ -95,6 +95,8 @@ mozilla/l10n/ak/toolkit/chrome/global/config.dtd
 mozilla/l10n/ak/toolkit/chrome/global/config.properties
 mozilla/l10n/ar/toolkit/chrome/global/config.dtd
 mozilla/l10n/ar/toolkit/chrome/global/config.properties
+mozilla/l10n/as/toolkit/chrome/global/config.dtd
+mozilla/l10n/as/toolkit/chrome/global/config.properties
 mozilla/l10n/ast/toolkit/chrome/global/config.dtd
 mozilla/l10n/ast/toolkit/chrome/global/config.properties
 mozilla/l10n/be/toolkit/chrome/global/config.dtd
@@ -113,6 +115,8 @@ mozilla/l10n/ca/toolkit/chrome/global/config.dtd
 mozilla/l10n/ca/toolkit/chrome/global/config.properties
 mozilla/l10n/cs/toolkit/chrome/global/config.dtd
 mozilla/l10n/cs/toolkit/chrome/global/config.properties
+mozilla/l10n/csb/toolkit/chrome/global/config.dtd
+mozilla/l10n/csb/toolkit/chrome/global/config.properties
 mozilla/l10n/cy/toolkit/chrome/global/config.dtd
 mozilla/l10n/cy/toolkit/chrome/global/config.properties
 mozilla/l10n/da/toolkit/chrome/global/config.dtd

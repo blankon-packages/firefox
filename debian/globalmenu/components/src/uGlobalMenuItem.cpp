@@ -64,6 +64,7 @@
 #include "uWidgetAtoms.h"
 
 #include "uDebug.h"
+#include "compat.h"
 
 // XXX: Borrowed from content/xbl/src/nsXBLPrototypeHandler.cpp. This doesn't
 // seem to be publicly available, and we need a way to map key names
@@ -493,10 +494,10 @@ uGlobalMenuItem::SyncTypeAndStateFromContent()
       UGM_BLOCK_EVENTS_FOR_CURRENT_SCOPE();
       if (mToggleState) {
         mContent->SetAttr(kNameSpaceID_None, uWidgetAtoms::checked,
-                          NS_LITERAL_STRING("true"), PR_TRUE);
+                          NS_LITERAL_STRING("true"), MOZ_API_TRUE);
       } else {
         mContent->UnsetAttr(kNameSpaceID_None, uWidgetAtoms::checked,
-                            PR_TRUE);
+                            MOZ_API_TRUE);
       }
     }
 
@@ -584,39 +585,40 @@ uGlobalMenuItem::Activate()
     if (!mToggleState) {
       // We're currently not checked, so check now
       content->SetAttr(kNameSpaceID_None, uWidgetAtoms::checked,
-                       NS_LITERAL_STRING("true"), PR_TRUE);
+                       NS_LITERAL_STRING("true"), MOZ_API_TRUE);
     } else if (mToggleState && mType == CheckBox) {
       // We're currently checked, so uncheck now. Don't do this for radio buttons
-      content->UnsetAttr(kNameSpaceID_None, uWidgetAtoms::checked, PR_TRUE);
+      content->UnsetAttr(kNameSpaceID_None, uWidgetAtoms::checked, MOZ_API_TRUE);
     }
   }
 
-  nsIDocument *doc = mContent->GetOwnerDoc();
-  if (doc) {
-    nsCOMPtr<nsIDOMDocument> domDoc = do_QueryInterface(doc);
-    if (domDoc) {
-      nsCOMPtr<nsIDOMEvent> event;
-      domDoc->CreateEvent(NS_LITERAL_STRING("xulcommandevent"),
-                          getter_AddRefs(event));
-      if (event) {
-        nsCOMPtr<nsIDOMXULCommandEvent> cmdEvent = do_QueryInterface(event);
-        if (cmdEvent) {
-          nsCOMPtr<nsIDOMWindow> window;
-          domDoc->GetDefaultView(getter_AddRefs(window));
-          if (window) {
-            cmdEvent->InitCommandEvent(NS_LITERAL_STRING("command"),
-                                       PR_TRUE, PR_TRUE, window, 0,
-                                       PR_FALSE, PR_FALSE, PR_FALSE,
-                                       PR_FALSE, nsnull);
-            nsCOMPtr<nsIDOMEventTarget> target = do_QueryInterface(mContent);
-            if (target) {
-              nsCOMPtr<nsIPrivateDOMEvent> priv = do_QueryInterface(event);
-              if (priv) {
-                priv->SetTrusted(PR_TRUE);
-              }
-              PRBool dummy;
-              target->DispatchEvent(event, &dummy);
+#if MOZILLA_BRANCH_MAJOR_VERSION >= 10
+  nsCOMPtr<nsIDOMDocument> domDoc = do_QueryInterface(mContent->OwnerDoc());
+#else
+  nsCOMPtr<nsIDOMDocument> domDoc = do_QueryInterface(mContent->GetOwnerDoc());
+#endif
+  if (domDoc) {
+    nsCOMPtr<nsIDOMEvent> event;
+    domDoc->CreateEvent(NS_LITERAL_STRING("xulcommandevent"),
+                        getter_AddRefs(event));
+    if (event) {
+      nsCOMPtr<nsIDOMXULCommandEvent> cmdEvent = do_QueryInterface(event);
+      if (cmdEvent) {
+        nsCOMPtr<nsIDOMWindow> window;
+        domDoc->GetDefaultView(getter_AddRefs(window));
+        if (window) {
+          cmdEvent->InitCommandEvent(NS_LITERAL_STRING("command"),
+                                     MOZ_API_TRUE, MOZ_API_TRUE, window, 0,
+                                     MOZ_API_FALSE, MOZ_API_FALSE, MOZ_API_FALSE,
+                                     MOZ_API_FALSE, nsnull);
+          nsCOMPtr<nsIDOMEventTarget> target = do_QueryInterface(mContent);
+          if (target) {
+            nsCOMPtr<nsIPrivateDOMEvent> priv = do_QueryInterface(event);
+            if (priv) {
+              priv->SetTrusted(MOZ_API_TRUE);
             }
+            MOZ_API_BOOL dummy;
+            target->DispatchEvent(event, &dummy);
           }
         }
       }
@@ -691,7 +693,7 @@ uGlobalMenuItem::UncheckSiblings()
         name, eCaseMatters) && sibling != mContent &&
         sibling->AttrValueIs(kNameSpaceID_None, uWidgetAtoms::type,
                              uWidgetAtoms::radio, eCaseMatters)) {
-      sibling->UnsetAttr(kNameSpaceID_None, uWidgetAtoms::checked, PR_TRUE);
+      sibling->UnsetAttr(kNameSpaceID_None, uWidgetAtoms::checked, MOZ_API_TRUE);
     }
   }
 }

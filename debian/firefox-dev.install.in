@@ -9,8 +9,10 @@ debian/tmp@MOZ_SDKDIR@/include
 debian/tmp@MOZ_SDKDIR@/lib
 debian/tmp@MOZ_SDKDIR@/sdk/bin/
 
+%%ifdef MOZ_LIBXUL_PKGCONFIG
 %%ifdef MOZ_TREE_NSPR
 debian/pkgconfig/mozilla-nspr.pc /usr/lib/pkgconfig
 %%endif
-debian/pkgconfig/mozilla-plugin.pc /usr/lib/pkgconfig
 debian/pkgconfig/libxul.pc /usr/lib/pkgconfig
+%%endif
+debian/pkgconfig/mozilla-plugin.pc /usr/lib/pkgconfig

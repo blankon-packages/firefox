@@ -229,6 +229,7 @@ def post_checkout(repo, cache, tag):
     if moz_local != None:
         args.append('--mozilla-repo=%s' % moz_local)
     if tag != None:
+        args.append('--comm-rev=%s' % tag)
         args.append('--mozilla-rev=%s' % tag)
     do_exec(args, cwd=os.path.join(os.getcwd(), DEB_TAR_SRCDIR))
 
@@ -238,14 +239,15 @@ def verify_all_locales(all_locales, blfile):
     print '\n\n***Checking that required locales are present***\n'
 
     blacklist = {}
-    bl = open(blfile, 'r')
-    for line in bl:
-        locale = line.strip()
-        if locale.startswith('#'):
-            continue
+    if blfile:
+        bl = open(blfile, 'r')
+        for line in bl:
+            locale = line.strip()
+            if locale.startswith('#'):
+                continue
 
-        blacklist[locale] = 1
-    bl.close()
+            blacklist[locale] = 1
+        bl.close()
 
     sl = open(os.path.join(os.getcwd(), DEB_TAR_SRCDIR, SHIPPED_LOCALES), 'r')
     for line in sl:
@@ -319,27 +321,32 @@ def checkout_locale(base, cache, locale, tag, changesets):
 
 def checkout_upstream_l10n(base, cache, tag, all_locales):
     al = open(os.path.join(os.getcwd(), DEB_TAR_SRCDIR, ALL_LOCALES), 'r')
+    sl = open(os.path.join(os.getcwd(), DEB_TAR_SRCDIR, SHIPPED_LOCALES), 'r')
     l10ndir = os.path.join(os.getcwd(), DEB_TAR_SRCDIR, 'l10n')
     if not os.path.isdir(l10ndir):
         os.makedirs(l10ndir)
     changesets = open(os.path.join(l10ndir, 'changesets'), 'w')
     try:
-        for line in al:
-            locale = line.strip()
-            if locale.startswith('#'):
-                continue
+        for l10nlist in al, sl:
+            for line in l10nlist:
+                locale = line.strip()
+                if locale.startswith('#') or locale in all_locales:
+                    continue
 
-            try:
-                checkout_locale(base, cache, locale, tag, changesets)
-                all_locales[locale] = 1
-            except Exception as e:
-                # checkout_locale will throw if the specified revision isn't found
-                # In this case, omit it from the tarball
-                localedir = os.path.join(l10ndir, locale)
-                if os.path.exists(localedir):
-                    shutil.rmtree(localedir)
+                if l10nlist != al: print 'WARNING: Locale %s is not in all-locales. This is an upstream oversight' % locale
+
+                try:
+                    checkout_locale(base, cache, locale, tag, changesets)
+                    all_locales[locale] = 1
+                except Exception as e:
+                    # checkout_locale will throw if the specified revision isn't found
+                    # In this case, omit it from the tarball
+                    localedir = os.path.join(l10ndir, locale)
+                    if os.path.exists(localedir):
+                        shutil.rmtree(localedir)
     finally:
         al.close()
+        sl.close()
         changesets.close()
 
 def checkout_source(repo, cache, tag):
@@ -402,6 +409,9 @@ if __name__ == '__main__':
 
     if not options.l10nbase and ALL_LOCALES != None:
         parser.error('Must specify a base repository for l10n data')
+
+    if options.blacklist and not os.path.exists(options.blacklist):
+        parser.error('Locale blacklist file does not exist')
 
     saved_cwd = os.getcwd()
     check_dependencies()

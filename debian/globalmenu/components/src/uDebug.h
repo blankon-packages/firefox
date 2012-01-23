@@ -76,7 +76,7 @@ public:
   FunctionTracer(const char *funcName, const char *extra): mFuncName(funcName), mExtra(extra)
   {
     if (getenv("GLOBAL_MENU_VERBOSE")) {
-      printf("%*s=== globalmenu-extension: Entering %s (%s) ===\n", sDepth, "", mFuncName.get(), mExtra.get());
+      printf("%*s=== globalmenu-extension: Entering %s [%s] ===\n", sDepth, "", mFuncName.get(), mExtra.get());
     }
     sDepth++;
   }
@@ -94,7 +94,7 @@ public:
     sDepth--;
     if (getenv("GLOBAL_MENU_VERBOSE")) {
       if (mExtra.Length() > 0) {
-        printf("%*s=== globalmenu-extension: Leaving %s (%s) ===\n", sDepth, "", mFuncName.get(), mExtra.get());
+        printf("%*s=== globalmenu-extension: Leaving %s [%s] ===\n", sDepth, "", mFuncName.get(), mExtra.get());
       } else {
         printf("%*s=== globalmenu-extension: Leaving %s ===\n", sDepth, "", mFuncName.get());
       }
@@ -108,14 +108,19 @@ private:
 };
 
 #define DEBUG_WITH_THIS_MENUOBJECT(format...)                 \
+  DEBUG_WITH_MENUOBJECT(this, format)
+
+#define DEBUG_WITH_MENUOBJECT(object, format...)              \
   if (getenv("GLOBAL_MENU_VERBOSE")) {                        \
+    nsCOMPtr<nsIContent> content;                             \
+    if (object) object->GetContent(getter_AddRefs(content));  \
     nsAutoString id;                                          \
     nsCAutoString cid;                                        \
-    mContent->GetAttr(kNameSpaceID_None, uWidgetAtoms::id, id); \
+    if (content) content->GetAttr(kNameSpaceID_None, uWidgetAtoms::id, id); \
     CopyUTF16toUTF8(id, cid);                                 \
     char *str;                                                \
     asprintf(&str, format);                                   \
-    printf("%*s* globalmenu-extension %s: %s (id: %s)\n", FunctionTracer::sDepth, "", __PRETTY_FUNCTION__, str, cid.get()); \
+    printf("%*s* globalmenu-extension %s: %s [menuobject: %p (id: %s)] [this: %p]\n", FunctionTracer::sDepth, "", __PRETTY_FUNCTION__, str, object, cid.get(), this); \
     free(str);                                                \
   }
 
@@ -123,11 +128,11 @@ private:
   if (getenv("GLOBAL_MENU_VERBOSE")) {                        \
     nsAutoString id;                                          \
     nsCAutoString cid;                                        \
-    content->GetAttr(kNameSpaceID_None, uWidgetAtoms::id, id); \
+    if (content) content->GetAttr(kNameSpaceID_None, uWidgetAtoms::id, id); \
     CopyUTF16toUTF8(id, cid);                                 \
     char *str;                                                \
     asprintf(&str, format);                                   \
-    printf("%*s* globalmenu-extension %s: %s (id: %s)\n", FunctionTracer::sDepth, "", __PRETTY_FUNCTION__, str, cid.get()); \
+    printf("%*s* globalmenu-extension %s: %s [content: %p (id: %s)] [this: %p]\n", FunctionTracer::sDepth, "", __PRETTY_FUNCTION__, str, content, cid.get(), this); \
     free(str);                                                \
   }
 
@@ -138,13 +143,18 @@ private:
 })
 
 #define TRACE_WITH_THIS_MENUOBJECT()                          \
+  TRACE_WITH_MENUOBJECT(this)
+
+#define TRACE_WITH_MENUOBJECT(object)                         \
   char *_id_s;                                                \
   {                                                           \
+    nsCOMPtr<nsIContent> content;                             \
+    if (object) object->GetContent(getter_AddRefs(content));  \
     nsAutoString _id;                                         \
-    mContent->GetAttr(kNameSpaceID_None, uWidgetAtoms::id, _id); \
+    if (content) content->GetAttr(kNameSpaceID_None, uWidgetAtoms::id, _id); \
     nsCAutoString _cid;                                       \
     CopyUTF16toUTF8(_id, _cid);                               \
-    asprintf(&_id_s, "id: %s", _cid.get());                   \
+    asprintf(&_id_s, "menuobject: %p (id: %s)", object, _cid.get()); \
   }                                                           \
   FunctionTracer _marker(__PRETTY_FUNCTION__, _id_s);         \
   free(_id_s);
@@ -165,9 +175,11 @@ private:
   FunctionTracer _marker(__PRETTY_FUNCTION__);
 #else
 #define DEBUG_WITH_THIS_MENUOBJECT(format...)
+#define DEBUG_WITH_MENUOBJECT(object, format...)
 #define DEBUG_WITH_CONTENT(content, format...)
 #define DEBUG_CSTR_FROM_UTF16(str)
 #define TRACE_WITH_THIS_MENUOBJECT()
+#define TRACE_WITH_MENUOBJECT(object)
 #define TRACE_WITH_CONTENT(content)
 #define TRACE()
 #endif

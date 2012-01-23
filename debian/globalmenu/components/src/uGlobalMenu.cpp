@@ -64,6 +64,7 @@
 #include "uWidgetAtoms.h"
 
 #include "uDebug.h"
+#include "compat.h"
 
 /*static*/ PRBool
 uGlobalMenu::MenuEventCallback(DbusmenuMenuitem *menu,
@@ -104,24 +105,27 @@ void
 uGlobalMenu::Activate()
 {
   mContent->SetAttr(kNameSpaceID_None, uWidgetAtoms::menuactive,
-                    NS_LITERAL_STRING("true"), PR_TRUE);
+                    NS_LITERAL_STRING("true"), MOZ_API_TRUE);
 
-  nsIDocument *doc = mContent->GetOwnerDoc();
   nsCOMPtr<nsIDOMEventTarget> target = do_QueryInterface(mContent);
-  if (doc && target) {
-    nsCOMPtr<nsIDOMDocument> domDoc = do_QueryInterface(doc);
+  if (target) {
+#if MOZILLA_BRANCH_MAJOR_VERSION >= 10
+    nsCOMPtr<nsIDOMDocument> domDoc = do_QueryInterface(mContent->OwnerDoc());
+#else
+    nsCOMPtr<nsIDOMDocument> domDoc = do_QueryInterface(mContent->GetOwnerDoc());
+#endif
     if (domDoc) {
       nsCOMPtr<nsIDOMEvent> event;
       domDoc->CreateEvent(NS_LITERAL_STRING("Events"),
                           getter_AddRefs(event));
       if (event) {
         event->InitEvent(NS_LITERAL_STRING("DOMMenuItemActive"),
-                         PR_TRUE, PR_TRUE);
+                         MOZ_API_TRUE, MOZ_API_TRUE);
         nsCOMPtr<nsIPrivateDOMEvent> priv = do_QueryInterface(event);
         if (priv) {
-          priv->SetTrusted(PR_TRUE);
+          priv->SetTrusted(MOZ_API_TRUE);
         }
-        PRBool dummy;
+        MOZ_API_BOOL dummy;
         target->DispatchEvent(event, &dummy);
       }
     }
@@ -131,27 +135,28 @@ uGlobalMenu::Activate()
 void
 uGlobalMenu::Deactivate()
 {
-  mContent->UnsetAttr(kNameSpaceID_None, uWidgetAtoms::menuactive, PR_TRUE);
+  mContent->UnsetAttr(kNameSpaceID_None, uWidgetAtoms::menuactive, MOZ_API_TRUE);
 
-  nsIDocument *doc = mContent->GetOwnerDoc();
-  if (doc) {
-    nsCOMPtr<nsIDOMDocument> domDoc = do_QueryInterface(doc);
-    if (domDoc) {
-      nsCOMPtr<nsIDOMEvent> event;
-      domDoc->CreateEvent(NS_LITERAL_STRING("Events"),
-                          getter_AddRefs(event));
-      if (event) {
-        event->InitEvent(NS_LITERAL_STRING("DOMMenuItemInactive"),
-                         PR_TRUE, PR_TRUE);
-        nsCOMPtr<nsIDOMEventTarget> target = do_QueryInterface(mContent);
-        if (target) {
-          nsCOMPtr<nsIPrivateDOMEvent> priv = do_QueryInterface(event);
-          if (priv) {
-            priv->SetTrusted(PR_TRUE);
-          }
-          PRBool dummy;
-          target->DispatchEvent(event, &dummy);
+#if MOZILLA_BRANCH_MAJOR_VERSION >= 10
+  nsCOMPtr<nsIDOMDocument> domDoc = do_QueryInterface(mContent->OwnerDoc());
+#else
+  nsCOMPtr<nsIDOMDocument> domDoc = do_QueryInterface(mContent->GetOwnerDoc());
+#endif
+  if (domDoc) {
+    nsCOMPtr<nsIDOMEvent> event;
+    domDoc->CreateEvent(NS_LITERAL_STRING("Events"),
+                        getter_AddRefs(event));
+    if (event) {
+      event->InitEvent(NS_LITERAL_STRING("DOMMenuItemInactive"),
+                       MOZ_API_TRUE, MOZ_API_TRUE);
+      nsCOMPtr<nsIDOMEventTarget> target = do_QueryInterface(mContent);
+      if (target) {
+        nsCOMPtr<nsIPrivateDOMEvent> priv = do_QueryInterface(event);
+        if (priv) {
+          priv->SetTrusted(MOZ_API_TRUE);
         }
+        MOZ_API_BOOL dummy;
+        target->DispatchEvent(event, &dummy);
       }
     }
   }
@@ -212,34 +217,35 @@ uGlobalMenu::AboutToOpen()
   //      menus, but this doesn't work for menuitems at all
   Activate();
 
-  nsIDocument *doc = mPopupContent->GetOwnerDoc();
-  if (doc) {
-    nsCOMPtr<nsIDOMDocument> domDoc = do_QueryInterface(doc);
-    if (domDoc) {
-      nsCOMPtr<nsIDOMEvent> event;
-      domDoc->CreateEvent(NS_LITERAL_STRING("mouseevent"),
-                          getter_AddRefs(event));
-      if (event) {
-        nsCOMPtr<nsIDOMMouseEvent> mouseEvent = do_QueryInterface(event);
-        if (mouseEvent) {
-          nsCOMPtr<nsIDOMWindow> window;
-          domDoc->GetDefaultView(getter_AddRefs(window));
-          if (window) {
-            mouseEvent->InitMouseEvent(NS_LITERAL_STRING("popupshowing"),
-                                       PR_TRUE, PR_TRUE, window, nsnull,
-                                       0, 0, 0, 0, PR_FALSE, PR_FALSE,
-                                       PR_FALSE, PR_FALSE, 0, nsnull);
-            nsCOMPtr<nsIDOMEventTarget> target = do_QueryInterface(mPopupContent);
-            if (target) {
-              nsCOMPtr<nsIPrivateDOMEvent> priv = do_QueryInterface(event);
-              if (priv) {
-                priv->SetTrusted(PR_TRUE);
-              }
-              PRBool dummy;
-              // XXX: dummy == PR_FALSE means that we should prevent the
-              //      the menu from opening, but there's no way to do this
-              target->DispatchEvent(event, &dummy);
+#if MOZILLA_BRANCH_MAJOR_VERSION >= 10
+  nsCOMPtr<nsIDOMDocument> domDoc = do_QueryInterface(mPopupContent->OwnerDoc());
+#else
+  nsCOMPtr<nsIDOMDocument> domDoc = do_QueryInterface(mPopupContent->GetOwnerDoc());
+#endif
+  if (domDoc) {
+    nsCOMPtr<nsIDOMEvent> event;
+    domDoc->CreateEvent(NS_LITERAL_STRING("mouseevent"),
+                        getter_AddRefs(event));
+    if (event) {
+      nsCOMPtr<nsIDOMMouseEvent> mouseEvent = do_QueryInterface(event);
+      if (mouseEvent) {
+        nsCOMPtr<nsIDOMWindow> window;
+        domDoc->GetDefaultView(getter_AddRefs(window));
+        if (window) {
+          mouseEvent->InitMouseEvent(NS_LITERAL_STRING("popupshowing"),
+                                     MOZ_API_TRUE, MOZ_API_TRUE, window, nsnull,
+                                     0, 0, 0, 0, MOZ_API_FALSE, MOZ_API_FALSE,
+                                     MOZ_API_FALSE, MOZ_API_FALSE, 0, nsnull);
+          nsCOMPtr<nsIDOMEventTarget> target = do_QueryInterface(mPopupContent);
+          if (target) {
+            nsCOMPtr<nsIPrivateDOMEvent> priv = do_QueryInterface(event);
+            if (priv) {
+              priv->SetTrusted(MOZ_API_TRUE);
             }
+            MOZ_API_BOOL dummy;
+            // XXX: dummy == PR_FALSE means that we should prevent the
+            //      the menu from opening, but there's no way to do this
+            target->DispatchEvent(event, &dummy);
           }
         }
       }
@@ -269,34 +275,35 @@ uGlobalMenu::OnOpen()
     return;
   }
 
-  mContent->SetAttr(kNameSpaceID_None, uWidgetAtoms::open, NS_LITERAL_STRING("true"), PR_TRUE);
+  mContent->SetAttr(kNameSpaceID_None, uWidgetAtoms::open, NS_LITERAL_STRING("true"), MOZ_API_TRUE);
 
-  nsIDocument *doc = mPopupContent->GetOwnerDoc();
-  if (doc) {
-    nsCOMPtr<nsIDOMDocument> domDoc = do_QueryInterface(doc);
-    if (domDoc) {
-      nsCOMPtr<nsIDOMEvent> event;
-      domDoc->CreateEvent(NS_LITERAL_STRING("mouseevent"),
-                          getter_AddRefs(event));
-      if (event) {
-        nsCOMPtr<nsIDOMMouseEvent> mouseEvent = do_QueryInterface(event);
-        if (mouseEvent) {
-          nsCOMPtr<nsIDOMWindow> window;
-          domDoc->GetDefaultView(getter_AddRefs(window));
-          if (window) {
-            mouseEvent->InitMouseEvent(NS_LITERAL_STRING("popupshown"),
-                                       PR_TRUE, PR_TRUE, window, nsnull,
-                                       0, 0, 0, 0, PR_FALSE, PR_FALSE,
-                                       PR_FALSE, PR_FALSE, 0, nsnull);
-            nsCOMPtr<nsIDOMEventTarget> target = do_QueryInterface(mPopupContent);
-            if (target) {
-              nsCOMPtr<nsIPrivateDOMEvent> priv = do_QueryInterface(event);
-              if (priv) {
-                priv->SetTrusted(PR_TRUE);
-              }
-              PRBool dummy;
-              target->DispatchEvent(event, &dummy);
+#if MOZILLA_BRANCH_MAJOR_VERSION >= 10
+  nsCOMPtr<nsIDOMDocument> domDoc = do_QueryInterface(mPopupContent->OwnerDoc());
+#else
+  nsCOMPtr<nsIDOMDocument> domDoc = do_QueryInterface(mPopupContent->GetOwnerDoc());
+#endif
+  if (domDoc) {
+    nsCOMPtr<nsIDOMEvent> event;
+    domDoc->CreateEvent(NS_LITERAL_STRING("mouseevent"),
+                        getter_AddRefs(event));
+    if (event) {
+      nsCOMPtr<nsIDOMMouseEvent> mouseEvent = do_QueryInterface(event);
+      if (mouseEvent) {
+        nsCOMPtr<nsIDOMWindow> window;
+        domDoc->GetDefaultView(getter_AddRefs(window));
+        if (window) {
+          mouseEvent->InitMouseEvent(NS_LITERAL_STRING("popupshown"),
+                                     MOZ_API_TRUE, MOZ_API_TRUE, window, nsnull,
+                                     0, 0, 0, 0, MOZ_API_FALSE, MOZ_API_FALSE,
+                                     MOZ_API_FALSE, MOZ_API_FALSE, 0, nsnull);
+          nsCOMPtr<nsIDOMEventTarget> target = do_QueryInterface(mPopupContent);
+          if (target) {
+            nsCOMPtr<nsIPrivateDOMEvent> priv = do_QueryInterface(event);
+            if (priv) {
+              priv->SetTrusted(MOZ_API_TRUE);
             }
+            MOZ_API_BOOL dummy;
+            target->DispatchEvent(event, &dummy);
           }
         }
       }
@@ -316,40 +323,40 @@ uGlobalMenu::OnClose()
     return;
   }
 
-  mContent->UnsetAttr(kNameSpaceID_None, uWidgetAtoms::open, PR_TRUE);
+  mContent->UnsetAttr(kNameSpaceID_None, uWidgetAtoms::open, MOZ_API_TRUE);
 
-  nsIDocument *doc = mPopupContent->GetOwnerDoc();
-  if (doc) {
-    nsCOMPtr<nsIDOMDocument> domDoc = do_QueryInterface(doc);
-    if (domDoc) {
-      nsCOMPtr<nsIDOMEvent> event;
-      domDoc->CreateEvent(NS_LITERAL_STRING("mouseevent"),
-                          getter_AddRefs(event));
-      if (event) {
-        nsCOMPtr<nsIDOMMouseEvent> mouseEvent = do_QueryInterface(event);
-        if (mouseEvent) {
-          nsCOMPtr<nsIDOMWindow> window;
-          domDoc->GetDefaultView(getter_AddRefs(window));
-          if (window) {
-            mouseEvent->InitMouseEvent(NS_LITERAL_STRING("popuphiding"),
-                                       PR_TRUE, PR_TRUE, window, nsnull,
-                                       0, 0, 0, 0, PR_FALSE, PR_FALSE,
-                                       PR_FALSE, PR_FALSE, 0, nsnull);
-            nsCOMPtr<nsIDOMEventTarget> target = do_QueryInterface(mPopupContent);
-            if (target) {
-              nsCOMPtr<nsIPrivateDOMEvent> priv = do_QueryInterface(event);
-              if (priv) {
-                priv->SetTrusted(PR_TRUE);
-              }
-              PRBool dummy;
-              target->DispatchEvent(event, &dummy);
-
-              mouseEvent->InitMouseEvent(NS_LITERAL_STRING("popuphidden"),
-                                         PR_TRUE, PR_TRUE, window, nsnull,
-                                         0, 0, 0, 0, PR_FALSE, PR_FALSE,
-                                         PR_FALSE, PR_FALSE, 0, nsnull);
-              target->DispatchEvent(event, &dummy);
+#if MOZILLA_BRANCH_MAJOR_VERSION >= 10
+  nsCOMPtr<nsIDOMDocument> domDoc = do_QueryInterface(mPopupContent->OwnerDoc());
+#else
+  nsCOMPtr<nsIDOMDocument> domDoc = do_QueryInterface(mPopupContent->GetOwnerDoc());
+#endif
+  if (domDoc) {
+    nsCOMPtr<nsIDOMEvent> event;
+    domDoc->CreateEvent(NS_LITERAL_STRING("mouseevent"),
+                        getter_AddRefs(event));
+    if (event) {
+      nsCOMPtr<nsIDOMMouseEvent> mouseEvent = do_QueryInterface(event);
+      if (mouseEvent) {
+        nsCOMPtr<nsIDOMWindow> window;
+        domDoc->GetDefaultView(getter_AddRefs(window));
+        if (window) {
+          mouseEvent->InitMouseEvent(NS_LITERAL_STRING("popuphiding"),
+                                     MOZ_API_TRUE, MOZ_API_TRUE, window, nsnull,
+                                     0, 0, 0, 0, MOZ_API_FALSE, MOZ_API_FALSE,
+                                     MOZ_API_FALSE, MOZ_API_FALSE, 0, nsnull);
+          nsCOMPtr<nsIDOMEventTarget> target = do_QueryInterface(mPopupContent);
+          if (target) {
+            nsCOMPtr<nsIPrivateDOMEvent> priv = do_QueryInterface(event);
+            if (priv) {
+              priv->SetTrusted(MOZ_API_TRUE);
             }
+            MOZ_API_BOOL dummy;
+            target->DispatchEvent(event, &dummy);
+             mouseEvent->InitMouseEvent(NS_LITERAL_STRING("popuphidden"),
+                                       MOZ_API_TRUE, MOZ_API_TRUE, window, nsnull,
+                                       0, 0, 0, 0, MOZ_API_FALSE, MOZ_API_FALSE,
+                                       MOZ_API_FALSE, MOZ_API_FALSE, 0, nsnull);
+            target->DispatchEvent(event, &dummy);
           }
         }
       }

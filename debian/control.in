@@ -3,8 +3,9 @@ Section: web
 Priority: optional
 Maintainer: BlankOn Developers <BlankOn-dev@googlegroups.com>
 XSBC-Original-Maintainer: Ubuntu Mozilla Team <ubuntu-mozillateam@lists.ubuntu.com>
-Vcs-Bzr: https://code.launchpad.net/~mozillateam/firefox/firefox-beta.head
+Vcs-Bzr: http://dev.blankonlinux.or.id/bzr/rote/firefox
 Build-Depends: cdbs,
+	locales,
 	debhelper (>= 5),
 	m4,
 	autotools-dev,
@@ -43,14 +44,15 @@ Architecture: any
 Depends: lsb-release,
 	${misc:Depends},
 	${shlibs:Depends}
-Recommends: blankfox
+Recommends: blankfox,
+	@MOZ_APP_NAME@-globalmenu
 Provides: www-browser,
 	iceweasel,
 	gnome-www-browser,
 	${app:Provides}
-Suggests: @MOZ_APP_NAME@-gnome-support | firefox-kde-support,
-	latex-xft-fonts,
-	libthai0
+Suggests: latex-xft-fonts,
+	libthai0,
+	${app:Suggests}
 Breaks: ${app:Breaks}
 Replaces: ${app:Replaces}
 Conflicts: ${app:Conflicts}
@@ -67,7 +69,6 @@ Depends: ${shlibs:Depends},
 	${misc:Depends}, 
 	@MOZ_APP_NAME@
 Provides: ${gs:Provides}
-Breaks: ${gs:Breaks}
 Replaces: ${gs:Replaces}
 Conflicts: ${gs:Conflicts}
 Description: Safe and easy web browser from Mozilla - GNOME support
@@ -87,7 +88,6 @@ Depends: ${shlibs:Depends},
 	@MOZ_APP_NAME@ (= ${binary:Version})
 Provides: ${dbg:Provides}
 Replaces: ${dbg:Replaces}
-Breaks: ${dbg:Breaks}
 Conflicts: ${dbg:Conflicts}
 Description: Safe and easy web browser from Mozilla - debug symbols
  Firefox delivers safe, easy web browsing. A familiar user interface,
@@ -112,7 +112,6 @@ Conflicts: xulrunner-2.0-dev,
 	xulrunner-1.9.2-dev,
 	${dev:Conflicts}
 Replaces: ${dev:Replaces}
-Breaks: ${dev:Breaks}
 Description: Safe and easy web browser from Mozilla - development files
  Firefox delivers safe, easy web browsing. A familiar user interface,
  enhanced security features including protection from online identity theft,
@@ -148,21 +147,21 @@ Description: Unity appmenu integration for Firefox
 
 Package: abrowser
 Architecture: any
-Depends: ${misc:Depends}, firefox
+Depends: ${misc:Depends}, firefox (>= 9.0)
 Description: Safe and easy web browser from Mozilla - transitional package
  This is a transitional package to ensure that upgrades work correctly.
  It can be safely removed
 
 Package: firefox-branding
 Architecture: any
-Depends: ${misc:Depends}, firefox
+Depends: ${misc:Depends}, firefox (>= 9.0)
 Description: Safe and easy web browser from Mozilla - transitional package
  This is a transitional package to ensure that upgrades work correctly.
  It can be safely removed
 
 Package: abrowser-branding
 Architecture: any
-Depends: ${misc:Depends}, firefox
+Depends: ${misc:Depends}, firefox (>= 9.0)
 Description: Safe and easy web browser from Mozilla - transitional package
  This is a transitional package to ensure that upgrades work correctly.
  It can be safely removed

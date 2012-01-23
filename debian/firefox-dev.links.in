@@ -12,5 +12,3 @@
 @MOZ_LIBDIR@/libmozalloc.so @MOZ_SDKDIR@/sdk/lib/libmozalloc.so
 @MOZ_LIBDIR@/libxpcom.so @MOZ_SDKDIR@/sdk/lib/libxpcom.so
 @MOZ_LIBDIR@/libxul.so @MOZ_SDKDIR@/sdk/lib/libxul.so
-@MOZ_SDKDIR@/sdk/bin/xpidl @MOZ_LIBDIR@/xpidl
-@MOZ_SDKDIR@/sdk/bin/xpt.py @MOZ_LIBDIR@/xpt.py

@@ -2,6 +2,7 @@
 
 DISTRIB_VERSION_MAJOR 	= $(shell lsb_release -s -r | cut -d '.' -f 1)
 DISTRIB_VERSION_MINOR 	= $(shell lsb_release -s -r | cut -d '.' -f 2)
+DISTRIB_CODENAME	= $(shell lsb_release -s -c)
 
 include $(CURDIR)/debian/config/branch.mk
 
@@ -65,6 +66,9 @@ DEB_TAR_SRCDIR		:= mozilla
 # We need this to execute before the debian/control target gets called
 clean:: pre-auto-update-debian-control
 
+# We need this to run before apply-patches
+post-patches:: enable-dist-patches
+
 -include /usr/share/cdbs/1/rules/tarball.mk
 -include /usr/share/cdbs/1/rules/debhelper.mk
 -include /usr/share/cdbs/1/rules/patchsys-quilt.mk
@@ -95,7 +99,6 @@ MOZ_LIBDIR		= $(MOZ_PREFIX)/lib/$(MOZ_APP_NAME)-$(MOZ_VERSION)
 MOZ_INCDIR		= $(MOZ_PREFIX)/include/$(MOZ_APP_NAME)-$(MOZ_VERSION)
 MOZ_IDLDIR		= $(MOZ_PREFIX)/share/idl/$(MOZ_APP_NAME)-$(MOZ_VERSION)
 MOZ_SDKDIR		= $(MOZ_PREFIX)/lib/$(MOZ_APP_NAME)-devel-$(MOZ_VERSION)
-MOZ_SERIES		= $(shell echo $(MOZ_VERSION) | sed -e 's/pre//; s/[ab].*//' | cut -d '.' -f 1,2)
 
 NSPR_DEPENDS		:= $(NULL)
 NSS_DEPENDS		:= $(NULL)
@@ -142,6 +145,11 @@ ifeq (,$(filter i386 amd64 armel,$(DEB_HOST_ARCH)))
 	MOZ_ENABLE_BREAKPAD = 0
 endif
 
+# powerpc sucks
+ifneq (,$(filter powerpc,$(DEB_HOST_ARCH)))
+	MOZ_WANT_UNIT_TESTS = 0
+endif
+
 BRANDING	= $(CHANNEL)
 ifneq (,$(filter release beta, $(BRANDING)))
 	BRANDING = official
@@ -183,27 +191,38 @@ ifeq (1,$(MOZ_ENABLE_BREAKPAD))
 	export MOZILLA_OFFICIAL=1
 endif
 
+#ifeq (1,$(shell test "$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)" -lt "1210" && echo "1"))
+ifeq (1,0)
+APP_SUGGEST_ARGS := -Vapp:Suggests="$(MOZ_APP_NAME)-gnome-support | firefox-kde-support"
+else
+APP_SUGGEST_ARGS := -Vapp:Suggests="$(MOZ_APP_NAME)-gnome-support"
+endif
+
 ifeq ($(MOZ_APP_BASENAME), $(MOZ_APP_NAME))
 ifeq (1,$(shell test "$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)" -ge "1010" && echo "1"))
 DEB_DH_GENCONTROL_ARGS_$(MOZ_APP_NAME) := -- -Vapp:Replaces="abrowser, abrowser-branding, firefox-branding, kubuntu-firefox-installer" \
 					     -Vapp:Breaks="abrowser (<= 4.0~b11+build3+nobinonly-0ubuntu1), abrowser-branding (<= 4.0~b11+build3+nobinonly-0ubuntu1), \
-					 		  firefox-branding (<= 4.0~b11+build3+nobinonly-0ubuntu1)"
+					 		   firefox-branding (<= 4.0~b11+build3+nobinonly-0ubuntu1)" $(APP_SUGGEST_ARGS)
 DEV_CONTROL_ARGS :=
 else
 DEB_DH_GENCONTROL_ARGS_$(MOZ_APP_NAME) := -- -Vapp:Provides="firefox-3.6, firefox-3.5, firefox-3.0, firefox-2, firefox-2-dom-inspector, firefox-2-libthai" \
-					     -Vapp:Conflicts="firefox-3.6 (<< 3.6~hg20100117r33523), firefox-3.5 (<< 3.6~hg20100117r33523), firefox-3.0 (<< 3.6~hg20100117r33523), \
-							      firefox-3.6-gnome-support (<< 3.6~hg20100117r33523), firefox-2 (<< 3), firefox-2-libthai (<< 3), firefox-2-dom-inspector (<< 3), \
+					     -Vapp:Conflicts="firefox-3.6 (<< 3.6~hg20100117r33523), firefox-3.5 (<< 3.6~hg20100117r33523), \
+							      firefox-3.0 (<< 3.6~hg20100117r33523), firefox-3.6-gnome-support (<< 3.6~hg20100117r33523), \
+							      firefox-2 (<< 3), firefox-2-libthai (<< 3), firefox-2-dom-inspector (<< 3), \
 							      abrowser (<= 4.0~b11+build3+nobinonly-0ubuntu1), abrowser-branding (<= 4.0~b11+build3+nobinonly-0ubuntu1), \
 							      firefox-branding (<= 4.0~b11+build3+nobinonly-0ubuntu1)" \
-					     -Vapp:Replaces="firefox-3.6, firefox-3.5, firefox-3.0, firefox-3.6-gnome-support, firefox-2, firefox-2-libthai, firefox-2-dom-inspector, \
-							     abrowser, abrowser-branding, firefox-branding"
+					     -Vapp:Replaces="firefox-3.6, firefox-3.5, firefox-3.0, firefox-3.6-gnome-support, firefox-2, firefox-2-libthai, \
+							     firefox-2-dom-inspector, abrowser, abrowser-branding, firefox-branding" $(APP_SUGGEST_ARGS)
 DEB_DH_GENCONTROL_ARGS_$(MOZ_APP_NAME)-gnome-support := \
 					-- -Vgs:Provides="firefox-3.6-gnome-support, firefox-3.5-gnome-support, firefox-3.0-gnome-support, firefox-2" \
-					   -Vgs:Conflicts="firefox-3.6-gnome-support (<< 3.6~hg20100117r33523+nobinonly), firefox-3.5-gnome-support (<< 3.6~hg20100117r33523), \
-							   firefox-3.0-gnome-support (<< 3.6~hg20100117r33523), firefox-2 (<< 3)" \
+					   -Vgs:Conflicts="firefox-3.6-gnome-support (<< 3.6~hg20100117r33523+nobinonly), \
+							   firefox-3.5-gnome-support (<< 3.6~hg20100117r33523), firefox-3.0-gnome-support (<< 3.6~hg20100117r33523), \
+							   firefox-2 (<< 3)" \
 					   -Vgs:Replaces="firefox-3.6-gnome-support, firefox-3.5-gnome-support, firefox-3.0-gnome-support, firefox-2-gnome-support"
-DEB_DH_GENCONTROL_ARGS_$(MOZ_APP_NAME)-dbg := -- -Vdbg:Conflicts="firefox-3.6-dbg (<< 3.6~hg20100117r33523+nobinonly), firefox-3.5-dbg (<< 3.6~hg20100117r33523), firefox-2-dbg (<< 3)" \
-						-Vdbg:Replaces="firefox-3.6-dbg, firefox-3.5-dbg, firefox-2-dbg" -Vdbg:Provides="firefox-3.6-dbg, firefox-3.5-dbg, firefox-2-dbg"
+DEB_DH_GENCONTROL_ARGS_$(MOZ_APP_NAME)-dbg := -- -Vdbg:Conflicts="firefox-3.6-dbg (<< 3.6~hg20100117r33523+nobinonly), firefox-3.5-dbg (<< 3.6~hg20100117r33523), \
+							          firefox-2-dbg (<< 3)" \
+						 -Vdbg:Replaces="firefox-3.6-dbg, firefox-3.5-dbg, firefox-2-dbg" -Vdbg:Provides="firefox-3.6-dbg, \
+								 firefox-3.5-dbg, firefox-2-dbg"
 DEV_CONTROL_ARGS := -Vdev:Provides="firefox-3.6-dev, firefox-3.5-dev, firefox-3.0-dev, firefox-2-dev" -Vdev:Replaces="firefox-3.6-dev, firefox-3.5-dev, firefox-3.0-dev, firefox-2-dev" \
 		    -Vdev:Conflicts="firefox-3.6-dev (<< 3.6~hg20100117r33523+nobinonly), firefox-3.5-dev (<< 3.6~hg20100117r33523), firefox-3.0-dev (<< 3.6~hg20100117r33523), firefox-2-dev (<< 3)"
 endif
@@ -214,7 +233,7 @@ endif
 DEB_DH_GENCONTROL_ARGS_$(MOZ_APP_NAME)-dev	= -- -Vnspr:Depends=$(NSPR_DEPENDS) -Vnss:Depends=$(NSS_DEPENDS) -Vcairo:Depends=$(CAIRO_DEPENDS) $(DEV_CONTROL_ARGS)
 
 # Defines used for the Mozilla text preprocessor
-DEB_DEFINES = 	-DMOZ_LIBDIR="$(MOZ_LIBDIR)" -DMOZ_APP_NAME="$(MOZ_APP_NAME)" -DMOZ_SERIES="$(MOZ_SERIES)" -DMOZ_APP_BASENAME="$(MOZ_APP_BASENAME)"\
+DEB_DEFINES = 	-DMOZ_LIBDIR="$(MOZ_LIBDIR)" -DMOZ_APP_NAME="$(MOZ_APP_NAME)" -DMOZ_APP_BASENAME="$(MOZ_APP_BASENAME)"\
 		-DMOZ_INCDIR="$(MOZ_INCDIR)" -DMOZ_IDLDIR="$(MOZ_IDLDIR)" -DMOZ_VERSION="$(MOZ_VERSION)" -DDEB_HOST_ARCH="$(DEB_HOST_ARCH)" \
 		-DMOZ_DISPLAY_NAME="$(MOZ_DISPLAY_NAME)" -DMOZ_SYSTEM_DICTDIR="$(MOZ_SYSTEM_DICTDIR)" -DMOZ_OVERRIDE_SHLIBS="$(MOZ_OVERRIDE_SHLIBS)" \
 		-DMOZ_BRANDING_OPTION="$(MOZ_BRANDING_OPTION)" -DTOPSRCDIR="$(CURDIR)" -DDEB_HOST_GNU_TYPE="$(DEB_HOST_GNU_TYPE)" \
@@ -274,6 +293,15 @@ endif
 ifneq ($(MOZ_APP_NAME),$(MOZ_APP_BASENAME))
 	DEB_DEFINES += -DMOZ_APP_RENAME
 endif
+ifeq (1,$(shell test "$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)" -ge "1104" && echo "1"))
+	DEB_DEFINES += -DMOZ_NEW_SYSPREF
+endif
+ifeq (1,$(shell test "$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)" -ge "1110" && echo "1"))
+	DEB_DEFINES += -DMOZ_SYMLINKED_DIST
+endif
+ifeq (1,$(shell test "$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)" -lt "1204" && echo "1"))
+	DEB_DEFINES += -DMOZ_LIBXUL_PKGCONFIG
+endif
 
 ifneq (1, $(MOZ_TREE_NSPR))
 	NSPR_DEPENDS = libnspr4-dev
@@ -294,7 +322,7 @@ subst_files = \
 	debian/firefox.sh \
 	debian/apport/blacklist \
 	debian/apport/native-origins \
-	debian/apport/$(MOZ_APP_NAME).py \
+	debian/apport/source_$(MOZ_APP_NAME).py \
 	debian/$(MOZ_APP_NAME).desktop \
 	debian/$(MOZ_APP_NAME).xml \
 	debian/$(MOZ_APP_NAME)-gnome-support.install \
@@ -357,7 +385,9 @@ $(subst_files): $(foreach file, $(subst_files), $(subst $(BRANCH),,$(file).in))
 	$(MOZ_PYTHON) $(DEB_BUILDDIR)/$(MOZ_MOZDIR)/config/Preprocessor.py -Fsubstitution --marker="%%" $(DEB_DEFINES) -DWCHAR_CFLAGS="$(WCHAR_CFLAGS)" $(CURDIR)/$< > $(CURDIR)/$@
 
 debian/usr.bin.firefox.in:
-	if [ '$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)' -ge '1104' ]; then \
+	if [ '$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)' -ge '1204' ]; then \
+		cp $(CURDIR)/debian/usr.bin.firefox.apparmor.12.04 $(CURDIR)/debian/usr.bin.firefox.in ; \
+	elif [ '$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)' -ge '1104' ]; then \
 		cp $(CURDIR)/debian/usr.bin.firefox.apparmor.11.04 $(CURDIR)/debian/usr.bin.firefox.in ; \
 	elif [ '$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)' -ge '1010' ]; then \
 		cp $(CURDIR)/debian/usr.bin.firefox.apparmor.10.10 $(CURDIR)/debian/usr.bin.firefox.in ; \
@@ -458,11 +488,6 @@ GNOME_SUPPORT_FILES = libmozgnome.so libnkgnomevfs.so
 
 binary-post-install/$(MOZ_APP_NAME)::
 	$(foreach file,$(GNOME_SUPPORT_FILES),rm -fv debian/$(MOZ_APP_NAME)/usr/lib/firefox-*/components/$(file);) true
-# XXX: Would be nice to not do this here, but the preprocessor only supports basic comparison operators for equality
-	if [ '$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)' -ge '1110' ] ; then \
-		mv $(CURDIR)/debian/$(MOZ_APP_NAME)$(MOZ_LIBDIR)/distribution $(CURDIR)/debian/$(MOZ_APP_NAME)$(MOZ_PREFIX)/lib/$(MOZ_APP_NAME)-addons/ ; \
-		dh_link -p$(MOZ_APP_NAME) $(MOZ_PREFIX)/lib/$(MOZ_APP_NAME)-addons/distribution $(MOZ_LIBDIR)/distribution ; \
-	fi
 
 ifeq (1, $(MOZ_TREE_NSPR))
 binary-post-install/$(MOZ_APP_NAME)-dev::
@@ -484,11 +509,13 @@ binary-predeb/$(MOZ_APP_NAME)::
 endif
 
 pre-build:: $(subst_files)
+	cp $(CURDIR)/debian/syspref.js $(CURDIR)/debian/$(MOZ_APP_BASENAME).js
 
 	# KDE integration
 	cp $(DEB_SRCDIR)/toolkit/content/widgets/dialog.xml $(DEB_SRCDIR)/toolkit/content/widgets/dialog-kde.xml
 	cp $(DEB_SRCDIR)/toolkit/content/widgets/preferences.xml $(DEB_SRCDIR)/toolkit/content/widgets/preferences-kde.xml
 	cp $(DEB_SRCDIR)/browser/base/content/browser.xul $(DEB_SRCDIR)/browser/base/content/browser-kde.xul
+
 	mkdir -p $(DEB_SRCDIR)/extensions/globalmenu
 	(cd debian/globalmenu && tar -cvhf - .) | (cd $(DEB_SRCDIR)/extensions/globalmenu && tar -xf -) 
 
@@ -580,13 +607,30 @@ post-auto-update-debian-control:
 	fi
 	rm -f debian/control.old
 
+ifdef PATCHES_DIST
+CODENAME = $(PATCHES_DIST)
+else
+CODENAME = $(DISTRIB_CODENAME)
+endif
+
+ifdef PATCHES_ARCH
+ARCH = $(PATCHES_ARCH)
+else
+ARCH = $(DEB_HOST_ARCH)
+endif
+
+enable-dist-patches:
+	perl $(CURDIR)/debian/build/enable-dist-patches.pl $(CODENAME) $(ARCH) $(CURDIR)/debian/patches/series
+
 ifeq (1, $(NO_AUTO_REFRESH_LOCALES))
 clean:: post-auto-update-debian-control
 else
 clean:: auto-refresh-supported-locales post-auto-update-debian-control
 endif
+	perl $(CURDIR)/debian/build/enable-dist-patches.pl --clean $(CURDIR)/debian/patches/series
 	rm -f $(subst_files)
 	rm -f debian/usr.bin.firefox.in
 	rm -f debian/stamp-*
 	rm -rf debian/l10n-mergedirs
 	rm -rf compare-locales
+	rm -f debian/$(MOZ_APP_BASENAME).js

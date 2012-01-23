@@ -5,40 +5,41 @@ set -e
 MOZ_LIBDIR=@MOZ_LIBDIR@
 MOZ_APP_NAME=@MOZ_APP_NAME@
 
-if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] ; then
-    if [ `dpkg-divert --truename /usr/bin/$MOZ_APP_NAME` != "/usr/bin/$MOZ_APP_NAME" ] ; then
-        # Ubuntuzilla has trashed this install. Grrrrrrrrrr!
-        BROKEN=1
-    else
-        BROKEN=0
+# Move a conffile without triggering a dpkg question
+finish_mv_conffile() {
+    local OLDCONFFILE="$1"
+    local NEWCONFFILE="$2"
+
+    rm -f $OLDCONFFILE.dpkg-remove
+
+    [ -e "$OLDCONFFILE" ] || return 0
+
+    echo "Preserving user changes to $NEWCONFFILE (renamed from $OLDCONFFILE)..."
+    mv -f "$NEWCONFFILE" "$NEWCONFFILE.dpkg-new"
+    mv -f "$OLDCONFFILE" "$NEWCONFFILE"
+}
+
+finish_rm_conffile() {
+    local CONFFILE="$1"
+
+    if [ -e "$CONFFILE.dpkg-backup" ]; then
+        mv -f "$CONFFILE.dpkg-backup" "$CONFFILE.dpkg-bak"
     fi
-
-    if [ ! -x /usr/bin/$MOZ_APP_NAME ] && [ "$BROKEN" = "1" ] ; then
-        echo "***Your system has been left in a broken state by a third party package***"
-        echo "This is usually caused by installing packages from Ubuntuzilla. Fixing this now"
-        dpkg-divert --rename --remove /usr/bin/$MOZ_APP_NAME
-        # Yay! We are sane again now \o/
-        BROKEN=0
+    if [ -e "$CONFFILE.dpkg-remove" ]; then
+        echo "Removing obsolete conffile $CONFFILE ..."
+        rm -f "$CONFFILE.dpkg-remove"
     fi
+}
 
-    if [ "$BROKEN" = "0" ] ; then
-        update-alternatives --install /usr/bin/gnome-www-browser \
-            gnome-www-browser /usr/bin/$MOZ_APP_NAME 40
+if [ "$1" = "configure" ] || [ "$1" = "abort-upgrade" ] || [ "$1" = "abort-remove" ] ; then
+    update-alternatives --install /usr/bin/gnome-www-browser \
+        gnome-www-browser /usr/bin/$MOZ_APP_NAME 40
 
-        update-alternatives --install /usr/bin/x-www-browser \
-            x-www-browser /usr/bin/$MOZ_APP_NAME 40
-    else
-        PACKAGE=`dpkg-divert --listpackage /usr/bin/$MOZ_APP_NAME`
-        if [ "$PACKAGE" = "LOCAL" ] ; then
-            echo "/usr/bin/$MOZ_APP_NAME has been diverted by a third party package which didn't specify"
-            echo "a package name to dpkg-divert. This is usually as a result of installing unsupported"
-            echo "packages from Ubuntuzilla."
-            echo "***This is a BUG. Please report this bug to the vendor of the third party package you installed***"
-        else
-            echo "/usr/bin/$MOZ_APP_NAME has been diverted by $PACKAGE"
-        fi
-    fi
+    update-alternatives --install /usr/bin/x-www-browser \
+        x-www-browser /usr/bin/$MOZ_APP_NAME 40
+fi
 
+if [ "$1" = "configure" ] ; then
     #
     # AppArmor
     #
@@ -100,40 +101,27 @@ EOM
     #
     # End AppArmor
     #
-fi
 
-# Move a conffile without triggering a dpkg question
-mv_conffile() {
-    local OLDCONFFILE="$1"
-    local NEWCONFFILE="$2"
+    finish_rm_conffile "/etc/${APP_NAME}/profile/bookmarks.html"
+    finish_rm_conffile "/etc/${APP_NAME}/profile/localstore.rdf"
+    finish_rm_conffile "/etc/${APP_NAME}/profile/mimeTypes.rdf"
+    finish_rm_conffile "/etc/${APP_NAME}/profile/prefs.js"
+    finish_rm_conffile "/etc/${APP_NAME}/profile/chrome/userChrome-example.css"
+    finish_rm_conffile "/etc/${APP_NAME}/profile/chrome/userContent-example.css"
 
-    [ -e "$OLDCONFFILE" ] || return 0
+%%ifdef MOZ_NEW_SYSPREF
+    finish_mv_conffile "/etc/${MOZ_APP_NAME}/pref/firefox.js" "/etc/${MOZ_APP_NAME}/syspref.js"
+%%endif
 
-    echo "Preserving user changes to $NEWCONFFILE ..."
-    mv -f "$NEWCONFFILE" "$NEWCONFFILE".dpkg-new
-    mv -f "$OLDCONFFILE" "$NEWCONFFILE"
-}
-
-case "$1" in
-configure)
-    # What we want to do here is migrate this conffile when:
-    # 1) Upgrading from any version older than Natty. Note, as all releases will track the
-    #    the latest Firefox version in the future, we can't just simply compare package
-    #    versions
-    # 2) Upgrading from any version older than Firefox 5.0~b2+build1+nobinonly-0ubuntu3 in Oneiric
-    PREV_MAJOR_UBUNTU_VER=`echo "$2" | sed 's/.*ubuntu\(.*\)/\1/' | sed 's/\([[:digit:]]*\)\.*\([[:digit:]]*\)\.*\([[:digit:]]*\)\.*\(.*\)/\2/'`
-    if dpkg --compare-versions "$2" le "5.0~b2+build1+nobinonly-0ubuntu2" || \
-       ([ "x$PREV_MAJOR_UBUNTU_VER" != "x" ] && [ "$PREV_MAJOR_UBUNTU_VER" -lt "11" ]); then
-        mv_conffile "/etc/${MOZ_APP_NAME}/pref/firefox.js" "/etc/${MOZ_APP_NAME}/syspref.js"
-    fi
-
+%%ifdef MOZ_SYMLINKED_DIST
     if [ -d $MOZ_LIBDIR/distribution ] && [ ! -h $MOZ_LIBDIR/distribution ]; then \
         rmdir --ignore-fail-on-non-empty $MOZ_LIBDIR/distribution
     fi
     if [ ! -e $MOZ_LIBDIR/distribution ]; then
-        ln -s /usr/lib/firefox-addons/distribution $MOZ_LIBDIR/distribution
+        ln -s /usr/lib/$MOZ_APP_NAME-addons/distribution $MOZ_LIBDIR/distribution
     fi
-esac
+%%endif
+fi
 
 echo "Please restart all running instances of $MOZ_APP_NAME, or you will experience problems."
 

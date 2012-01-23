@@ -65,6 +65,7 @@
 #include "uWidgetAtoms.h"
 
 #include "uDebug.h"
+#include "compat.h"
 
 #define MAX_LABEL_NCHARS 40
 
@@ -140,6 +141,7 @@ GetDOMRectSide(nsIDOMRect* aRect, GetRectSideMethod aMethod)
 NS_IMETHODIMP
 uGlobalMenuIconLoader::Run()
 {
+  TRACE_WITH_MENUOBJECT(mMenuItem);
   // Some of this is borrowed from widget/src/cocoa/nsMenuItemIconX.mm
   if (mIconRequest) {
     mIconRequest->Cancel(NS_BINDING_ABORTED);
@@ -175,6 +177,7 @@ uGlobalMenuIconLoader::Run()
   nsCOMPtr<nsIDOMRect> domRect;
 
   if (!hasImage) {
+    DEBUG_WITH_MENUOBJECT(mMenuItem, "Menuitem does not have an image");
     nsCOMPtr<nsIDOMCSSStyleDeclaration> cssStyleDecl;
     nsCOMPtr<nsIDOMWindow> domWin;
     nsCOMPtr<nsIDOMDocument> domDoc = do_QueryInterface(doc);
@@ -230,9 +233,11 @@ uGlobalMenuIconLoader::Run()
     }
   }
 
+  DEBUG_WITH_MENUOBJECT(mMenuItem, "Icon URI: %s", DEBUG_CSTR_FROM_UTF16(uriString));
   nsCOMPtr<nsIURI> uri;
   rv = NS_NewURI(getter_AddRefs(uri), uriString);
   if (NS_FAILED(rv)) {
+    NS_WARNING("Failed to create new URI");
     ClearIcon();
     return NS_OK;
   }
@@ -249,12 +254,13 @@ uGlobalMenuIconLoader::Run()
   nsCOMPtr<nsILoadGroup> loadGroup = doc->GetDocumentLoadGroup();
 
 #if MOZILLA_BRANCH_MAJOR_VERSION >= 8
-  sLoader->LoadImage(uri, nsnull, nsnull, nsnull, loadGroup, this,
+  rv = sLoader->LoadImage(uri, nsnull, nsnull, nsnull, loadGroup, this,
 #else
-  sLoader->LoadImage(uri, nsnull, nsnull, loadGroup, this,
+  rv = sLoader->LoadImage(uri, nsnull, nsnull, loadGroup, this,
 #endif
-                    nsnull, nsIRequest::LOAD_NORMAL, nsnull,
-                    nsnull, nsnull, getter_AddRefs(mIconRequest));
+                          nsnull, nsIRequest::LOAD_NORMAL, nsnull,
+                          nsnull, nsnull, getter_AddRefs(mIconRequest));
+  NS_ENSURE_SUCCESS(rv, rv);
 
   mImageRect.SetEmpty();
 
@@ -296,6 +302,7 @@ uGlobalMenuIconLoader::OnStartDecode(imgIRequest *aRequest)
 NS_IMETHODIMP
 uGlobalMenuIconLoader::OnStartContainer(imgIRequest *aRequest, imgIContainer *aContainer)
 {
+  TRACE_WITH_MENUOBJECT(mMenuItem);
   aContainer->RequestDecode();
   return NS_OK;
 }
@@ -308,7 +315,7 @@ uGlobalMenuIconLoader::OnStartFrame(imgIRequest *aRequest, PRUint32 aFrame)
 
 NS_IMETHODIMP
 uGlobalMenuIconLoader::OnDataAvailable(imgIRequest *aRequest,
-                                       PRBool aCurrentFrame,
+                                       MOZ_API_BOOL aCurrentFrame,
                                        const nsIntRect *aRect)
 {
   return NS_ERROR_NOT_IMPLEMENTED;
@@ -317,11 +324,13 @@ uGlobalMenuIconLoader::OnDataAvailable(imgIRequest *aRequest,
 NS_IMETHODIMP
 uGlobalMenuIconLoader::OnStopFrame(imgIRequest *aRequest, PRUint32 aFrame)
 {
+  TRACE_WITH_MENUOBJECT(mMenuItem);
   if (aRequest != mIconRequest) {
     return NS_ERROR_FAILURE;
   }
 
   if (mIconLoaded) {
+    DEBUG_WITH_MENUOBJECT(mMenuItem, "Icon is already loaded");
     return NS_OK;
   }
 
@@ -330,6 +339,7 @@ uGlobalMenuIconLoader::OnStopFrame(imgIRequest *aRequest, PRUint32 aFrame)
   nsCOMPtr<imgIContainer> img;
   aRequest->GetImage(getter_AddRefs(img));
   if (!img) {
+    NS_WARNING("Failed to get image");
     return NS_ERROR_FAILURE;
   }
 
@@ -342,6 +352,7 @@ uGlobalMenuIconLoader::OnStopFrame(imgIRequest *aRequest, PRUint32 aFrame)
 
   if (!mImageRect.IsEmpty()) {
     if (mImageRect.XMost() > origWidth || mImageRect.YMost() > origHeight) {
+      NS_WARNING("-moz-image-region is larger than image");
       return NS_ERROR_FAILURE;
     }
 
@@ -367,12 +378,14 @@ uGlobalMenuIconLoader::OnStopFrame(imgIRequest *aRequest, PRUint32 aFrame)
     nsresult rv = img->ExtractFrame(0, mImageRect, 0,
                                     getter_AddRefs(clippedImg));
     if (NS_FAILED(rv)) {
+      NS_WARNING("Failed to clip icon");
       return NS_ERROR_FAILURE;
     }
   }
 
   nsCOMPtr<nsIImageToPixbuf> converter =
     do_GetService("@mozilla.org/widget/image-to-gdk-pixbuf;1");
+  NS_ASSERTION(converter, "No image converter");
   if (!converter) {
     return NS_ERROR_FAILURE;
   }
@@ -406,13 +419,9 @@ uGlobalMenuIconLoader::OnStopDecode(imgIRequest *aRequest, nsresult status,
 }
 
 NS_IMETHODIMP
-uGlobalMenuIconLoader::OnStopRequest(imgIRequest *aRequest, PRBool aIsLastPart)
+uGlobalMenuIconLoader::OnStopRequest(imgIRequest *aRequest, MOZ_API_BOOL aIsLastPart)
 {
-  if (mIconRequest) {
-    mIconRequest->Cancel(NS_BINDING_ABORTED);
-    mIconRequest = nsnull;
-  }
-
+  TRACE_WITH_MENUOBJECT(mMenuItem);
   return NS_OK;
 }
 
@@ -432,6 +441,7 @@ uGlobalMenuIconLoader::FrameChanged(imgIContainer *aContainer,
 void
 uGlobalMenuIconLoader::Destroy()
 {
+  TRACE_WITH_MENUOBJECT(mMenuItem);
   if (mIconRequest) {
     mIconRequest->Cancel(NS_BINDING_ABORTED);
     mIconRequest = nsnull;
@@ -463,7 +473,7 @@ uGlobalMenuObject::SyncLabelFromContent(nsIContent *aContent)
                                     uWidgetAtoms::label, label)) {
     UGM_BLOCK_EVENTS_FOR_CURRENT_SCOPE();
     DEBUG_WITH_CONTENT(aContent, "Content has label \"%s\"", DEBUG_CSTR_FROM_UTF16(label));
-    mContent->SetAttr(kNameSpaceID_None, uWidgetAtoms::label, label, PR_TRUE);
+    mContent->SetAttr(kNameSpaceID_None, uWidgetAtoms::label, label, MOZ_API_TRUE);
   } else {
     mContent->GetAttr(kNameSpaceID_None, uWidgetAtoms::label, label);
   }
@@ -587,9 +597,9 @@ uGlobalMenuObject::SyncSensitivityFromContent(nsIContent *aContent)
     UGM_BLOCK_EVENTS_FOR_CURRENT_SCOPE();
     if (disabled) {
       mContent->SetAttr(kNameSpaceID_None, uWidgetAtoms::disabled,
-                        NS_LITERAL_STRING("true"), PR_TRUE);
+                        NS_LITERAL_STRING("true"), MOZ_API_TRUE);
     } else {
-      mContent->UnsetAttr(kNameSpaceID_None, uWidgetAtoms::disabled, PR_TRUE);
+      mContent->UnsetAttr(kNameSpaceID_None, uWidgetAtoms::disabled, MOZ_API_TRUE);
     }
   }
 
@@ -607,6 +617,7 @@ uGlobalMenuObject::SyncSensitivityFromContent()
 void
 uGlobalMenuObject::UpdateInfoFromContentClass()
 {
+  TRACE_WITH_THIS_MENUOBJECT();
   nsCOMPtr<nsIDOMNSElement> element(do_QueryInterface(mContent));
   if (!element) {
     return;
@@ -618,7 +629,7 @@ uGlobalMenuObject::UpdateInfoFromContentClass()
     return;
   }
 
-  PRBool tmp;
+  MOZ_API_BOOL tmp;
   classes->Contains(NS_LITERAL_STRING("show-only-for-keyboard"),
                     &tmp);
   mShowOnlyForKb = !!tmp;
@@ -626,6 +637,9 @@ uGlobalMenuObject::UpdateInfoFromContentClass()
   classes->Contains(NS_LITERAL_STRING("menuitem-with-favicon"),
                     &tmp);
   mWithFavicon = !!tmp;
+
+  DEBUG_WITH_THIS_MENUOBJECT("show-only-for-keyboard class? %s", mShowOnlyForKb ? "Yes" : "No");
+  DEBUG_WITH_THIS_MENUOBJECT("menuitem-with-favicon class? %s", mWithFavicon ? "Yes" : "No");
 }
 
 PRBool
@@ -657,6 +671,7 @@ uGlobalMenuObject::UpdateVisibility()
 void
 uGlobalMenuObject::SyncIconFromContent()
 {
+  TRACE_WITH_THIS_MENUOBJECT();
   if (!mIconLoader) {
     mIconLoader = new uGlobalMenuIconLoader(this);
   }

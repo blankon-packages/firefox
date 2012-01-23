@@ -56,6 +56,7 @@
 #include "uWidgetAtoms.h"
 
 #include "uDebug.h"
+#include "compat.h"
 
 class RegisterWindowCbData
 {
@@ -360,13 +361,13 @@ uGlobalMenuService::RegisterNotification(nsIObserver *aObserver)
   NS_ENSURE_TRUE(os, NS_ERROR_OUT_OF_MEMORY);
 
   nsresult rv;
-  rv = os->AddObserver(aObserver, "native-menu-service:online", PR_FALSE);
+  rv = os->AddObserver(aObserver, "native-menu-service:online", MOZ_API_FALSE);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  rv = os->AddObserver(aObserver, "native-menu-service:offline", PR_FALSE);
+  rv = os->AddObserver(aObserver, "native-menu-service:offline", MOZ_API_FALSE);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  rv = os->AddObserver(aObserver, "native-menu-service:popup-open", PR_FALSE);
+  rv = os->AddObserver(aObserver, "native-menu-service:popup-open", MOZ_API_FALSE);
   return rv;
 }
 
@@ -393,7 +394,7 @@ uGlobalMenuService::UnregisterNotification(nsIObserver *aObserver)
 
 /* readonly attribute boolean online; */
 NS_IMETHODIMP
-uGlobalMenuService::GetOnline(PRBool *online)
+uGlobalMenuService::GetOnline(MOZ_API_BOOL *online)
 {
   NS_ENSURE_ARG_POINTER(online);
   *online = !!mOnline;

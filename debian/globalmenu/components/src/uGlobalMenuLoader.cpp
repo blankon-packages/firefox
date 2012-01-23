@@ -56,6 +56,7 @@
 #include "uGlobalMenuLoader.h"
 
 #include "uDebug.h"
+#include "compat.h"
 
 // XXX: The sole purpose of this class is to listen for new nsIXULWindows
 //      and do the task that xpfe/appshell/src/nsWebShellWindow.cpp
@@ -143,7 +144,7 @@ uGlobalMenuLoader::RegisterAllMenus()
     return;
   }
 
-  PRBool hasMore;
+  MOZ_API_BOOL hasMore;
   iter->HasMoreElements(&hasMore);
 
   while (hasMore) {
@@ -177,7 +178,7 @@ uGlobalMenuLoader::Init()
 
   wm->AddListener(this);
 
-  PRBool online;
+  MOZ_API_BOOL online;
   mService->GetOnline(&online);
   if (online) {
     RegisterAllMenus();

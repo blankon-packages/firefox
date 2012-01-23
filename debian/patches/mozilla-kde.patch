@@ -8,8 +8,8 @@ Forwarded: no
 
 Index: mozilla/modules/libpref/src/Makefile.in
 ===================================================================
---- mozilla.orig/modules/libpref/src/Makefile.in	2011-09-29 00:58:18.000000000 +0100
-+++ mozilla/modules/libpref/src/Makefile.in	2011-09-29 09:43:33.999451601 +0100
+--- mozilla.orig/modules/libpref/src/Makefile.in	2012-01-12 10:18:08.000000000 +0000
++++ mozilla/modules/libpref/src/Makefile.in	2012-01-13 10:50:31.287816653 +0000
 @@ -82,6 +82,8 @@
  	$(ELOG) $(CCC) $(OUTOPTION)$@ -c $(COMPILE_CXXFLAGS:-O2=-O1) $(_VPATH_SRCS)
  endif
@@ -19,10 +19,59 @@ Index: mozilla/modules/libpref/src/Makefile.in
  
  greprefs.js: $(GREPREF_FILES)
  	$(PYTHON) $(topsrcdir)/config/Preprocessor.py $(PREF_PPFLAGS) $(DEFINES) $(ACDEFINES) $(XULPPFLAGS) $^ > $@
+Index: mozilla/toolkit/components/downloads/Makefile.in
+===================================================================
+--- mozilla.orig/toolkit/components/downloads/Makefile.in	2012-01-12 10:19:33.000000000 +0000
++++ mozilla/toolkit/components/downloads/Makefile.in	2012-01-13 10:50:31.287816653 +0000
+@@ -80,3 +80,5 @@
+ endif
+ 
+ include $(topsrcdir)/config/rules.mk
++
++LOCAL_INCLUDES += -I$(topsrcdir)/toolkit/xre
+Index: mozilla/toolkit/components/downloads/nsDownloadManager.cpp
+===================================================================
+--- mozilla.orig/toolkit/components/downloads/nsDownloadManager.cpp	2012-01-12 10:19:33.000000000 +0000
++++ mozilla/toolkit/components/downloads/nsDownloadManager.cpp	2012-01-13 10:50:31.287816653 +0000
+@@ -79,6 +79,10 @@
+ #endif
+ #endif
+ 
++#if defined(XP_UNIX) && !defined(XP_MACOSX)
++#include "nsKDEUtils.h"
++#endif
++
+ #ifdef XP_MACOSX
+ #include <CoreFoundation/CoreFoundation.h>
+ #endif
+@@ -2217,6 +2221,15 @@
+         pref->GetBoolPref(PREF_BDM_SHOWALERTONCOMPLETE, &showTaskbarAlert);
+ 
+       if (showTaskbarAlert) {
++        if( nsKDEUtils::kdeSupport()) {
++            nsTArray<nsCString> command;
++            command.AppendElement( NS_LITERAL_CSTRING( "DOWNLOADFINISHED" ));
++            nsAutoString displayName;
++            GetDisplayName( displayName );
++            command.AppendElement( nsCAutoString( ToNewUTF8String( displayName )));
++            nsKDEUtils::command( command );
++        } else {
++        // begin non-KDE block
+         PRInt32 alertInterval = 2000;
+         if (pref)
+           pref->GetIntPref(PREF_BDM_SHOWALERTINTERVAL, &alertInterval);
+@@ -2252,6 +2265,7 @@
+                   EmptyString());
+             }
+         }
++        } // end non-KDE block
+       }
+ 
+ #if defined(XP_WIN) || defined(XP_MACOSX) || defined(ANDROID)
 Index: mozilla/toolkit/content/jar.mn
 ===================================================================
---- mozilla.orig/toolkit/content/jar.mn	2011-09-29 00:59:18.000000000 +0100
-+++ mozilla/toolkit/content/jar.mn	2011-09-29 09:43:33.999451601 +0100
+--- mozilla.orig/toolkit/content/jar.mn	2012-01-12 10:19:51.000000000 +0000
++++ mozilla/toolkit/content/jar.mn	2012-01-13 10:50:31.291816653 +0000
 @@ -45,6 +45,8 @@
  *+ content/global/bindings/colorpicker.xml     (widgets/colorpicker.xml)
  *+ content/global/bindings/datetimepicker.xml  (widgets/datetimepicker.xml)
@@ -43,8 +92,8 @@ Index: mozilla/toolkit/content/jar.mn
  *+ content/global/bindings/resizer.xml         (widgets/resizer.xml)
 Index: mozilla/toolkit/content/widgets/dialog-kde.xml
 ===================================================================
---- mozilla.orig/toolkit/content/widgets/dialog-kde.xml	2011-09-29 09:34:36.623461149 +0100
-+++ mozilla/toolkit/content/widgets/dialog-kde.xml	2011-09-29 09:43:33.999451601 +0100
+--- mozilla.orig/toolkit/content/widgets/dialog-kde.xml	2012-01-13 10:45:33.000000000 +0000
++++ mozilla/toolkit/content/widgets/dialog-kde.xml	2012-01-13 10:50:31.291816653 +0000
 @@ -16,7 +16,7 @@
            
        <xul:hbox class="dialog-button-box" anonid="buttons"
@@ -72,8 +121,8 @@ Index: mozilla/toolkit/content/widgets/dialog-kde.xml
          <xul:button dlgtype="extra2" class="dialog-button" hidden="true"/>
 Index: mozilla/toolkit/content/widgets/preferences-kde.xml
 ===================================================================
---- mozilla.orig/toolkit/content/widgets/preferences-kde.xml	2011-09-29 09:34:36.623461149 +0100
-+++ mozilla/toolkit/content/widgets/preferences-kde.xml	2011-09-29 09:43:33.999451601 +0100
+--- mozilla.orig/toolkit/content/widgets/preferences-kde.xml	2012-01-13 10:45:33.000000000 +0000
++++ mozilla/toolkit/content/widgets/preferences-kde.xml	2012-01-13 10:50:31.291816653 +0000
 @@ -573,7 +573,7 @@
          </xul:deck>
        </xul:hbox>
@@ -101,31 +150,30 @@ Index: mozilla/toolkit/content/widgets/preferences-kde.xml
          <xul:button dlgtype="extra2" class="dialog-button" hidden="true"/>
 Index: mozilla/toolkit/system/unixproxy/nsUnixSystemProxySettings.cpp
 ===================================================================
---- mozilla.orig/toolkit/system/unixproxy/nsUnixSystemProxySettings.cpp	2011-09-29 00:59:37.000000000 +0100
-+++ mozilla/toolkit/system/unixproxy/nsUnixSystemProxySettings.cpp	2011-09-29 09:43:34.003451600 +0100
-@@ -49,6 +49,8 @@
+--- mozilla.orig/toolkit/system/unixproxy/nsUnixSystemProxySettings.cpp	2012-01-12 10:20:54.000000000 +0000
++++ mozilla/toolkit/system/unixproxy/nsUnixSystemProxySettings.cpp	2012-01-13 10:53:14.643813748 +0000
+@@ -49,6 +49,7 @@
  #include "nsPrintfCString.h"
  #include "nsNetUtil.h"
  #include "nsISupportsPrimitives.h"
-+#include "nsVoidArray.h"
 +#include "nsKDEUtils.h"
  
  class nsUnixSystemProxySettings : public nsISystemProxySettings {
  public:
-@@ -65,6 +67,7 @@
-   PRBool IsProxyMode(const char* aMode);
+@@ -65,6 +66,7 @@
+   bool IsProxyMode(const char* aMode);
    nsresult SetProxyResultFromGConf(const char* aKeyBase, const char* aType, nsACString& aResult);
    nsresult GetProxyFromGConf(const nsACString& aScheme, const nsACString& aHost, PRInt32 aPort, nsACString& aResult);
 +  nsresult GetProxyFromKDE(const nsACString& aScheme, const nsACString& aHost, PRInt32 aPort, nsACString& aResult);
  };
  
  NS_IMPL_ISUPPORTS1(nsUnixSystemProxySettings, nsISystemProxySettings)
-@@ -406,12 +409,40 @@
+@@ -406,12 +408,39 @@
    rv = aURI->GetPort(&port);
    NS_ENSURE_SUCCESS(rv, rv);
  
-+  if( nsKDEUtils::kdeSupport())
-+    return GetProxyFromKDE( scheme, host, port, aResult );
++  if (nsKDEUtils::kdeSupport())
++    return GetProxyFromKDE(scheme, host, port, aResult);
 +
    if (!mGConf)
      return GetProxyFromEnvironment(scheme, host, port, aResult);
@@ -135,26 +183,25 @@ Index: mozilla/toolkit/system/unixproxy/nsUnixSystemProxySettings.cpp
  
 +nsresult
 +nsUnixSystemProxySettings::GetProxyFromKDE(const nsACString& aScheme,
-+                                             const nsACString& aHost,
-+                                             PRInt32 aPort,
-+                                             nsACString& aResult)
++                                           const nsACString& aHost,
++                                           PRInt32 aPort,
++                                           nsACString& aResult)
 +{
 +  nsCAutoString url;
 +  url = aScheme;
 +  url += "://";
 +  url += aHost;
-+  if( aPort >= 0 )
-+      {
-+      url += ":";
-+      url += nsPrintfCString("%d", aPort);
-+      }
-+  nsCStringArray command;
-+  command.AppendCString( NS_LITERAL_CSTRING( "GETPROXY" ));
-+  command.AppendCString( url );
-+  nsCStringArray result;
-+  if( !nsKDEUtils::command( command, &result ) || result.Count() != 1 )
-+      return NS_ERROR_FAILURE;
-+  aResult = *result[ 0 ];
++  if (aPort >= 0){
++    url += ":";
++    url += nsPrintfCString("%d", aPort);
++  }
++  nsTArray<nsCString> command;
++  command.AppendElement(NS_LITERAL_CSTRING("GETPROXY"));
++  command.AppendElement(url);
++  nsTArray<nsCString> result;
++  if (!nsKDEUtils::command(command, &result) || result.Length() != 1)
++    return NS_ERROR_FAILURE;
++  aResult = result[0];
 +  return NS_OK;
 +}
 +
@@ -163,9 +210,9 @@ Index: mozilla/toolkit/system/unixproxy/nsUnixSystemProxySettings.cpp
         {0x91, 0x81, 0xa2, 0x85, 0xe7, 0x4c, 0xf1, 0xd4 } }
 Index: mozilla/toolkit/xre/Makefile.in
 ===================================================================
---- mozilla.orig/toolkit/xre/Makefile.in	2011-09-29 00:59:39.000000000 +0100
-+++ mozilla/toolkit/xre/Makefile.in	2011-09-29 09:43:34.003451600 +0100
-@@ -99,7 +99,8 @@
+--- mozilla.orig/toolkit/xre/Makefile.in	2012-01-12 10:21:10.000000000 +0000
++++ mozilla/toolkit/xre/Makefile.in	2012-01-13 10:50:31.291816653 +0000
+@@ -100,7 +100,8 @@
  CPPSRCS += nsNativeAppSupportOS2.cpp
  else
  ifeq ($(MOZ_WIDGET_TOOLKIT),gtk2)
@@ -174,12 +221,12 @@ Index: mozilla/toolkit/xre/Makefile.in
 +EXPORTS += nsKDEUtils.h
  else
  ifeq ($(MOZ_WIDGET_TOOLKIT),qt)
- CPPSRCS += nsNativeAppSupportQt.cpp
+ MOCSRCS += moc_nsNativeAppSupportQt.cpp
 Index: mozilla/toolkit/xre/nsKDEUtils.cpp
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ mozilla/toolkit/xre/nsKDEUtils.cpp	2011-09-29 09:43:34.003451600 +0100
-@@ -0,0 +1,334 @@
++++ mozilla/toolkit/xre/nsKDEUtils.cpp	2012-01-13 10:50:31.291816653 +0000
+@@ -0,0 +1,377 @@
 +/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
 +/* ***** BEGIN LICENSE BLOCK *****
 + * Version: MPL 1.1/GPL 2.0/LGPL 2.1
@@ -219,6 +266,10 @@ Index: mozilla/toolkit/xre/nsKDEUtils.cpp
 +
 +#include "nsKDEUtils.h"
 +#include "nsIWidget.h"
++#include "nsISupportsPrimitives.h"
++#include "nsIMutableArray.h"
++#include "nsComponentManagerUtils.h"
++#include "nsArrayUtils.h"
 +
 +#include <gtk/gtk.h>
 +
@@ -274,9 +325,9 @@ Index: mozilla/toolkit/xre/nsKDEUtils.cpp
 +
 +static bool getKdeSupport()
 +    {
-+    nsCStringArray command;
-+    command.AppendCString( NS_LITERAL_CSTRING( "CHECK" ));
-+    command.AppendCString( NS_LITERAL_CSTRING( MAKE_STR( KMOZILLAHELPER_VERSION )));
++    nsTArray<nsCString> command;
++    command.AppendElement( NS_LITERAL_CSTRING( "CHECK" ));
++    command.AppendElement( NS_LITERAL_CSTRING( MAKE_STR( KMOZILLAHELPER_VERSION )));
 +    bool kde = nsKDEUtils::command( command );
 +#ifdef DEBUG_KDE
 +    fprintf( stderr, "KDE RUNNING %d\n", kde );
@@ -319,7 +370,7 @@ Index: mozilla/toolkit/xre/nsKDEUtils.cpp
 +struct nsKDECommandData
 +    {
 +    FILE* file;
-+    nsCStringArray* output;
++    nsTArray<nsCString>* output;
 +    GMainLoop* loop;
 +    bool success;
 +    };
@@ -343,7 +394,7 @@ Index: mozilla/toolkit/xre/nsKDEUtils.cpp
 +        line.ReplaceSubstring( "\\n", "\n" );
 +        line.ReplaceSubstring( "\\" "\\", "\\" ); //  \\ -> \ , i.e. unescape
 +        if( p->output && !( command_done || command_failed ))
-+            p->output->AppendCString( nsCString( buf )); // TODO utf8?
++            p->output->AppendElement( nsCString( buf )); // TODO utf8?
 +        }
 +    bool quit = false;
 +    if( feof( p->file ) || command_failed )
@@ -365,18 +416,57 @@ Index: mozilla/toolkit/xre/nsKDEUtils.cpp
 +    return TRUE;
 +    }
 +
-+bool nsKDEUtils::command( const nsCStringArray& command, nsCStringArray* output )
++bool nsKDEUtils::command( const nsTArray<nsCString>& command, nsTArray<nsCString>* output )
 +    {
 +    return self()->internalCommand( command, NULL, false, output );
 +    }
 +
-+bool nsKDEUtils::commandBlockUi( const nsCStringArray& command, const GtkWindow* parent, nsCStringArray* output )
++bool nsKDEUtils::command( nsIArray* command, nsIArray** output)
++    {
++    NS_ENSURE_ARG( command );
++
++    nsTArray<nsCString> in;
++    PRUint32 length;
++    command->GetLength( &length );
++    for ( PRUint32 i = 0; i < length; i++ )
++        {
++        nsCOMPtr<nsISupportsCString> str = do_QueryElementAt( command, i );
++        if( str )
++            {
++            nsCAutoString s;
++            str->GetData( s );
++            in.AppendElement( s );
++            }
++        }
++
++    nsTArray<nsCString> out;
++    bool ret = self()->internalCommand( in, NULL, false, &out );
++
++    if ( !output ) return ret;
++
++    nsCOMPtr<nsIMutableArray> result = do_CreateInstance( NS_ARRAY_CONTRACTID );
++    if ( !result ) return false;
++
++    for ( PRUint32 i = 0; i < out.Length(); i++ )
++        {
++        nsCOMPtr<nsISupportsCString> rstr = do_CreateInstance( NS_SUPPORTS_CSTRING_CONTRACTID );
++        if ( !rstr ) return false;
++
++        rstr->SetData( out[i] );
++        result->AppendElement( rstr, false );
++        }
++
++    NS_ADDREF( *output = result);
++    return ret;
++    }
++
++bool nsKDEUtils::commandBlockUi( const nsTArray<nsCString>& command, const GtkWindow* parent, nsTArray<nsCString>* output )
 +    {
 +    return self()->internalCommand( command, parent, true, output );
 +    }
 +
-+bool nsKDEUtils::internalCommand( const nsCStringArray& command, const GtkWindow* parent, bool blockUi,
-+    nsCStringArray* output )
++bool nsKDEUtils::internalCommand( const nsTArray<nsCString>& command, const GtkWindow* parent, bool blockUi,
++    nsTArray<nsCString>* output )
 +    {
 +    if( !startHelper())
 +        return false;
@@ -496,13 +586,13 @@ Index: mozilla/toolkit/xre/nsKDEUtils.cpp
 +    helperRunning = false;
 +    }
 +
-+void nsKDEUtils::feedCommand( const nsCStringArray& command )
++void nsKDEUtils::feedCommand( const nsTArray<nsCString>& command )
 +    {
 +    for( int i = 0;
-+         i < command.Count();
++         i < command.Length();
 +         ++i )
 +        {
-+        nsCString line = *command[ i ];
++        nsCString line = command[ i ];
 +        line.ReplaceSubstring( "\\", "\\" "\\" ); // \ -> \\ , i.e. escape
 +        line.ReplaceSubstring( "\n", "\\n" );
 +#ifdef DEBUG_KDE
@@ -517,8 +607,8 @@ Index: mozilla/toolkit/xre/nsKDEUtils.cpp
 Index: mozilla/toolkit/xre/nsKDEUtils.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ mozilla/toolkit/xre/nsKDEUtils.h	2011-09-29 09:43:34.003451600 +0100
-@@ -0,0 +1,77 @@
++++ mozilla/toolkit/xre/nsKDEUtils.h	2012-01-13 10:50:31.291816653 +0000
+@@ -0,0 +1,80 @@
 +/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*-
 + *
 + * ***** BEGIN LICENSE BLOCK *****
@@ -561,10 +651,12 @@ Index: mozilla/toolkit/xre/nsKDEUtils.h
 +#define nsKDEUtils_h__
 +
 +#include "nsStringGlue.h"
-+#include "nsVoidArray.h"
++#include "nsTArray.h"
 +#include <stdio.h>
 +
 +typedef struct _GtkWindow GtkWindow;
++
++class nsIArray;
 +
 +class NS_EXPORT nsKDEUtils
 +    {
@@ -577,20 +669,21 @@ Index: mozilla/toolkit/xre/nsKDEUtils.h
 +           for Firefox. This should be used everywhere where the external helper is needed. */
 +        static bool kdeSupport();
 +        /* Executes the given helper command, returns true if helper returned success. */
-+        static bool command( const nsCStringArray& command, nsCStringArray* output = NULL );
++        static bool command( const nsTArray<nsCString>& command, nsTArray<nsCString>* output = NULL );
++        static bool command( nsIArray* command, nsIArray** output = NULL );
 +        /* Like command(), but additionally blocks the parent widget like if there was
 +           a modal dialog shown and enters the event loop (i.e. there are still paint updates,
 +           this is for commands that take long). */
-+        static bool commandBlockUi( const nsCStringArray& command, const GtkWindow* parent, nsCStringArray* output = NULL );
++        static bool commandBlockUi( const nsTArray<nsCString>& command, const GtkWindow* parent, nsTArray<nsCString>* output = NULL );
 +    private:
 +        nsKDEUtils();
 +        ~nsKDEUtils();
 +        static nsKDEUtils* self();
 +        bool startHelper();
 +        void closeHelper();
-+        void feedCommand( const nsCStringArray& command );
-+        bool internalCommand( const nsCStringArray& command, const GtkWindow* parent, bool isParent,
-+            nsCStringArray* output );
++        void feedCommand( const nsTArray<nsCString>& command );
++        bool internalCommand( const nsTArray<nsCString>& command, const GtkWindow* parent, bool isParent,
++            nsTArray<nsCString>* output );
 +        FILE* commandFile;
 +        FILE* replyFile;
 +    };
@@ -598,8 +691,8 @@ Index: mozilla/toolkit/xre/nsKDEUtils.h
 +#endif // nsKDEUtils
 Index: mozilla/uriloader/exthandler/Makefile.in
 ===================================================================
---- mozilla.orig/uriloader/exthandler/Makefile.in	2011-09-29 00:59:43.000000000 +0100
-+++ mozilla/uriloader/exthandler/Makefile.in	2011-09-29 09:43:34.003451600 +0100
+--- mozilla.orig/uriloader/exthandler/Makefile.in	2012-01-12 10:21:23.000000000 +0000
++++ mozilla/uriloader/exthandler/Makefile.in	2012-01-13 10:50:31.291816653 +0000
 @@ -93,8 +93,9 @@
              -I$(topsrcdir)/netwerk/protocol/http
  
@@ -614,7 +707,7 @@ Index: mozilla/uriloader/exthandler/Makefile.in
 Index: mozilla/uriloader/exthandler/unix/nsCommonRegistry.cpp
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ mozilla/uriloader/exthandler/unix/nsCommonRegistry.cpp	2011-09-29 09:43:34.003451600 +0100
++++ mozilla/uriloader/exthandler/unix/nsCommonRegistry.cpp	2012-01-13 10:50:31.291816653 +0000
 @@ -0,0 +1,87 @@
 +/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 +/* ***** BEGIN LICENSE BLOCK *****
@@ -662,7 +755,7 @@ Index: mozilla/uriloader/exthandler/unix/nsCommonRegistry.cpp
 +#include "nsVoidArray.h"
 +#include "nsKDEUtils.h"
 +
-+/* static */ PRBool
++/* static */ bool
 +nsCommonRegistry::HandlerExists(const char *aProtocolScheme)
 +{
 +    if( nsKDEUtils::kdeSupport())
@@ -706,7 +799,7 @@ Index: mozilla/uriloader/exthandler/unix/nsCommonRegistry.cpp
 Index: mozilla/uriloader/exthandler/unix/nsCommonRegistry.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ mozilla/uriloader/exthandler/unix/nsCommonRegistry.h	2011-09-29 09:43:34.003451600 +0100
++++ mozilla/uriloader/exthandler/unix/nsCommonRegistry.h	2012-01-13 10:50:31.295816652 +0000
 @@ -0,0 +1,56 @@
 +/* ***** BEGIN LICENSE BLOCK *****
 + * Version: MPL 1.1/GPL 2.0/LGPL 2.1
@@ -753,7 +846,7 @@ Index: mozilla/uriloader/exthandler/unix/nsCommonRegistry.h
 +class nsCommonRegistry
 +{
 + public:
-+  static PRBool HandlerExists(const char *aProtocolScheme);
++  static bool HandlerExists(const char *aProtocolScheme);
 +
 +  static nsresult LoadURL(nsIURI *aURL);
 +
@@ -767,7 +860,7 @@ Index: mozilla/uriloader/exthandler/unix/nsCommonRegistry.h
 Index: mozilla/uriloader/exthandler/unix/nsKDERegistry.cpp
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ mozilla/uriloader/exthandler/unix/nsKDERegistry.cpp	2011-09-29 09:43:34.003451600 +0100
++++ mozilla/uriloader/exthandler/unix/nsKDERegistry.cpp	2012-01-13 10:50:31.295816652 +0000
 @@ -0,0 +1,119 @@
 +/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 +/* ***** BEGIN LICENSE BLOCK *****
@@ -816,23 +909,23 @@ Index: mozilla/uriloader/exthandler/unix/nsKDERegistry.cpp
 +#include "nsAutoPtr.h"
 +#include "nsKDEUtils.h"
 +
-+/* static */ PRBool
++/* static */ bool
 +nsKDERegistry::HandlerExists(const char *aProtocolScheme)
 +{
-+    nsCStringArray command;
-+    command.AppendCString( NS_LITERAL_CSTRING( "HANDLEREXISTS" ));
-+    command.AppendCString( nsCAutoString( aProtocolScheme ));
++    nsTArray<nsCString> command;
++    command.AppendElement( NS_LITERAL_CSTRING( "HANDLEREXISTS" ));
++    command.AppendElement( nsCAutoString( aProtocolScheme ));
 +    return nsKDEUtils::command( command );
 +}
 +
 +/* static */ nsresult
 +nsKDERegistry::LoadURL(nsIURI *aURL)
 +{
-+    nsCStringArray command;
-+    command.AppendCString( NS_LITERAL_CSTRING( "OPEN" ));
++    nsTArray<nsCString> command;
++    command.AppendElement( NS_LITERAL_CSTRING( "OPEN" ));
 +    nsCString url;
 +    aURL->GetSpec( url );
-+    command.AppendCString( url );
++    command.AppendElement( url );
 +    return nsKDEUtils::command( command );
 +}
 +
@@ -840,12 +933,12 @@ Index: mozilla/uriloader/exthandler/unix/nsKDERegistry.cpp
 +nsKDERegistry::GetAppDescForScheme(const nsACString& aScheme,
 +                                     nsAString& aDesc)
 +{
-+    nsCStringArray command;
-+    command.AppendCString( NS_LITERAL_CSTRING( "GETAPPDESCFORSCHEME" ));
-+    command.AppendCString( aScheme );
-+    nsCStringArray output;
-+    if( nsKDEUtils::command( command, &output ) && output.Count() == 1 )
-+        CopyUTF8toUTF16( *output[ 0 ], aDesc );
++    nsTArray<nsCString> command;
++    command.AppendElement( NS_LITERAL_CSTRING( "GETAPPDESCFORSCHEME" ));
++    command.AppendElement( aScheme );
++    nsTArray<nsCString> output;
++    if( nsKDEUtils::command( command, &output ) && output.Length() == 1 )
++        CopyUTF8toUTF16( output[ 0 ], aDesc );
 +}
 +
 +
@@ -853,33 +946,33 @@ Index: mozilla/uriloader/exthandler/unix/nsKDERegistry.cpp
 +nsKDERegistry::GetFromExtension(const nsACString& aFileExt)
 +{
 +    NS_ASSERTION(aFileExt[0] != '.', "aFileExt shouldn't start with a dot");
-+    nsCStringArray command;
-+    command.AppendCString( NS_LITERAL_CSTRING( "GETFROMEXTENSION" ));
-+    command.AppendCString( aFileExt );
++    nsTArray<nsCString> command;
++    command.AppendElement( NS_LITERAL_CSTRING( "GETFROMEXTENSION" ));
++    command.AppendElement( aFileExt );
 +    return GetFromHelper( command );
 +}
 +
 +/* static */ already_AddRefed<nsMIMEInfoBase>
 +nsKDERegistry::GetFromType(const nsACString& aMIMEType)
 +{
-+    nsCStringArray command;
-+    command.AppendCString( NS_LITERAL_CSTRING( "GETFROMTYPE" ));
-+    command.AppendCString( aMIMEType );
++    nsTArray<nsCString> command;
++    command.AppendElement( NS_LITERAL_CSTRING( "GETFROMTYPE" ));
++    command.AppendElement( aMIMEType );
 +    return GetFromHelper( command );
 +}
 +
 +/* static */ already_AddRefed<nsMIMEInfoBase>
-+nsKDERegistry::GetFromHelper(const nsCStringArray& command)
++nsKDERegistry::GetFromHelper(const nsTArray<nsCString>& command)
 +{
-+    nsCStringArray output;
-+    if( nsKDEUtils::command( command, &output ) && output.Count() == 3 )
++    nsTArray<nsCString> output;
++    if( nsKDEUtils::command( command, &output ) && output.Length() == 3 )
 +        {
-+        nsCString mimetype = *output[ 0 ];
++        nsCString mimetype = output[ 0 ];
 +        nsRefPtr<nsMIMEInfoUnix> mimeInfo = new nsMIMEInfoUnix( mimetype );
 +        NS_ENSURE_TRUE(mimeInfo, nsnull);
-+        nsCString description = *output[ 1 ];
++        nsCString description = output[ 1 ];
 +        mimeInfo->SetDescription(NS_ConvertUTF8toUTF16(description));
-+        nsCString handlerAppName = *output[ 2 ];
++        nsCString handlerAppName = output[ 2 ];
 +        mimeInfo->SetDefaultDescription(NS_ConvertUTF8toUTF16(handlerAppName));
 +        mimeInfo->SetPreferredAction(nsIMIMEInfo::useSystemDefault);
 +        nsMIMEInfoBase* retval;
@@ -891,8 +984,8 @@ Index: mozilla/uriloader/exthandler/unix/nsKDERegistry.cpp
 Index: mozilla/uriloader/exthandler/unix/nsKDERegistry.h
 ===================================================================
 --- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ mozilla/uriloader/exthandler/unix/nsKDERegistry.h	2011-09-29 09:43:34.003451600 +0100
-@@ -0,0 +1,61 @@
++++ mozilla/uriloader/exthandler/unix/nsKDERegistry.h	2012-01-13 10:50:31.295816652 +0000
+@@ -0,0 +1,62 @@
 +/* ***** BEGIN LICENSE BLOCK *****
 + * Version: MPL 1.1/GPL 2.0/LGPL 2.1
 + *
@@ -932,15 +1025,16 @@ Index: mozilla/uriloader/exthandler/unix/nsKDERegistry.h
 +
 +#include "nsIURI.h"
 +#include "nsCOMPtr.h"
++#include "nsStringGlue.h"
++#include "nsTArray.h"
 +
 +class nsMIMEInfoBase;
 +class nsCAutoString;
-+class nsCStringArray;
 +
 +class nsKDERegistry
 +{
 + public:
-+  static PRBool HandlerExists(const char *aProtocolScheme);
++  static bool HandlerExists(const char *aProtocolScheme);
 +
 +  static nsresult LoadURL(nsIURI *aURL);
 +
@@ -951,13 +1045,13 @@ Index: mozilla/uriloader/exthandler/unix/nsKDERegistry.h
 +
 +  static already_AddRefed<nsMIMEInfoBase> GetFromType(const nsACString& aMIMEType);
 + private:
-+  static already_AddRefed<nsMIMEInfoBase> GetFromHelper(const nsCStringArray& command);
++  static already_AddRefed<nsMIMEInfoBase> GetFromHelper(const nsTArray<nsCString>& command);
 +
 +};
 Index: mozilla/uriloader/exthandler/unix/nsMIMEInfoUnix.cpp
 ===================================================================
---- mozilla.orig/uriloader/exthandler/unix/nsMIMEInfoUnix.cpp	2011-09-29 00:59:43.000000000 +0100
-+++ mozilla/uriloader/exthandler/unix/nsMIMEInfoUnix.cpp	2011-09-29 09:43:34.003451600 +0100
+--- mozilla.orig/uriloader/exthandler/unix/nsMIMEInfoUnix.cpp	2012-01-12 10:21:24.000000000 +0000
++++ mozilla/uriloader/exthandler/unix/nsMIMEInfoUnix.cpp	2012-01-13 10:50:31.295816652 +0000
 @@ -55,7 +55,7 @@
  #endif
  
@@ -984,9 +1078,9 @@ Index: mozilla/uriloader/exthandler/unix/nsMIMEInfoUnix.cpp
  #if (MOZ_PLATFORM_MAEMO == 5) && defined (MOZ_ENABLE_GNOMEVFS)
    if (NS_FAILED(rv)){
 @@ -100,12 +103,12 @@
- nsMIMEInfoUnix::GetHasDefaultHandler(PRBool *_retval)
+ nsMIMEInfoUnix::GetHasDefaultHandler(bool *_retval)
  {
-   *_retval = PR_FALSE;
+   *_retval = false;
 -  nsRefPtr<nsMIMEInfoBase> mimeInfo = nsGNOMERegistry::GetFromType(mSchemeOrType);
 +  nsRefPtr<nsMIMEInfoBase> mimeInfo = nsCommonRegistry::GetFromType(mSchemeOrType);
    if (!mimeInfo) {
@@ -1003,13 +1097,13 @@ Index: mozilla/uriloader/exthandler/unix/nsMIMEInfoUnix.cpp
  #endif
  
 +  if( nsKDEUtils::kdeSupport()) {
-+    PRBool supports;
++    bool supports;
 +    if( NS_SUCCEEDED( GetHasDefaultHandler( &supports )) && supports ) {
-+      nsCStringArray command;
-+      command.AppendCString( NS_LITERAL_CSTRING( "OPEN" ));
-+      command.AppendCString( nativePath );
-+      command.AppendCString( NS_LITERAL_CSTRING( "MIMETYPE" ));
-+      command.AppendCString( mSchemeOrType );
++      nsTArray<nsCString> command;
++      command.AppendElement( NS_LITERAL_CSTRING( "OPEN" ));
++      command.AppendElement( nativePath );
++      command.AppendElement( NS_LITERAL_CSTRING( "MIMETYPE" ));
++      command.AppendElement( mSchemeOrType );
 +      if( nsKDEUtils::command( command ))
 +        return NS_OK;
 +    }
@@ -1033,8 +1127,8 @@ Index: mozilla/uriloader/exthandler/unix/nsMIMEInfoUnix.cpp
      mimeInfo->GetType(type);
 Index: mozilla/uriloader/exthandler/unix/nsOSHelperAppService.cpp
 ===================================================================
---- mozilla.orig/uriloader/exthandler/unix/nsOSHelperAppService.cpp	2011-09-29 00:59:43.000000000 +0100
-+++ mozilla/uriloader/exthandler/unix/nsOSHelperAppService.cpp	2011-09-29 09:43:34.003451600 +0100
+--- mozilla.orig/uriloader/exthandler/unix/nsOSHelperAppService.cpp	2012-01-12 10:21:24.000000000 +0000
++++ mozilla/uriloader/exthandler/unix/nsOSHelperAppService.cpp	2012-01-13 10:50:31.295816652 +0000
 @@ -49,7 +49,7 @@
  #include "nsOSHelperAppService.h"
  #include "nsMIMEInfoUnix.h"
@@ -1082,8 +1176,8 @@ Index: mozilla/uriloader/exthandler/unix/nsOSHelperAppService.cpp
        return gnomeInfo;
 Index: mozilla/widget/src/gtk2/Makefile.in
 ===================================================================
---- mozilla.orig/widget/src/gtk2/Makefile.in	2011-09-29 00:59:44.000000000 +0100
-+++ mozilla/widget/src/gtk2/Makefile.in	2011-09-29 09:43:34.003451600 +0100
+--- mozilla.orig/widget/src/gtk2/Makefile.in	2012-01-12 10:21:30.000000000 +0000
++++ mozilla/widget/src/gtk2/Makefile.in	2012-01-13 10:50:31.295816652 +0000
 @@ -140,6 +140,9 @@
  		-I$(topsrcdir)/layout/xul/base/src \
  		-I$(topsrcdir)/other-licenses/atk-1.0 \
@@ -1096,17 +1190,17 @@ Index: mozilla/widget/src/gtk2/Makefile.in
  endif
 Index: mozilla/widget/src/gtk2/nsFilePicker.cpp
 ===================================================================
---- mozilla.orig/widget/src/gtk2/nsFilePicker.cpp	2011-09-29 00:59:44.000000000 +0100
-+++ mozilla/widget/src/gtk2/nsFilePicker.cpp	2011-09-29 09:43:34.007451600 +0100
-@@ -36,6 +36,7 @@
-  * ***** END LICENSE BLOCK ***** */
+--- mozilla.orig/widget/src/gtk2/nsFilePicker.cpp	2012-01-12 10:21:30.000000000 +0000
++++ mozilla/widget/src/gtk2/nsFilePicker.cpp	2012-01-13 10:50:31.295816652 +0000
+@@ -38,6 +38,7 @@
+ #include "mozilla/Util.h"
  
  #include <gtk/gtk.h>
 +#include <gdk/gdkx.h>
  
  #include "nsIFileURL.h"
  #include "nsIURI.h"
-@@ -54,6 +55,7 @@
+@@ -56,6 +57,7 @@
  #include "prlink.h"
  
  #include "nsFilePicker.h"
@@ -1114,7 +1208,7 @@ Index: mozilla/widget/src/gtk2/nsFilePicker.cpp
  
  #if (MOZ_PLATFORM_MAEMO == 5)
  #include <hildon-fm-2/hildon/hildon-file-chooser-dialog.h>
-@@ -286,7 +288,9 @@
+@@ -290,7 +292,9 @@
  {
    if (aFilter.EqualsLiteral("..apps")) {
      // No platform specific thing we can do here, really....
@@ -1125,7 +1219,7 @@ Index: mozilla/widget/src/gtk2/nsFilePicker.cpp
    }
  
    nsCAutoString filter, name;
-@@ -434,6 +438,9 @@
+@@ -438,6 +442,9 @@
  NS_IMETHODIMP
  nsFilePicker::Show(PRInt16 *aReturn)
  {
@@ -1135,7 +1229,7 @@ Index: mozilla/widget/src/gtk2/nsFilePicker.cpp
    NS_ENSURE_ARG_POINTER(aReturn);
  
    nsXPIDLCString title;
-@@ -584,3 +591,229 @@
+@@ -588,3 +595,229 @@
  
    return NS_OK;
  }
@@ -1244,47 +1338,47 @@ Index: mozilla/widget/src/gtk2/nsFilePicker.cpp
 +            }
 +        }
 +
-+    nsCStringArray command;
-+    command.AppendCString( nsCAutoString( arg ));
-+    command.AppendCString( startdir );
++    nsTArray<nsCString> command;
++    command.AppendElement( nsCAutoString( arg ));
++    command.AppendElement( startdir );
 +    if( mMode != nsIFilePicker::modeGetFolder )
 +        {
-+        command.AppendCString( filters );
++        command.AppendElement( filters );
 +        nsCAutoString selected;
 +        selected.AppendInt( mSelectedType );
-+        command.AppendCString( selected );
++        command.AppendElement( selected );
 +        }
-+    command.AppendCString( title );
++    command.AppendElement( title );
 +    if( mMode == nsIFilePicker::modeOpenMultiple )
-+        command.AppendCString( NS_LITERAL_CSTRING( "MULTIPLE" ));
++        command.AppendElement( NS_LITERAL_CSTRING( "MULTIPLE" ));
 +    if( PRInt32 xid = windowToXid( mParentWidget ))
 +        {
-+        command.AppendCString( NS_LITERAL_CSTRING( "PARENT" ));
++        command.AppendElement( NS_LITERAL_CSTRING( "PARENT" ));
 +        nsCAutoString parent;
 +        parent.AppendInt( xid );
-+        command.AppendCString( parent );
++        command.AppendElement( parent );
 +        }
 +
-+    nsCStringArray output;
++    nsTArray<nsCString> output;
 +    if( nsKDEUtils::commandBlockUi( command, get_gtk_window_for_nsiwidget( mParentWidget ), &output ))
 +        {
 +        *aReturn = nsIFilePicker::returnOK;
 +        mFiles.Clear();
 +        if( mMode != nsIFilePicker::modeGetFolder )
 +            {
-+            mSelectedType = atoi( output[ 0 ]->get());
-+            output.RemoveCStringAt( 0 );
++            mSelectedType = atoi( output[ 0 ].get());
++            output.RemoveElementAt( 0 );
 +            }
 +        if (mMode == nsIFilePicker::modeOpenMultiple)
 +            {
 +            mFileURL.Truncate();
-+            PRUint32 count = output.Count();
++            PRUint32 count = output.Length();
 +            for( PRUint32 i = 0;
 +                 i < count;
 +                 ++i )
 +                {
 +                nsCOMPtr<nsILocalFile> localfile;
-+                nsresult rv = NS_NewNativeLocalFile( *output[ i ],
++                nsresult rv = NS_NewNativeLocalFile( output[ i ],
 +                                      PR_FALSE,
 +                                      getter_AddRefs(localfile));
 +                if (NS_SUCCEEDED(rv))
@@ -1293,14 +1387,14 @@ Index: mozilla/widget/src/gtk2/nsFilePicker.cpp
 +            }
 +        else
 +            {
-+            if( output.Count() == 0 )
++            if( output.Length() == 0 )
 +                mFileURL = nsCString();
 +            else if( mAllowURLs )
-+                mFileURL = *output[ 0 ];
++                mFileURL = output[ 0 ];
 +            else // GetFile() actually requires it to be url even for local files :-/
 +                {
 +                mFileURL = nsCString( "file://" );
-+                mFileURL.Append( *output[ 0 ] );
++                mFileURL.Append( output[ 0 ] );
 +                }
 +            }
 +  // Remember last used directory.
@@ -1320,7 +1414,7 @@ Index: mozilla/widget/src/gtk2/nsFilePicker.cpp
 +            GetFile(getter_AddRefs(file));
 +            if (file)
 +                {
-+                PRBool exists = PR_FALSE;
++                bool exists = PR_FALSE;
 +                file->Exists(&exists);
 +                if (exists) // TODO do overwrite check in the helper app
 +                    *aReturn = nsIFilePicker::returnReplace;
@@ -1342,22 +1436,22 @@ Index: mozilla/widget/src/gtk2/nsFilePicker.cpp
 +    nsXPIDLCString title;
 +    title.Adopt(ToNewUTF8String(mTitle));
 +
-+    nsCStringArray command;
-+    command.AppendCString( NS_LITERAL_CSTRING( "APPSDIALOG" ));
-+    command.AppendCString( title );
++    nsTArray<nsCString> command;
++    command.AppendElement( NS_LITERAL_CSTRING( "APPSDIALOG" ));
++    command.AppendElement( title );
 +    if( PRInt32 xid = windowToXid( mParentWidget ))
 +        {
-+        command.AppendCString( NS_LITERAL_CSTRING( "PARENT" ));
++        command.AppendElement( NS_LITERAL_CSTRING( "PARENT" ));
 +        nsCAutoString parent;
 +        parent.AppendInt( xid );
-+        command.AppendCString( parent );
++        command.AppendElement( parent );
 +        }
 +
-+    nsCStringArray output;
++    nsTArray<nsCString> output;
 +    if( nsKDEUtils::commandBlockUi( command, get_gtk_window_for_nsiwidget( mParentWidget ), &output ))
 +        {
 +        *aReturn = nsIFilePicker::returnOK;
-+        mFileURL = output.Count() > 0 ? *output[ 0 ] : nsCString();
++        mFileURL = output.Length() > 0 ? output[ 0 ] : nsCString();
 +        }
 +    else
 +        {
@@ -1367,8 +1461,8 @@ Index: mozilla/widget/src/gtk2/nsFilePicker.cpp
 +    }
 Index: mozilla/widget/src/gtk2/nsFilePicker.h
 ===================================================================
---- mozilla.orig/widget/src/gtk2/nsFilePicker.h	2011-09-29 00:59:44.000000000 +0100
-+++ mozilla/widget/src/gtk2/nsFilePicker.h	2011-09-29 09:43:34.007451600 +0100
+--- mozilla.orig/widget/src/gtk2/nsFilePicker.h	2012-01-12 10:21:30.000000000 +0000
++++ mozilla/widget/src/gtk2/nsFilePicker.h	2012-01-13 10:50:31.295816652 +0000
 @@ -94,6 +94,12 @@
  
  private:
@@ -1384,8 +1478,8 @@ Index: mozilla/widget/src/gtk2/nsFilePicker.h
  #endif
 Index: mozilla/xpcom/components/Makefile.in
 ===================================================================
---- mozilla.orig/xpcom/components/Makefile.in	2011-09-29 00:59:45.000000000 +0100
-+++ mozilla/xpcom/components/Makefile.in	2011-09-29 09:43:34.007451600 +0100
+--- mozilla.orig/xpcom/components/Makefile.in	2012-01-12 10:21:38.000000000 +0000
++++ mozilla/xpcom/components/Makefile.in	2012-01-13 10:50:31.295816652 +0000
 @@ -99,5 +99,6 @@
  DEFINES	+= -D_IMPL_NS_COM
  
@@ -1395,8 +1489,8 @@ Index: mozilla/xpcom/components/Makefile.in
  endif
 Index: mozilla/xpcom/io/Makefile.in
 ===================================================================
---- mozilla.orig/xpcom/io/Makefile.in	2011-09-29 00:59:46.000000000 +0100
-+++ mozilla/xpcom/io/Makefile.in	2011-09-29 09:43:34.007451600 +0100
+--- mozilla.orig/xpcom/io/Makefile.in	2012-01-12 10:21:40.000000000 +0000
++++ mozilla/xpcom/io/Makefile.in	2012-01-13 10:50:31.295816652 +0000
 @@ -195,7 +195,7 @@
  endif
  endif
@@ -1408,17 +1502,17 @@ Index: mozilla/xpcom/io/Makefile.in
  CFLAGS          += $(MOZ_DBUS_CFLAGS)
 Index: mozilla/xpcom/io/nsLocalFileUnix.cpp
 ===================================================================
---- mozilla.orig/xpcom/io/nsLocalFileUnix.cpp	2011-09-29 00:59:46.000000000 +0100
-+++ mozilla/xpcom/io/nsLocalFileUnix.cpp	2011-09-29 09:43:34.007451600 +0100
-@@ -92,6 +92,7 @@
+--- mozilla.orig/xpcom/io/nsLocalFileUnix.cpp	2012-01-12 10:21:40.000000000 +0000
++++ mozilla/xpcom/io/nsLocalFileUnix.cpp	2012-01-13 10:50:31.299816651 +0000
+@@ -95,6 +95,7 @@
  #ifdef MOZ_WIDGET_GTK2
  #include "nsIGIOService.h"
  #include "nsIGnomeVFSService.h"
 +#include "nsKDEUtils.h"
  #endif
  
- #ifdef XP_MACOSX
-@@ -1790,21 +1791,13 @@
+ #ifdef MOZ_WIDGET_COCOA
+@@ -1800,21 +1801,13 @@
  nsLocalFile::Reveal()
  {
  #ifdef MOZ_WIDGET_GTK2
@@ -1428,7 +1522,7 @@ Index: mozilla/xpcom/io/nsLocalFileUnix.cpp
 -        return NS_ERROR_FAILURE;
 -
 +    nsCAutoString url;
-     PRBool isDirectory;
+     bool isDirectory;
      if (NS_FAILED(IsDirectory(&isDirectory)))
          return NS_ERROR_FAILURE;
  
@@ -1442,7 +1536,7 @@ Index: mozilla/xpcom/io/nsLocalFileUnix.cpp
      } else {
          nsCOMPtr<nsIFile> parentDir;
          nsCAutoString dirPath;
-@@ -1813,11 +1806,25 @@
+@@ -1823,11 +1816,25 @@
          if (NS_FAILED(parentDir->GetNativePath(dirPath)))
              return NS_ERROR_FAILURE;
  
@@ -1450,112 +1544,63 @@ Index: mozilla/xpcom/io/nsLocalFileUnix.cpp
 -            return giovfs->ShowURIForInput(dirPath);
 -        else 
 -            return gnomevfs->ShowURIForInput(dirPath);        
-+        url = dirPath;
++        url = dirPath;        
 +    }
 +
 +    if(nsKDEUtils::kdeSupport()) {
-+      nsCStringArray command;
-+      command.AppendCString( NS_LITERAL_CSTRING( "OPEN" ));
-+      command.AppendCString( url );
-+      return nsKDEUtils::command( command ) ? NS_OK : NS_ERROR_FAILURE;
++        nsTArray<nsCString> command;
++        command.AppendElement( NS_LITERAL_CSTRING( "OPEN" ));
++        command.AppendElement( url );
++        return nsKDEUtils::command( command ) ? NS_OK : NS_ERROR_FAILURE;
      }
 +
 +    nsCOMPtr<nsIGIOService> giovfs = do_GetService(NS_GIOSERVICE_CONTRACTID);
 +    nsCOMPtr<nsIGnomeVFSService> gnomevfs = do_GetService(NS_GNOMEVFSSERVICE_CONTRACTID);
 +    if (!giovfs && !gnomevfs)
-+      return NS_ERROR_FAILURE;
++        return NS_ERROR_FAILURE;
 +
 +    if (giovfs)
-+      return giovfs->ShowURIForInput(url);
++        return giovfs->ShowURIForInput(url);
 +    else
-+      return gnomevfs->ShowURIForInput(url);
- #elif defined(XP_MACOSX)
++        return gnomevfs->ShowURIForInput(url);
+ #elif defined(MOZ_WIDGET_COCOA)
      CFURLRef url;
      if (NS_SUCCEEDED(GetCFURL(&url))) {
-@@ -1853,6 +1860,13 @@
+@@ -1863,6 +1870,13 @@
        return NS_ERROR_FAILURE;
      return NS_OK;
  #else
 +    if( nsKDEUtils::kdeSupport()) {
-+      nsCStringArray command;
-+      command.AppendCString( NS_LITERAL_CSTRING( "OPEN" ));
-+      command.AppendCString( mPath );
++      nsTArray<nsCString> command;
++      command.AppendElement( NS_LITERAL_CSTRING( "OPEN" ));
++      command.AppendElement( mPath );
 +      return nsKDEUtils::command( command ) ? NS_OK : NS_ERROR_FAILURE;
 +    }
 +
      nsCOMPtr<nsIGIOService> giovfs = do_GetService(NS_GIOSERVICE_CONTRACTID);
      nsCOMPtr<nsIGnomeVFSService> gnomevfs = do_GetService(NS_GNOMEVFSSERVICE_CONTRACTID);
      if (giovfs) {
-Index: mozilla/toolkit/components/downloads/nsDownloadManager.cpp
-===================================================================
---- mozilla.orig/toolkit/components/downloads/nsDownloadManager.cpp	2011-09-29 00:59:10.000000000 +0100
-+++ mozilla/toolkit/components/downloads/nsDownloadManager.cpp	2011-09-29 09:43:34.011451602 +0100
-@@ -76,6 +76,10 @@
- #endif
- #endif
- 
-+#if defined(XP_UNIX) && !defined(XP_MACOSX)
-+#include "nsKDEUtils.h"
-+#endif
-+
- #ifdef XP_MACOSX
- #include <CoreFoundation/CoreFoundation.h>
- #endif
-@@ -2206,6 +2210,15 @@
-         pref->GetBoolPref(PREF_BDM_SHOWALERTONCOMPLETE, &showTaskbarAlert);
- 
-       if (showTaskbarAlert) {
-+        if( nsKDEUtils::kdeSupport()) {
-+            nsCStringArray command;
-+            command.AppendCString( NS_LITERAL_CSTRING( "DOWNLOADFINISHED" ));
-+            nsAutoString displayName;
-+            GetDisplayName( displayName );
-+            command.AppendCString( nsCAutoString( ToNewUTF8String( displayName )));
-+            nsKDEUtils::command( command );
-+        } else {
-+        // begin non-KDE block
-         PRInt32 alertInterval = 2000;
-         if (pref)
-           pref->GetIntPref(PREF_BDM_SHOWALERTINTERVAL, &alertInterval);
-@@ -2241,6 +2254,7 @@
-                   EmptyString());
-             }
-         }
-+        } // end non-KDE block
-       }
- 
- #if defined(XP_WIN) || defined(XP_MACOSX) || defined(ANDROID)
-Index: mozilla/toolkit/components/downloads/Makefile.in
-===================================================================
---- mozilla.orig/toolkit/components/downloads/Makefile.in	2011-09-29 00:59:09.000000000 +0100
-+++ mozilla/toolkit/components/downloads/Makefile.in	2011-09-29 09:43:34.011451602 +0100
-@@ -80,3 +80,5 @@
- endif
- 
- include $(topsrcdir)/config/rules.mk
-+
-+LOCAL_INCLUDES += -I$(topsrcdir)/toolkit/xre
 Index: mozilla/xpcom/components/ManifestParser.cpp
 ===================================================================
---- mozilla.orig/xpcom/components/ManifestParser.cpp	2011-09-29 00:59:45.000000000 +0100
-+++ mozilla/xpcom/components/ManifestParser.cpp	2011-09-29 09:43:34.011451602 +0100
-@@ -65,6 +65,7 @@
+--- mozilla.orig/xpcom/components/ManifestParser.cpp	2012-01-12 10:21:38.000000000 +0000
++++ mozilla/xpcom/components/ManifestParser.cpp	2012-01-13 10:55:56.979810865 +0000
+@@ -67,6 +67,7 @@
  #include "nsIScriptError.h"
  #include "nsIXULAppInfo.h"
  #include "nsIXULRuntime.h"
 +#include "nsKDEUtils.h"
  
- struct ManifestDirective
- {
-@@ -435,6 +436,7 @@
-   NS_NAMED_LITERAL_STRING(kOs, "os");
-   NS_NAMED_LITERAL_STRING(kOsVersion, "osversion");
-   NS_NAMED_LITERAL_STRING(kABI, "abi");
+ using namespace mozilla;
+ 
+@@ -442,6 +443,7 @@
+ #if defined(ANDROID)
+   NS_NAMED_LITERAL_STRING(kTablet, "tablet");
+ #endif
 +  NS_NAMED_LITERAL_STRING(kDesktop, "desktop");
  
    // Obsolete
    NS_NAMED_LITERAL_STRING(kXPCNativeWrappers, "xpcnativewrappers");
-@@ -479,6 +481,7 @@
+@@ -486,6 +488,7 @@
    }
  
    nsAutoString osVersion;
@@ -1563,15 +1608,15 @@ Index: mozilla/xpcom/components/ManifestParser.cpp
  #if defined(XP_WIN)
    OSVERSIONINFO info = { sizeof(OSVERSIONINFO) };
    if (GetVersionEx(&info)) {
-@@ -486,6 +489,7 @@
+@@ -493,6 +496,7 @@
                                           info.dwMajorVersion,
                                           info.dwMinorVersion);
    }
 +  desktop = NS_LITERAL_STRING("win");
- #elif defined(XP_MACOSX)
+ #elif defined(MOZ_WIDGET_COCOA)
    SInt32 majorVersion, minorVersion;
    if ((Gestalt(gestaltSystemVersionMajor, &majorVersion) == noErr) &&
-@@ -494,14 +498,17 @@
+@@ -501,16 +505,19 @@
                                           majorVersion,
                                           minorVersion);
    }
@@ -1582,22 +1627,24 @@ Index: mozilla/xpcom/components/ManifestParser.cpp
                                         gtk_minor_version);
 +  desktop = nsKDEUtils::kdeSession() ? NS_LITERAL_STRING("kde") : NS_LITERAL_STRING("gnome");
  #elif defined(ANDROID)
+   bool isTablet = false;
    if (mozilla::AndroidBridge::Bridge()) {
      mozilla::AndroidBridge::Bridge()->GetStaticStringField("android/os/Build$VERSION", "RELEASE", osVersion);
+     isTablet = mozilla::AndroidBridge::Bridge()->IsTablet();
    }
 +  desktop = NS_LITERAL_STRING("android");
  #endif
  
    // Because contracts must be registered after CIDs, we save and process them
-@@ -590,6 +597,7 @@
-     TriState stABI = eUnspecified;
+@@ -602,6 +609,7 @@
+ #endif
      bool platform = false;
      bool contentAccessible = false;
 +    TriState stDesktop = eUnspecified;
  
      while (NULL != (token = nsCRT::strtok(whitespace, kWhitespace, &whitespace)) && ok) {
        ToLowerCase(token);
-@@ -598,6 +606,7 @@
+@@ -610,6 +618,7 @@
        if (CheckStringFlag(kApplication, wtoken, appID, stApp) ||
            CheckStringFlag(kOs, wtoken, osTarget, stOs) ||
            CheckStringFlag(kABI, wtoken, abi, stABI) ||
@@ -1605,11 +1652,11 @@ Index: mozilla/xpcom/components/ManifestParser.cpp
            CheckVersionFlag(kOsVersion, wtoken, osVersion, stOsVersion) ||
            CheckVersionFlag(kAppVersion, wtoken, appVersion, stAppVersion) ||
            CheckVersionFlag(kGeckoVersion, wtoken, geckoVersion, stGeckoVersion))
-@@ -628,6 +637,7 @@
+@@ -648,6 +657,7 @@
          stGeckoVersion == eBad ||
          stOs == eBad ||
          stOsVersion == eBad ||
 +        stDesktop == eBad ||
-         stABI == eBad)
-       continue;
- 
+ #ifdef ANDROID
+         stTablet == eBad ||
+ #endif

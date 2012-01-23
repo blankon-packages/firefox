@@ -65,6 +65,7 @@
 #include "uWidgetAtoms.h"
 
 #include "uDebug.h"
+#include "compat.h"
 
 #define MODIFIER_SHIFT    1
 #define MODIFIER_CONTROL  2
@@ -222,19 +223,19 @@ uGlobalMenuBar::Init(nsIWidget *aWindow,
 
   mDocTarget->AddEventListener(NS_LITERAL_STRING("focus"),
                                mEventListener,
-                               PR_TRUE);
+                               MOZ_API_TRUE);
   mDocTarget->AddEventListener(NS_LITERAL_STRING("blur"),
                                mEventListener,
-                               PR_TRUE);
+                               MOZ_API_TRUE);
   mDocTarget->AddEventListener(NS_LITERAL_STRING("keypress"),
                                mEventListener,
-                               PR_FALSE);
+                               MOZ_API_FALSE);
   mDocTarget->AddEventListener(NS_LITERAL_STRING("keydown"),
                                mEventListener,
-                               PR_FALSE);
+                               MOZ_API_FALSE);
   mDocTarget->AddEventListener(NS_LITERAL_STRING("keyup"),
                                mEventListener,
-                               PR_FALSE);
+                               MOZ_API_FALSE);
 
   nsCOMPtr<nsIPrefBranch> prefs = do_GetService(NS_PREFSERVICE_CONTRACTID);
   NS_ENSURE_TRUE(prefs, NS_ERROR_FAILURE);
@@ -308,7 +309,7 @@ PRUint32
 uGlobalMenuBar::GetModifiersFromEvent(nsIDOMKeyEvent *aKeyEvent)
 {
   PRUint32 modifiers = 0;
-  PRBool modifier;
+  MOZ_API_BOOL modifier;
 
   aKeyEvent->GetAltKey(&modifier);
   if (modifier) {
@@ -358,7 +359,7 @@ uGlobalMenuBar::SetXULMenuBarHidden(PRBool hidden)
     if (mHiddenElement) {
       mHiddenElement->SetAttr(kNameSpaceID_None, uWidgetAtoms::hidden,
                               mRestoreHidden ? NS_LITERAL_STRING("true") :
-                              NS_LITERAL_STRING("false"), PR_TRUE);
+                              NS_LITERAL_STRING("false"), MOZ_API_TRUE);
     }
     nsIContent *tmp = mContent;
 
@@ -378,11 +379,11 @@ uGlobalMenuBar::SetXULMenuBarHidden(PRBool hidden)
                                                  eCaseMatters);
 
     mHiddenElement->SetAttr(kNameSpaceID_None, uWidgetAtoms::hidden,
-                            NS_LITERAL_STRING("true"), PR_TRUE);
+                            NS_LITERAL_STRING("true"), MOZ_API_TRUE);
   } else if (mHiddenElement) {
     mHiddenElement->SetAttr(kNameSpaceID_None, uWidgetAtoms::hidden,
                             mRestoreHidden ? NS_LITERAL_STRING("true") :
-                            NS_LITERAL_STRING("false"), PR_TRUE);
+                            NS_LITERAL_STRING("false"), MOZ_API_TRUE);
     mHiddenElement = nsnull;
   }
 }
@@ -401,19 +402,19 @@ uGlobalMenuBar::~uGlobalMenuBar()
   if (mDocTarget) {
     mDocTarget->RemoveEventListener(NS_LITERAL_STRING("focus"),
                                     mEventListener,
-                                    PR_TRUE);
+                                    MOZ_API_TRUE);
     mDocTarget->RemoveEventListener(NS_LITERAL_STRING("blur"),
                                     mEventListener,
-                                    PR_TRUE);
+                                    MOZ_API_TRUE);
     mDocTarget->RemoveEventListener(NS_LITERAL_STRING("keypress"),
                                     mEventListener,
-                                    PR_FALSE);
+                                    MOZ_API_FALSE);
     mDocTarget->RemoveEventListener(NS_LITERAL_STRING("keydown"),
                                     mEventListener,
-                                    PR_FALSE);
+                                    MOZ_API_FALSE);
     mDocTarget->RemoveEventListener(NS_LITERAL_STRING("keyup"),
                                     mEventListener,
-                                    PR_FALSE);
+                                    MOZ_API_FALSE);
   }
 
   if (mListener) {
@@ -475,7 +476,7 @@ uGlobalMenuBar::ShouldHandleKeyEvent(nsIDOMEvent *aKeyEvent)
   }
 #endif
 
-  PRBool handled, trusted;
+  MOZ_API_BOOL handled, trusted;
   nsEvent->GetPreventDefault(&handled);
   nsEvent->GetIsTrusted(&trusted);
 
