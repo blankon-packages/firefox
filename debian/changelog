@@ -1,3 +1,15 @@
+firefox (10.0~b6+build1-0ubuntu1+blankon1) rote; urgency=low
+
+  * New upstream updates
+  
+ -- Rahman Yusri Aftian <aftian@di.blankon.in>  Mon, 30 Jan 2012 13:32:29 +0000
+
+firefox (10.0~b6+build1-0ubuntu1) precise; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_10_0b6_BUILD1)
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Thu, 26 Jan 2012 19:39:54 +0000
+
 firefox (10.0~b5+build1-0ubuntu1+blankon1) rote; urgency=low
 
   * Initial impor
