@@ -1,3 +1,0 @@
-?package(@MOZ_APP_NAME@):needs="x11" section="Applications/Network/Web Browsing" \
-  title="@MOZ_DISPLAY_NAME@ Browser" command="/usr/bin/@MOZ_APP_NAME@" hints="Web browsers" \
-  icon="/usr/share/pixmaps/@MOZ_APP_NAME@.xpm"

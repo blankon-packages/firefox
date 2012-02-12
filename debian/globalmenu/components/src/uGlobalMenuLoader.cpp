@@ -289,7 +289,12 @@ uGlobalMenuLoader::OnProgressChange(nsIWebProgress *aWebProgress,
 NS_IMETHODIMP
 uGlobalMenuLoader::OnLocationChange(nsIWebProgress *aWebProgress,
                                     nsIRequest *aRequest,
+#if MOZILLA_BRANCH_MAJOR_VERSION <= 10
                                     nsIURI *aLocation)
+#else
+                                    nsIURI *aLocation,
+                                    PRUint32 aFlags)
+#endif
 {
   return NS_ERROR_NOT_IMPLEMENTED;
 }

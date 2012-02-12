@@ -1,23 +1,107 @@
-firefox (10.0~b6+build1-0ubuntu1+blankon1) rote; urgency=low
-
-  * New upstream updates
+firefox (11.0~b2+build1-0ubuntu1+blankon1) rote; urgency=low
   
- -- Rahman Yusri Aftian <aftian@di.blankon.in>  Mon, 30 Jan 2012 13:32:29 +0000
+  * Initial impor
+  * distribution.in branding to BlankOn
+  * debian/control* blankfox
+  * drop ubuntu.patch
+  
+ -- Rahman Yusri Aftian <aftian@di.blankon.in>  Sun, 12 Feb 2012 17:11:40 +0700
+
+firefox (11.0~b2+build1-0ubuntu1) precise; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_11_0b2_BUILD1)
+
+  * Refresh debian/patches/ubuntu-ua-string-changes.patch
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Fri, 10 Feb 2012 20:24:39 +0000
+
+firefox (11.0~b1+build1-0ubuntu1) precise; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_11_0b1_BUILD1)
+    - Fix LP: #875266 - Firefox ignores GNOME3 proxy settings
+    - Fix LP: #857153 - Needs to get accessibility settings from GSettings
+
+  * Update globalmenu-extension to 2.0.3
+  * Ensure that the crash reporter is disabled if rebuilt by Ubuntu
+    derivatives, as there will be no crash symbols for those
+    - update debian/rules
+  * Only add "Ubuntu" to the UA string when being built for Ubuntu
+    - update debian/rules
+  * Drop obsolete Debian menu file
+    - remove debian/firefox.menu.in
+    - don't create a 32x32 xpm icon in debian/rules
+    - drop the imagemagick build-depend in debian/control
+  * Temporarily disable ipdl tests due to build failures. These aren't
+    enabled upstream, anyway
+    - update debian/config/mozconfig.in
+  * Always set the update channel - not setting it at build-time on release
+    builds breaks the extensions.checkCompatibility pref. The only things
+    using it at runtime are nsBlocklistService, Test Pilot (beta + aurora)
+    and the about dialog (where the channel is hidden anyway)
+    - update debian/rules
+    - update debian/firefox.install.in
+  * Don't declare an extra DEB_ENABLE_THUMB2 variable, as it's only used
+    for the mozconfig. Just do the "if DEB_HOST_ARCH == armel" check
+    directly there instead
+    - update debian/rules
+    - update debian/config/mozconfig.in
+  * Fix LP: #898883 - IPC xpcshell tests hang the buildd's. Give all
+    xpcshell tests an X display, as plugin-container won't work without one
+    - update debian/build/testsuite.mk
+  * Turn on all IPC xpcshell tests again
+    - update debian/build/testsute.mk
+  * Drop the default-apps xml file from lucid and maverick - there is
+    already one provided by gnome-control-center, which means that ours
+    is only relevant for nightly builds. It's not worth the extra
+    complexity for this
+    - remove debian/firefox.xml.in
+    - update debian/firefox-gnome-support.install.in
+    - update debian/rules
+  * Ship Test Pilot as a distribution addon, like upstream. This means
+    that the addon manager can update it. It does also mean that it will
+    remain installed in users profiles if they try the beta or aurora
+    builds, but the Feedback button is disabled on release builds
+    - update debian/firefox.install.in
+    - fixes LP: #913357
+  * Drop patches fixed upstream
+    - remove debian/patches/fix-build-failure-without-yarr-jit.patch
+    - remove debian/patches/fix-cursor-handling.patch
+    - update debian/patches/series
+  * Keep the firefox-kde-support suggest on releases older than precise
+    for now
+    - update debian/rules
+  * Ensure that we suggest kmozillahelper on lucid
+    - update debian/rules
+  * Ensure that we replace kubuntu-firefox-installer on lucid
+    - update debian/rules
+  * Don't build with --disable-gconf on precise and newer. There won't be
+    a hard runtime requirement on this from Firefox 12 anyway, and this
+    keeps us closer to the upstream configuration
+    - update debian/config/mozconfig.in
+    - update debian/rules
+  * Call xvfb-run with "-a" in case there are other servers running on the
+    builder
+    - update debian/build/testsuite.mk
+  * Really fix LP: #898883 - IPC xpcshell tests hang the build. What was
+    actually happening is plugin-container would fail to start because all
+    available X connections had been used up by many instances of dbus-launch,
+    spawned each time an xpcshell tried to talk to the session bus. Because
+    we run all of the xpcshell tests with one Xvfb instance, the buses
+    accumulate until the available X connections all run out. To fix this, run
+    all tests requiring a display inside dbus-launch, so we create just a
+    single bus for all xpcshell tests
+    - update debian/build/testsuite.mk
+    - update debian/control{,.in}
+  * Add Ligurian to locale blacklist, as we don't support this in Ubuntu
+    - update debian/config/locales.blacklist
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Thu, 02 Feb 2012 18:40:28 +0000
 
 firefox (10.0~b6+build1-0ubuntu1) precise; urgency=low
 
   * New upstream release from the beta channel (FIREFOX_10_0b6_BUILD1)
 
  -- Chris Coulson <chris.coulson@canonical.com>  Thu, 26 Jan 2012 19:39:54 +0000
-
-firefox (10.0~b5+build1-0ubuntu1+blankon1) rote; urgency=low
-
-  * Initial impor
-  * distribution.in branding to BlankOn
-  * debian/control* blankfox
-  * drop ubuntu.patch
-
- -- Rahman Yusri Aftian <aftian@di.blankon.in>  Mon, 23 Jan 2012 08:06:18 +0700
 
 firefox (10.0~b5+build1-0ubuntu1) precise; urgency=low
 

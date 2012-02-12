@@ -34,11 +34,11 @@ Build-Depends: cdbs,
 	libxrender-dev, 
 	libfreetype6-dev (>= 2.0.1),
 	libgnomevfs2-dev (>= 1:2.0),
-        yasm (>= 1.1),
+	yasm (>= 1.1),
 	xvfb,
-	imagemagick,
 	libdbusmenu-gtk-dev,
-	unzip
+	unzip,
+	dbus-x11
 Standards-Version: 3.9.1
 
 Package: firefox
@@ -54,7 +54,7 @@ Provides: www-browser,
 	${app:Provides}
 Suggests: latex-xft-fonts,
 	libthai0,
-	${app:Suggests}
+	${support:Suggests}
 Breaks: ${app:Breaks}
 Replaces: ${app:Replaces}
 Conflicts: ${app:Conflicts}
@@ -68,7 +68,7 @@ Package: firefox-gnome-support
 Architecture: any
 Section: gnome
 Depends: ${shlibs:Depends}, 
-	${misc:Depends}, 
+	${misc:Depends},
 	firefox
 Provides: ${gs:Provides}
 Replaces: ${gs:Replaces}

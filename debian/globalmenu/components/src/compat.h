@@ -37,11 +37,15 @@
  * ***** END LICENSE BLOCK ***** */
 
 #if MOZILLA_BRANCH_MAJOR_VERSION >= 10
-#define MOZ_API_BOOL bool
-#define MOZ_API_TRUE true
-#define MOZ_API_FALSE false
+# define MOZ_API_BOOL bool
+# define MOZ_API_TRUE true
+# define MOZ_API_FALSE false
 #else
-#define MOZ_API_BOOL PRBool
-#define MOZ_API_TRUE PR_TRUE
-#define MOZ_API_FALSE PR_FALSE
+# define MOZ_API_BOOL PRBool
+# define MOZ_API_TRUE PR_TRUE
+# define MOZ_API_FALSE PR_FALSE
+#endif
+
+#if MOZILLA_BRANCH_MAJOR_VERSION >= 11
+# define nsIDOMNSElement nsIDOMElement
 #endif

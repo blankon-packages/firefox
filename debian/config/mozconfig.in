@@ -12,7 +12,7 @@ ac_add_options --disable-updater
 ac_add_options --enable-application=browser
 ac_add_options --enable-startup-notification
 ac_add_options --with-distribution-id=com.ubuntu
-%%ifdef DEB_ENABLE_THUMB2
+%%if DEB_HOST_ARCH == armel
 ac_add_options --enable-thumb2
 %%endif
 %%if MOZ_OVERRIDE_SHLIBS == system
@@ -48,7 +48,7 @@ mk_add_options MOZ_MAKE_FLAGS=-j4
 %%endif
 %%ifdef MOZ_WANT_UNIT_TESTS
 ac_add_options --enable-tests
-ac_add_options --enable-ipdl-tests
+# ac_add_options --enable-ipdl-tests
 %%else
 ac_add_options --disable-tests
 ac_add_options --disable-ipdl-tests
@@ -96,9 +96,6 @@ mk_add_options PROFILE_GEN_SCRIPT='xvfb-run -a @MOZ_PYTHON@ @TOPSRCDIR@/@MOZ_OBJ
 %%ifdef MOZ_DISABLE_GNOMEVFS
 ac_add_options --disable-gnomevfs
 ac_add_options --enable-gio
-%%endif
-%%ifdef MOZ_DISABLE_GCONF
-ac_add_options --disable-gconf
 %%endif
 %%ifdef MOZ_UPDATE_CHANNEL
 ac_add_options --enable-update-channel=@MOZ_UPDATE_CHANNEL@

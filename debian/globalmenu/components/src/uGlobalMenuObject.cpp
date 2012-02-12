@@ -45,7 +45,9 @@
 #include <nsNetError.h>
 #include <nsNetUtil.h>
 #include <nsIImageToPixbuf.h>
-#include <nsIDOMNSElement.h>
+#if MOZILLA_BRANCH_MAJOR_VERSION < 11
+# include <nsIDOMNSElement.h>
+#endif
 #include <nsIDOMDOMTokenList.h>
 #include <nsIDOMDocument.h>
 #include <nsIDOMWindow.h>
@@ -262,6 +264,8 @@ uGlobalMenuIconLoader::Run()
                           nsnull, nsnull, getter_AddRefs(mIconRequest));
   NS_ENSURE_SUCCESS(rv, rv);
 
+  mIconRequest->RequestDecode();
+
   mImageRect.SetEmpty();
 
   if (domRect) {
@@ -303,8 +307,7 @@ NS_IMETHODIMP
 uGlobalMenuIconLoader::OnStartContainer(imgIRequest *aRequest, imgIContainer *aContainer)
 {
   TRACE_WITH_MENUOBJECT(mMenuItem);
-  aContainer->RequestDecode();
-  return NS_OK;
+  return NS_ERROR_NOT_IMPLEMENTED;
 }
 
 NS_IMETHODIMP
@@ -415,6 +418,7 @@ NS_IMETHODIMP
 uGlobalMenuIconLoader::OnStopDecode(imgIRequest *aRequest, nsresult status,
                                     const PRUnichar *statusArg)
 {
+  TRACE_WITH_MENUOBJECT(mMenuItem);
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
@@ -422,6 +426,12 @@ NS_IMETHODIMP
 uGlobalMenuIconLoader::OnStopRequest(imgIRequest *aRequest, MOZ_API_BOOL aIsLastPart)
 {
   TRACE_WITH_MENUOBJECT(mMenuItem);
+
+  if (mIconRequest) {
+    mIconRequest->Cancel(NS_BINDING_ABORTED);
+    mIconRequest = nsnull;
+  }
+
   return NS_OK;
 }
 
@@ -437,6 +447,14 @@ uGlobalMenuIconLoader::FrameChanged(imgIContainer *aContainer,
 {
   return NS_ERROR_NOT_IMPLEMENTED;
 }
+
+#if MOZILLA_BRANCH_MAJOR_VERSION >= 11
+NS_IMETHODIMP
+uGlobalMenuIconLoader::OnImageIsAnimated(imgIRequest* aRequest)
+{
+  return NS_OK;
+}
+#endif
 
 void
 uGlobalMenuIconLoader::Destroy()

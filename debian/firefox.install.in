@@ -20,13 +20,15 @@ debian/tmp@MOZ_LIBDIR@/extensions/\{972ce4c6-7e08-4474-a285-3208198ce6fd\} /usr/
 %%define SHIP_TESTPILOT
 %%endif
 %%ifdef SHIP_TESTPILOT
-debian/tmp@MOZ_LIBDIR@/distribution/extensions/testpilot@labs.mozilla.com.xpi /usr/lib/@MOZ_APP_NAME@-addons/extensions
+%%ifdef MOZ_SYMLINKED_DIST
+debian/tmp@MOZ_LIBDIR@/distribution/extensions/testpilot@labs.mozilla.com.xpi /usr/lib/@MOZ_APP_NAME@-addons/distribution/extensions
+%%else
+debian/tmp@MOZ_LIBDIR@/distribution/extensions/testpilot@labs.mozilla.com.xpi @MOZ_LIBDIR@/distribution/extensions
+%%endif
 %%endif
 debian/tmp@MOZ_LIBDIR@/*.ini
 
-%%ifdef MOZ_UPDATE_CHANNEL
 debian/tmp@MOZ_LIBDIR@/defaults/pref/channel-prefs.js
-%%endif
 
 debian/@MOZ_APP_NAME@.desktop /usr/share/applications
 

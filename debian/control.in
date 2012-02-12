@@ -32,11 +32,11 @@ Build-Depends: cdbs,
 	mesa-common-dev,
 	libnotify-dev (>= 0.4), @SYSLIBS_BD@
 	libgnomevfs2-dev (>= 1:2.0),
-        yasm (>= 1.1),
+	yasm (>= 1.1),
 	xvfb,
-	imagemagick,
 	libdbusmenu-gtk-dev,
-	unzip
+	unzip,
+	dbus-x11
 Standards-Version: 3.9.1
 
 Package: @MOZ_APP_NAME@
@@ -52,7 +52,7 @@ Provides: www-browser,
 	${app:Provides}
 Suggests: latex-xft-fonts,
 	libthai0,
-	${app:Suggests}
+	${support:Suggests}
 Breaks: ${app:Breaks}
 Replaces: ${app:Replaces}
 Conflicts: ${app:Conflicts}
@@ -66,7 +66,7 @@ Package: @MOZ_APP_NAME@-gnome-support
 Architecture: any
 Section: gnome
 Depends: ${shlibs:Depends}, 
-	${misc:Depends}, 
+	${misc:Depends},
 	@MOZ_APP_NAME@
 Provides: ${gs:Provides}
 Replaces: ${gs:Replaces}

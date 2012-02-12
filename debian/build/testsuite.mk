@@ -28,7 +28,7 @@ $(addprefix debian/stamp-,xpcshell-tests jstestbrowser reftest): export LC_ALL=$
 $(addprefix debian/stamp-,xpcshell-tests): debian/stamp-xpcshell-tests-disable
 
 # Tests that need a X server
-$(addprefix debian/stamp-,jstestbrowser reftest crashtest mochitest): WRAPPER = xvfb-run -s "-screen 0 1024x768x24"
+$(addprefix debian/stamp-,xpcshell-tests jstestbrowser reftest crashtest mochitest): WRAPPER = xvfb-run -a -s "-screen 0 1024x768x24" dbus-launch --exit-with-session
 
 # Run the test!
 $(addprefix debian/stamp-,$(TESTS)):
@@ -39,19 +39,6 @@ $(addprefix debian/stamp-,$(TESTS)):
 debian/stamp-xpcshell-tests-disable: debian/stamp-makefile-build
 	# Hangs without network access
 	rm -f $(CURDIR)/$(MOZ_OBJDIR)$(MOZ_MOZDIR)/_tests/xpcshell/toolkit/components/places/tests/unit/test_404630.js
-
-	# FIXME: IPC tests seem to hang in the buildd's
-	rm -rf $(CURDIR)/$(MOZ_OBJDIR)$(MOZ_MOZDIR)/_tests/xpcshell/chrome/test/unit_ipc
-	rm -rf $(CURDIR)/$(MOZ_OBJDIR)$(MOZ_MOZDIR)/_tests/xpcshell/ipc/testshell/tests
-	rm -rf $(CURDIR)/$(MOZ_OBJDIR)$(MOZ_MOZDIR)/_tests/xpcshell/toolkit/components/contentprefs/tests/unit_ipc
-	rm -rf $(CURDIR)/$(MOZ_OBJDIR)$(MOZ_MOZDIR)/_tests/xpcshell/ipc
-	rm -rf $(CURDIR)/$(MOZ_OBJDIR)$(MOZ_MOZDIR)/_tests/xpcshell/netwerk/cookie/test/unit_ipc
-	rm -rf $(CURDIR)/$(MOZ_OBJDIR)$(MOZ_MOZDIR)/_tests/xpcshell/netwerk/test/unit_ipc
-	rm -rf $(CURDIR)/$(MOZ_OBJDIR)$(MOZ_MOZDIR)/_tests/xpcshell/modules/libpref/test/unit_ipc
-	rm -rf $(CURDIR)/$(MOZ_OBJDIR)$(MOZ_MOZDIR)/_tests/xpcshell/extensions/cookie/test/unit_ipc
-	rm -rf $(CURDIR)/$(MOZ_OBJDIR)$(MOZ_MOZDIR)/_tests/xpcshell/uriloader/exthandler/tests/unit_ipc
-	rm -rf $(CURDIR)/$(MOZ_OBJDIR)$(MOZ_MOZDIR)/_tests/xpcshell/content/base/test/unit_ipc
-	rm -rf $(CURDIR)/$(MOZ_OBJDIR)$(MOZ_MOZDIR)/_tests/xpcshell/toolkit/crashreporter/test/unit_ipc
 
 	# Needs GConf to be running. I guess we need to start with dbus-launch to fix this
 	rm -f $(CURDIR)/$(MOZ_OBJDIR)$(MOZ_MOZDIR)/_tests/xpcshell/browser/components/shell/test/unit/test_421977.js
