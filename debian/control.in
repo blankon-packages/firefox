@@ -3,7 +3,7 @@ Section: web
 Priority: optional
 Maintainer: BlankOn Developers <BlankOn-dev@googlegroups.com>
 XSBC-Original-Maintainer: Ubuntu Mozilla Team <ubuntu-mozillateam@lists.ubuntu.com>
-Vcs-Bzr: http://dev.blankonlinux.or.id/bzr/rote/firefox
+Vcs-Bzr: https://code.launchpad.net/~mozillateam/firefox/firefox-beta.head
 Build-Depends: cdbs,
 	locales,
 	debhelper (>= 5),

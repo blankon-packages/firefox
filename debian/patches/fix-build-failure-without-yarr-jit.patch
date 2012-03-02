@@ -1,0 +1,391 @@
+Description: Fix build failure on platforms where YARR JIT is not supported
+From: https://bug691898.bugzilla.mozilla.org/attachment.cgi?id=596771
+Bug: https://bugzilla.mozilla.org/show_bug.cgi?id=691898
+
+# HG changeset patch
+# Parent 9fb9c1cfc1df49ba616e0cce1586d708b0f3c0c8
+# User Landry Breuil <landry@openbsd.org>
+Use YARR interpreter instead of PCRE on platforms where YARR JIT is not
+supported
+
+Index: mozilla/js/src/Makefile.in
+===================================================================
+--- mozilla.orig/js/src/Makefile.in	2012-02-16 17:43:47.000000000 +0000
++++ mozilla/js/src/Makefile.in	2012-02-23 15:26:31.747464562 +0000
+@@ -361,15 +361,20 @@
+ 
+ ifeq (,$(filter arm% sparc %86 x86_64,$(TARGET_CPU)))
+ 
+-VPATH +=        $(srcdir)/yarr/pcre \
++VPATH +=        $(srcdir)/assembler \
++                $(srcdir)/assembler/wtf \
++                $(srcdir)/yarr \
+ 		$(NULL)
+ 
+ CPPSRCS += \
+-                pcre_compile.cpp \
+-                pcre_exec.cpp \
+-                pcre_tables.cpp \
+-                pcre_xclass.cpp \
+-                pcre_ucp_searchfuncs.cpp \
++                Assertions.cpp \
++                OSAllocatorOS2.cpp \
++                OSAllocatorPosix.cpp \
++                OSAllocatorWin.cpp \
++                PageBlock.cpp \
++                YarrInterpreter.cpp \
++                YarrPattern.cpp \
++                YarrSyntaxChecker.cpp \
+ 		$(NULL)
+ else
+ 
+@@ -921,10 +926,10 @@
+ # Needed to "configure" it correctly.  Unfortunately these
+ # flags wind up being applied to all code in js/src, not just
+ # the code in js/src/assembler.
+-CXXFLAGS += -DUSE_SYSTEM_MALLOC=1 -DENABLE_ASSEMBLER=1
++CXXFLAGS += -DUSE_SYSTEM_MALLOC=1
+ 
+ ifneq (,$(ENABLE_YARR_JIT)$(ENABLE_METHODJIT))
+-CXXFLAGS +=  -DENABLE_JIT=1
++CXXFLAGS +=  -DENABLE_JIT=1 -DENABLE_ASSEMBLER=1
+ endif
+ 
+ INCLUDES +=	-I$(srcdir)/assembler -I$(srcdir)/yarr
+Index: mozilla/js/src/jscntxt.cpp
+===================================================================
+--- mozilla.orig/js/src/jscntxt.cpp	2012-02-16 17:43:59.000000000 +0000
++++ mozilla/js/src/jscntxt.cpp	2012-02-23 15:29:13.011461696 +0000
+@@ -106,7 +106,9 @@
+ #endif
+     waiveGCQuota(false),
+     tempLifoAlloc(TEMP_LIFO_ALLOC_PRIMARY_CHUNK_SIZE),
++#if ENABLE_ASSEMBLER
+     execAlloc(NULL),
++#endif
+     bumpAlloc(NULL),
+     repCache(NULL),
+     dtoaState(NULL),
+@@ -123,7 +125,9 @@
+ {
+     JS_ASSERT(!repCache);
+ 
++#if ENABLE_ASSEMBLER
+     rt->delete_<JSC::ExecutableAllocator>(execAlloc);
++#endif
+     rt->delete_<WTF::BumpPointerAllocator>(bumpAlloc);
+ 
+     if (dtoaState)
+@@ -157,9 +161,11 @@
+     *temporary = tempLifoAlloc.sizeOfExcludingThis(mallocSizeOf);
+ 
+     size_t method = 0, regexp = 0, unused = 0;
++#if ENABLE_ASSEMBLER
+     if (execAlloc)
+         execAlloc->sizeOfCode(&method, &regexp, &unused);
+     JS_ASSERT(method == 0);     /* this execAlloc is only used for regexp code */
++#endif
+     *regexpCode = regexp + unused;
+ 
+     *stackCommitted = stackSpace.sizeOfCommitted();
+@@ -188,6 +194,7 @@
+ #endif
+ }
+ 
++#if ENABLE_ASSEMBLER
+ JSC::ExecutableAllocator *
+ ThreadData::createExecutableAllocator(JSContext *cx)
+ {
+@@ -199,6 +206,7 @@
+         js_ReportOutOfMemory(cx);
+     return execAlloc;
+ }
++#endif
+ 
+ WTF::BumpPointerAllocator *
+ ThreadData::createBumpPointerAllocator(JSContext *cx)
+Index: mozilla/js/src/jsprvtd.h
+===================================================================
+--- mozilla.orig/js/src/jsprvtd.h	2012-02-16 17:44:00.000000000 +0000
++++ mozilla/js/src/jsprvtd.h	2012-02-23 15:26:31.747464562 +0000
+@@ -279,12 +279,13 @@
+ 
+ } /* namespace js */
+ 
++#if ENABLE_ASSEMBLER
+ namespace JSC {
+ 
+ class ExecutableAllocator;
+ 
+ } /* namespace JSC */
+-
++#endif
+ namespace WTF {
+ 
+ class BumpPointerAllocator;
+Index: mozilla/js/src/yarr/wtfbridge.h
+===================================================================
+--- mozilla.orig/js/src/yarr/wtfbridge.h	2012-02-16 17:44:13.000000000 +0000
++++ mozilla/js/src/yarr/wtfbridge.h	2012-02-23 15:26:31.747464562 +0000
+@@ -49,9 +49,7 @@
+ #include "jsprvtd.h"
+ #include "vm/String.h"
+ #include "assembler/wtf/Platform.h"
+-#if ENABLE_YARR_JIT
+ #include "assembler/jit/ExecutableAllocator.h"
+-#endif
+ 
+ namespace JSC { namespace Yarr {
+ 
+Index: mozilla/js/src/vm/RegExpObject.cpp
+===================================================================
+--- mozilla.orig/js/src/vm/RegExpObject.cpp	2012-02-16 17:44:13.000000000 +0000
++++ mozilla/js/src/vm/RegExpObject.cpp	2012-02-23 15:26:31.747464562 +0000
+@@ -392,7 +392,6 @@
+     regexp_trace
+ };
+ 
+-#if ENABLE_YARR_JIT
+ void
+ RegExpPrivateCode::reportYarrError(JSContext *cx, TokenStream *ts, ErrorCode error)
+ {
+@@ -424,42 +423,6 @@
+     }
+ }
+ 
+-#else /* !ENABLE_YARR_JIT */
+-
+-void
+-RegExpPrivateCode::reportPCREError(JSContext *cx, int error)
+-{
+-#define REPORT(msg_) \
+-    JS_ReportErrorFlagsAndNumberUC(cx, JSREPORT_ERROR, js_GetErrorMessage, NULL, msg_); \
+-    return
+-    switch (error) {
+-      case -2: REPORT(JSMSG_REGEXP_TOO_COMPLEX);
+-      case 0: JS_NOT_REACHED("Precondition violation: an error must have occurred.");
+-      case 1: REPORT(JSMSG_TRAILING_SLASH);
+-      case 2: REPORT(JSMSG_TRAILING_SLASH);
+-      case 3: REPORT(JSMSG_REGEXP_TOO_COMPLEX);
+-      case 4: REPORT(JSMSG_BAD_QUANTIFIER);
+-      case 5: REPORT(JSMSG_BAD_QUANTIFIER);
+-      case 6: REPORT(JSMSG_BAD_CLASS_RANGE);
+-      case 7: REPORT(JSMSG_REGEXP_TOO_COMPLEX);
+-      case 8: REPORT(JSMSG_BAD_CLASS_RANGE);
+-      case 9: REPORT(JSMSG_BAD_QUANTIFIER);
+-      case 10: REPORT(JSMSG_UNMATCHED_RIGHT_PAREN);
+-      case 11: REPORT(JSMSG_REGEXP_TOO_COMPLEX);
+-      case 12: REPORT(JSMSG_UNMATCHED_RIGHT_PAREN);
+-      case 13: REPORT(JSMSG_REGEXP_TOO_COMPLEX);
+-      case 14: REPORT(JSMSG_MISSING_PAREN);
+-      case 15: REPORT(JSMSG_BAD_BACKREF);
+-      case 16: REPORT(JSMSG_REGEXP_TOO_COMPLEX);
+-      case 17: REPORT(JSMSG_REGEXP_TOO_COMPLEX);
+-      default:
+-        JS_NOT_REACHED("Precondition violation: unknown PCRE error code.");
+-    }
+-#undef REPORT
+-}
+-
+-#endif /* ENABLE_YARR_JIT */
+-
+ bool
+ js::ParseRegExpFlags(JSContext *cx, JSString *flagStr, RegExpFlag *flagsOut)
+ {
+Index: mozilla/js/src/vm/RegExpObject.h
+===================================================================
+--- mozilla.orig/js/src/vm/RegExpObject.h	2012-02-16 17:44:13.000000000 +0000
++++ mozilla/js/src/vm/RegExpObject.h	2012-02-23 15:26:31.747464562 +0000
+@@ -50,8 +50,6 @@
+ #if ENABLE_YARR_JIT
+ #include "yarr/YarrJIT.h"
+ #include "yarr/YarrSyntaxChecker.h"
+-#else
+-#include "yarr/pcre/pcre.h"
+ #endif
+ 
+ namespace js {
+@@ -240,40 +238,33 @@
+ /* Abstracts away the gross |RegExpPrivate| backend details. */
+ class RegExpPrivateCode
+ {
+-#if ENABLE_YARR_JIT
+     typedef JSC::Yarr::BytecodePattern BytecodePattern;
+     typedef JSC::Yarr::ErrorCode ErrorCode;
++    typedef JSC::Yarr::YarrPattern YarrPattern;
++#if ENABLE_YARR_JIT
+     typedef JSC::Yarr::JSGlobalData JSGlobalData;
+     typedef JSC::Yarr::YarrCodeBlock YarrCodeBlock;
+-    typedef JSC::Yarr::YarrPattern YarrPattern;
+ 
+     /* Note: Native code is valid only if |codeBlock.isFallBack() == false|. */
+     YarrCodeBlock   codeBlock;
+-    BytecodePattern *byteCode;
+-#else
+-    JSRegExp        *compiled;
+ #endif
++    BytecodePattern *byteCode;
+ 
+   public:
+     RegExpPrivateCode()
+       :
+ #if ENABLE_YARR_JIT
+         codeBlock(),
+-        byteCode(NULL)
+-#else
+-        compiled(NULL)
+ #endif
++        byteCode(NULL)
+     { }
+ 
+     ~RegExpPrivateCode() {
+ #if ENABLE_YARR_JIT
+         codeBlock.release();
++#endif
+         if (byteCode)
+             Foreground::delete_<BytecodePattern>(byteCode);
+-#else
+-        if (compiled)
+-            jsRegExpFree(compiled);
+-#endif
+     }
+ 
+     static bool checkSyntax(JSContext *cx, TokenStream *tokenStream, JSLinearString *source) {
+@@ -285,23 +276,17 @@
+         reportYarrError(cx, tokenStream, error);
+         return false;
+ #else
+-# error "Syntax checking not implemented for !ENABLE_YARR_JIT"
++        return true; /* XXX! */
+ #endif
+     }
+ 
+ #if ENABLE_YARR_JIT
+     static inline bool isJITRuntimeEnabled(JSContext *cx);
+-    static void reportYarrError(JSContext *cx, TokenStream *ts, JSC::Yarr::ErrorCode error);
+-#else
+-    static void reportPCREError(JSContext *cx, int error);
+ #endif
++    static void reportYarrError(JSContext *cx, TokenStream *ts, JSC::Yarr::ErrorCode error);
+ 
+     static size_t getOutputSize(size_t pairCount) {
+-#if ENABLE_YARR_JIT
+         return pairCount * 2;
+-#else
+-        return pairCount * 3; /* Should be x2, but PCRE has... needs. */
+-#endif
+     }
+ 
+     inline bool compile(JSContext *cx, JSLinearString &pattern, TokenStream *ts, uintN *parenCount,
+Index: mozilla/js/src/vm/RegExpObject-inl.h
+===================================================================
+--- mozilla.orig/js/src/vm/RegExpObject-inl.h	2012-02-16 17:44:13.000000000 +0000
++++ mozilla/js/src/vm/RegExpObject-inl.h	2012-02-23 15:26:31.751464563 +0000
+@@ -367,6 +367,7 @@
+     return RetType(priv);
+ }
+ 
++#if ENABLE_YARR_JIT
+ /* This function should be deleted once bad Android platforms phase out. See bug 604774. */
+ inline bool
+ detail::RegExpPrivateCode::isJITRuntimeEnabled(JSContext *cx)
+@@ -377,12 +378,12 @@
+     return true;
+ #endif
+ }
++#endif
+ 
+ inline bool
+ detail::RegExpPrivateCode::compile(JSContext *cx, JSLinearString &pattern, TokenStream *ts,
+                                    uintN *parenCount, RegExpFlag flags)
+ {
+-#if ENABLE_YARR_JIT
+     /* Parse the pattern. */
+     ErrorCode yarrError;
+     YarrPattern yarrPattern(pattern, bool(flags & IgnoreCaseFlag), bool(flags & MultilineFlag),
+@@ -399,7 +400,7 @@
+      * case we have to bytecode compile it.
+      */
+ 
+-#ifdef JS_METHODJIT
++#if ENABLE_YARR_JIT && defined(JS_METHODJIT)
+     if (isJITRuntimeEnabled(cx) && !yarrPattern.m_containsBackreferences) {
+         JSC::ExecutableAllocator *execAlloc = cx->threadData()->getOrCreateExecutableAllocator(cx);
+         if (!execAlloc) {
+@@ -420,21 +421,11 @@
+         return false;
+     }
+ 
++#if ENABLE_YARR_JIT
+     codeBlock.setFallBack(true);
++#endif
+     byteCode = byteCompile(yarrPattern, bumpAlloc).get();
+     return true;
+-#else /* !defined(ENABLE_YARR_JIT) */
+-    int error = 0;
+-    compiled = jsRegExpCompile(pattern.chars(), pattern.length(),
+-                  ignoreCase() ? JSRegExpIgnoreCase : JSRegExpDoNotIgnoreCase,
+-                  multiline() ? JSRegExpMultiline : JSRegExpSingleLine,
+-                  parenCount, &error);
+-    if (error) {
+-        reportPCREError(cx, error);
+-        return false;
+-    }
+-    return true;
+-#endif
+ }
+ 
+ inline bool
+@@ -476,19 +467,12 @@
+     else
+         result = JSC::Yarr::execute(codeBlock, chars, start, length, output);
+ #else
+-    result = jsRegExpExecute(cx, compiled, chars, length, start, output, outputCount);
++    result = JSC::Yarr::interpret(byteCode, chars, start, length, output);
+ #endif
+ 
+     if (result == -1)
+         return RegExpRunStatus_Success_NotFound;
+ 
+-#if !ENABLE_YARR_JIT
+-    if (result < 0) {
+-        reportPCREError(cx, result);
+-        return RegExpRunStatus_Error;
+-    }
+-#endif
+-
+     JS_ASSERT(result >= 0);
+     return RegExpRunStatus_Success;
+ }
+Index: mozilla/js/src/jscntxt.h
+===================================================================
+--- mozilla.orig/js/src/jscntxt.h	2012-02-16 17:43:59.000000000 +0000
++++ mozilla/js/src/jscntxt.h	2012-02-23 15:31:13.491459556 +0000
+@@ -153,21 +153,27 @@
+      * Both of these allocators are used for regular expression code which is shared at the
+      * thread-data level.
+      */
++#if ENABLE_ASSEMBLER
+     JSC::ExecutableAllocator    *execAlloc;
++#endif
+     WTF::BumpPointerAllocator   *bumpAlloc;
+     js::RegExpPrivateCache      *repCache;
+ 
++#if ENABLE_ASSEMBLER
+     JSC::ExecutableAllocator *createExecutableAllocator(JSContext *cx);
++#endif
+     WTF::BumpPointerAllocator *createBumpPointerAllocator(JSContext *cx);
+     js::RegExpPrivateCache *createRegExpPrivateCache(JSContext *cx);
+ 
+   public:
++#if ENABLE_ASSEMBLER
+     JSC::ExecutableAllocator *getOrCreateExecutableAllocator(JSContext *cx) {
+         if (execAlloc)
+             return execAlloc;
+ 
+         return createExecutableAllocator(cx);
+     }
++#endif
+ 
+     WTF::BumpPointerAllocator *getOrCreateBumpPointerAllocator(JSContext *cx) {
+         if (bumpAlloc)

@@ -57,9 +57,9 @@ uGlobalMenuDummy::ConstructDbusMenuItem()
   if (!mDbusMenuItem)
     return NS_ERROR_OUT_OF_MEMORY;
 
-  dbusmenu_menuitem_property_set(mDbusMenuItem,
-                                 DBUSMENU_MENUITEM_PROP_VISIBLE,
-                                 FALSE);
+  dbusmenu_menuitem_property_set_bool(mDbusMenuItem,
+                                      DBUSMENU_MENUITEM_PROP_VISIBLE,
+                                      FALSE);
 
   return NS_OK;
 }

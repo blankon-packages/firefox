@@ -17,6 +17,7 @@
   #include <abstractions/dbus-session>
   #include <abstractions/gnome>
   #include <abstractions/nameservice>
+  #include <abstractions/p11-kit>
 
   # Addons
   #include <abstractions/ubuntu-browsers.d/firefox>

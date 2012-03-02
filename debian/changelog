@@ -1,11 +1,59 @@
-firefox (11.0~b2+build1-0ubuntu1+blankon1) rote; urgency=low
-  
+firefox (11.0~b5+build1-0ubuntu1+blankon1) rote; urgency=low
+
   * Initial impor
   * distribution.in branding to BlankOn
   * debian/control* blankfox
-  * drop ubuntu.patch
+  * drop ubuntu.patch.
   
- -- Rahman Yusri Aftian <aftian@di.blankon.in>  Sun, 12 Feb 2012 17:11:40 +0700
+ -- Rahman Yusri Aftian <aftian@di.blankon.in>  Fri, 02 Mar 2012 22:01:19 +0700
+
+firefox (11.0~b5+build1-0ubuntu1) precise; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_11_0b5_BUILD1)
+
+  [ Jamie Strandboge <jamie@ubuntu.com> ]
+  * debian/usr.bin.firefox.apparmor.12.04: fix typo (LP: #941293)
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Fri, 02 Mar 2012 11:20:44 +0000
+
+firefox (11.0~b4+build1-0ubuntu1) precise; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_11_0b4_BUILD1)
+
+  * Update globalmenu-extension to 2.0.4
+    - Add support for Firefox 12
+    - Ensure we correctly hide dummy menu items
+  * Fix LP: #915895 - Just set autoDisableScopes to 0. Other distributions
+    are already doing this, and we already made this feature pretty much
+    useless by allowing extensions in the application directory, so that our
+    language packs aren't disabled by default
+    - update debian/vendor.js
+  * Fix LP: #926495 - Add patch based on one from bmo: #691898 to enable
+    building on ppc again
+    - add debian/patches/fix-build-failure-without-yarr-jit.patch
+    - update debian/patches/series
+  * Fix LP: #939657 - Don't call g_settings_new each time we create a HTTP
+    channel. Doing this causes a dbus roundtrip, and results in us spamming
+    the session bus unnecessarily
+    - add debian/patches/avoid-dbus-roundtrip-for-httpchannel.patch
+    - update debian/patches/series
+  * Fix LP: #894166 - Make Firefox work with our system hyphenation patterns,
+    and stop including our own
+    - update debian/vendor.js
+    - add debian/patches/dont-include-hyphenation-patterns.patch
+    - update debian/patches/series
+
+  [ Jamie Strandboge <jamie@ubuntu.com> ]
+  * debian/usr.bin.firefox.apparmor.12.04: include p11-kit abstraction (only
+    needed on 12.04). LP: #918973
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Fri, 24 Feb 2012 14:55:30 +0000
+
+firefox (11.0~b3+build2-0ubuntu1) precise; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_11_0b3_BUILD2)
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Thu, 16 Feb 2012 21:57:08 +0000
 
 firefox (11.0~b2+build1-0ubuntu1) precise; urgency=low
 

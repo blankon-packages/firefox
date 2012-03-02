@@ -4,4 +4,6 @@ normalize-distribution-searchplugins.patch
 plugin-for-mimetype-pref.patch
 allow-lockPref-everywhere.patch
 autocomplete-theme-tweak.patch
-#fix-build-failure-without-yarr-jit2.patch
+#@ARCH=powerpc@fix-build-failure-without-yarr-jit.patch
+#@DIST=!lucid,maverick,natty@avoid-dbus-roundtrip-for-httpchannel.patch
+dont-include-hyphenation-patterns.patch
