@@ -8,7 +8,7 @@ ifeq (1,$(MOZ_WANT_UNIT_TESTS))
 	TESTS += check xpcshell-tests jstestbrowser reftest crashtest mochitest
 endif
 
-debian/stamp-testsuite: $(addprefix debian/stamp-,$(TESTS))
+run-tests: $(addprefix debian/stamp-,$(TESTS))
 
 $(addprefix debian/stamp-,$(TESTS)): debian/stamp-makefile-build
 

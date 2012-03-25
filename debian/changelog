@@ -1,11 +1,83 @@
-firefox (11.0~b5+build1-0ubuntu1+blankon1) rote; urgency=low
+firefox (11.0+build1-0ubuntu1+blankon1) rote; urgency=low
 
   * Initial impor
   * distribution.in branding to BlankOn
   * debian/control* blankfox
   * drop ubuntu.patch.
   
- -- Rahman Yusri Aftian <aftian@di.blankon.in>  Fri, 02 Mar 2012 22:01:19 +0700
+ -- Rahman Yusri Aftian <aftian@di.blankon.in>  Sun, 25 Mar 2012 11:35:36 +0700
+
+firefox (11.0+build1-0ubuntu1) precise; urgency=low
+
+  * New upstream stable release (FIREFOX_11_0_BUILD1)
+
+  * Clean up search plugin installation now that we build our own
+    language packs:
+    - Drop the recursive symlink from /usr/lib/firefox-addons/searchplugins,
+      which lintian kept complaining about
+    - Don't effectively symlink distribution/searchplugins to searchplugins,
+      as they have different layouts and this avoids the same data being
+      iterated over twice
+    - Revert to the upstream layout in distribution/searchplugins
+    - Simplify distro-locale-searchplugins.patch, as we don't need to swap the
+      loading order of common / locale-specific searchplugin paths now.
+      $LIBDIR/distribution/searchplugins/common is no longer a symlink
+      to $LIBDIR/searchplugins, so there is no need to have the ability for
+      locale-specific plugins to override common ones. They already override
+      those in $LIBDIR/searchplugins
+      - add debian/firefox-locale.preinst.in, which will end up in all
+        language packs to assist the symlink -> folder transition
+      - update debian/firefox.dirs.in
+      - update debian/firefox.install.in
+      - update debian/firefox.links.in
+      - update debian/firefox.preinst.in
+      - update debian/patches/distro-locale-searchplugins.patch
+      - update debian/rules
+  * Fix LP: #807733 - Firefox doesn't restart after upgrades where the version
+    changes. Don't include the version number in the install path, as Firefox
+    cannot re-exec itself. In doing this, we also move the distribution.ini
+    back in to our installation directory, as that never made sense in
+    /usr/lib/firefox-addons
+    - update debian/firefox-dev.install.in
+    - update debian/firefox-dev.links.in
+    - update debian/firefox-locale.preinst.in
+    - update debian/firefox.lintian-overrides.in
+    - update debian/firefox.preinst.in
+    - update debian/rules
+  * Expose distribution/extensions in /usr/lib/firefox-addons, to allow
+    administrators to add extensions that they want to add to default user
+    profiles, and that they want the addon manager to keep updated. We lost
+    this functionality when upgrading from Firefox 3.6, due to the loss of
+    /etc/firefox/profile
+    - update debian/firefox.dirs.in
+    - update debian/firefox.install.in
+    - update debian/firefox.links.in
+    - update debian/firefox.postinst.in
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Tue, 13 Mar 2012 14:05:38 +0000
+
+firefox (11.0~b7+build1-0ubuntu1) precise; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_11_0b7_BUILD1)
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Fri, 09 Mar 2012 11:07:47 +0000
+
+firefox (11.0~b6+build1-0ubuntu1) precise; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_11_0b6_BUILD1)
+
+  [ Jamie Strandboge <jamie@ubuntu.com> ]
+  * debian/usr.bin.firefox.apparmor.*:
+    - allow access to statm and smaps for about:memory (LP: #911494)
+    - allow read access to files in /opt (LP: #728485)
+
+  [ Chris Coulson <chris.coulson@canonical.com> ]
+  * Update debian/patches/fix-build-failure-without-yarr-jit.patch
+  * Fix LP: #926495 - Disable the SPS profiler on unsupported architectures
+    - add debian/patches/no-sps-profiler-on-unsupported-archs.patch
+    - update debian/patches/series
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Thu, 08 Mar 2012 16:15:52 +0000
 
 firefox (11.0~b5+build1-0ubuntu1) precise; urgency=low
 
@@ -144,6 +216,12 @@ firefox (11.0~b1+build1-0ubuntu1) precise; urgency=low
     - update debian/config/locales.blacklist
 
  -- Chris Coulson <chris.coulson@canonical.com>  Thu, 02 Feb 2012 18:40:28 +0000
+
+firefox (10.0+build1-0ubuntu1) precise; urgency=low
+
+  * New upstream stable release (FIREFOX_10_0_BUILD1)
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Mon, 30 Jan 2012 19:03:50 +0000
 
 firefox (10.0~b6+build1-0ubuntu1) precise; urgency=low
 
@@ -287,6 +365,12 @@ firefox (10.0~b1+build1-0ubuntu1) precise; urgency=low
     - update debian/patches/series
 
  -- Chris Coulson <chris.coulson@canonical.com>  Thu, 22 Dec 2011 23:26:50 +0000
+
+firefox (9.0+build1-0ubuntu) UNRELEASED; urgency=low
+
+  * New upstream stable release (FIREFOX_9_0_BUILD1)
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Thu, 15 Dec 2011 22:05:24 +0000
 
 firefox (9.0~b6+build1-0ubuntu1) precise; urgency=low
 

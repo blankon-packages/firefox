@@ -3,10 +3,6 @@ debian/tmp@MOZ_IDLDIR@/
 
 debian/tmp@MOZ_SDKDIR@/sdk/lib/*.a
 debian/tmp@MOZ_SDKDIR@/*.h
-debian/tmp@MOZ_SDKDIR@/bin
-debian/tmp@MOZ_SDKDIR@/idl
-debian/tmp@MOZ_SDKDIR@/include
-debian/tmp@MOZ_SDKDIR@/lib
 debian/tmp@MOZ_SDKDIR@/sdk/bin/
 
 %%ifdef MOZ_LIBXUL_PKGCONFIG

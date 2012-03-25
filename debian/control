@@ -3,7 +3,7 @@ Section: web
 Priority: optional
 Maintainer: BlankOn Developers <BlankOn-dev@googlegroups.com>
 XSBC-Original-Maintainer: Ubuntu Mozilla Team <ubuntu-mozillateam@lists.ubuntu.com>
-Vcs-Bzr: https://code.launchpad.net/~mozillateam/firefox/firefox-beta.head
+Vcs-Bzr: https://code.launchpad.net/~mozillateam/firefox/firefox.head
 Build-Depends: cdbs,
 	locales,
 	debhelper (>= 5),
@@ -575,10 +575,11 @@ Description: Malayalam language pack for Firefox
 Package: firefox-locale-mn
 Architecture: all
 Depends: ${misc:Depends}
-Replaces: language-pack-mn-base
-Description: Mongolian language pack for Firefox
- This package contains Mongolian translations and search plugins
- for Firefox
+Description: Transitional package for unavailable language
+ This language is unavailable for the current version of Firefox
+ .
+ This is an empty transitional package to ensure a clean upgrade
+ process. You can safely remove this package after installation.
 
 Package: firefox-locale-mr
 Architecture: all
@@ -728,10 +729,11 @@ Description: Swedish language pack for Firefox
 Package: firefox-locale-sw
 Architecture: all
 Depends: ${misc:Depends}
-Replaces: language-pack-sw-base
-Description: Swahili language pack for Firefox
- This package contains Swahili translations and search plugins
- for Firefox
+Description: Transitional package for unavailable language
+ This language is unavailable for the current version of Firefox
+ .
+ This is an empty transitional package to ensure a clean upgrade
+ process. You can safely remove this package after installation.
 
 Package: firefox-locale-ta
 Architecture: all

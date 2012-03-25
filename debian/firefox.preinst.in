@@ -7,6 +7,7 @@ APP_PROFILE="usr.bin.@MOZ_APP_NAME@"
 APP_CONFFILE="$APP_DIR/$APP_PROFILE"
 APP_DISABLE="$APP_DIR/disable/$APP_PROFILE"
 APP_NAME=@MOZ_APP_NAME@
+MOZ_LIBDIR=@MOZ_LIBDIR@
 
 # Prepare to move a conffile without triggering a dpkg question
 prepare_mv_conffile() {
@@ -91,6 +92,23 @@ if [ "$1" = "install" ] || [ "$1" = "upgrade" ] ; then
 %%ifdef MOZ_NEW_SYSPREF
     prepare_mv_conffile "${APP_NAME}" "/etc/${APP_NAME}/pref/firefox.js"
 %%endif
+
+%%ifdef MOZ_NO_MORE_SYMLINKED_DIST
+# ${LIBDIR}/distribution was a symlink in 11.10
+    if [ -h ${MOZ_LIBDIR}/distribution ] ; then
+        rm -f ${MOZ_LIBDIR}/distribution
+    fi
+%%endif
+
+# This used to be a symlink
+%%ifdef MOZ_SYMLINKED_DIST
+    if [ -h /usr/lib/${APP_NAME}-addons/distribution/searchplugins ]; then
+        rm -f /usr/lib/${APP_NAME}-addons/distribution/searchplugins
+%%else
+    if [ -h ${MOZ_LIBDIR}/distribution/searchplugins ]; then
+        rm -f ${MOZ_LIBDIR}/distribution/searchplugins
+%%endif
+    fi
 fi
 
 #DEBHELPER#

@@ -1,0 +1,12 @@
+Index: mozilla/tools/profiler/Makefile.in
+===================================================================
+--- mozilla.orig/tools/profiler/Makefile.in	2012-03-07 02:11:41.000000000 +0000
++++ mozilla/tools/profiler/Makefile.in	2012-03-08 15:33:02.506149247 +0000
+@@ -74,7 +74,7 @@
+   Profiler.jsm \
+   $(NULL)
+ 
+-ifneq (,$(filter Android Linux,$(OS_TARGET)))
++ifeq ($(filter-out Android Linux, $(OS_TARGET)),$(filter-out arm% %86 x86_64, $(TARGET_CPU)))
+ 
+ DEFINES += -DMOZ_ENABLE_PROFILER_SPS

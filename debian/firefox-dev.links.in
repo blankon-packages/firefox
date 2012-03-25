@@ -1,3 +1,7 @@
+@MOZ_LIBDIR@ @MOZ_SDKDIR@/bin
+@MOZ_IDLDIR@ @MOZ_SDKDIR@/idl
+@MOZ_INCDIR@ @MOZ_SDKDIR@/include
+@MOZ_SDKDIR@/sdk/lib @MOZ_SDKDIR@/lib
 %%ifdef MOZ_TREE_NSPR
 @MOZ_LIBDIR@/libnspr4.so @MOZ_SDKDIR@/sdk/lib/libnspr4.so
 @MOZ_LIBDIR@/libplc4.so @MOZ_SDKDIR@/sdk/lib/libplc4.so

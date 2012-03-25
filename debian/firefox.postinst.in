@@ -120,7 +120,21 @@ EOM
     if [ ! -e $MOZ_LIBDIR/distribution ]; then
         ln -s /usr/lib/$MOZ_APP_NAME-addons/distribution $MOZ_LIBDIR/distribution
     fi
+%%else
+    if [ -d $MOZ_LIBDIR/distribution/extensions ] && [ ! -h $MOZ_LIBDIR/distribution/extensions ]; then \
+        rmdir --ignore-fail-on-non-empty $MOZ_LIBDIR/distribution/extensions
+    fi
+    if [ ! -e $MOZ_LIBDIR/distribution/extensions ]; then
+        ln -s /usr/lib/$MOZ_APP_NAME-addons/distribution/extensions $MOZ_LIBDIR/distribution/extensions
+    fi
 %%endif
+
+    if [ -d $MOZ_LIBDIR/plugins ] && [ ! -h $MOZ_LIBDIR/plugins ]; then \
+        rmdir --ignore-fail-on-non-empty $MOZ_LIBDIR/plugins
+    fi
+    if [ ! -e $MOZ_LIBDIR/plugins ]; then
+        ln -s /usr/lib/$MOZ_APP_NAME-addons/plugins $MOZ_LIBDIR/plugins
+    fi
 fi
 
 echo "Please restart all running instances of $MOZ_APP_NAME, or you will experience problems."
