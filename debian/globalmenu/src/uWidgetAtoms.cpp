@@ -1,26 +1,27 @@
 /* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* ***** BEGIN LICENSE BLOCK *****
- *	 Version: MPL 1.1/GPL 2.0/LGPL 2.1
+ * Version: MPL 1.1/GPL 2.0/LGPL 2.1
  *
  * The contents of this file are subject to the Mozilla Public License Version
  * 1.1 (the "License"); you may not use this file except in compliance with
  * the License. You may obtain a copy of the License at
  * http://www.mozilla.org/MPL/
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS" basis,
  * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
  * for the specific language governing rights and limitations under the
  * License.
  *
- * The Original Code is globalmenu-extension.
+ * The Original Code is mozilla.org code.
  *
  * The Initial Developer of the Original Code is
- * Canonical Ltd.
- * Portions created by the Initial Developer are Copyright (C) 2010
+ * Netscape Communications Corporation.
+ * Portions created by the Initial Developer are Copyright (C) 1998
  * the Initial Developer. All Rights Reserved.
  *
  * Contributor(s):
- * Chris Coulson <chris.coulson@canonical.com>
+ *   Original Author: Mike Pinkerton (pinkerton@netscape.com)
+ *   Chris Coulson <chris.coulson@canonical.com>
  *
  * Alternatively, the contents of this file may be used under the terms of
  * either the GNU General Public License Version 2 or later (the "GPL"), or
@@ -33,72 +34,53 @@
  * and other provisions required by the GPL or the LGPL. If you do not delete
  * the provisions above, a recipient may use your version of this file under
  * the terms of any one of the MPL, the GPL or the LGPL.
- * 
+ *
  * ***** END LICENSE BLOCK ***** */
 
-#ifndef _U_GLOBALMENUFACTORY_H
-#define _U_GLOBALMENUFACTORY_H
+#include <uWidgetAtoms.h>
+#include <nsDebug.h>
+#include <nsIAtomService.h>
+#include <nsIAtom.h>
+#include <nsServiceManagerUtils.h>
+#include <nsStringAPI.h>
+#include <nsMemory.h>
 
-#include <gio/gio.h>
+#define WIDGET_ATOM(_name, _value) nsIAtom* uWidgetAtoms::_name = 0;
+#include "uWidgetAtomList.h"
+#undef WIDGET_ATOM
 
-class uGlobalMenuObject;
-class uGlobalMenuDocListener;
-class nsIContent;
-class uGlobalMenuBar;
-class nsIAtom;
-
-class uGlobalMenuRequestAutoCanceller
-{
-public:
-  static uGlobalMenuRequestAutoCanceller* Create()
-  {
-    uGlobalMenuRequestAutoCanceller *canceller =
-      new uGlobalMenuRequestAutoCanceller();
-    if (!canceller) {
-      return nsnull;
-    }
-
-    if (!canceller->Init()) {
-      delete canceller;
-      canceller = nsnull;
-    }
-
-    return canceller;
-  }
-
-  GCancellable* GetCancellable()
-  {
-    return mCancellable;
-  }
-
-  void Destroy()
-  {
-    if (mCancellable) {
-      g_object_unref(mCancellable);
-      mCancellable = nsnull;
-    }
-  }
-
-  ~uGlobalMenuRequestAutoCanceller()
-  {
-    if (mCancellable) {
-      g_cancellable_cancel(mCancellable);
-      g_object_unref(mCancellable);
-    }
-  }
-private:
-  uGlobalMenuRequestAutoCanceller() { };
-  PRBool Init()
-  {
-    mCancellable = g_cancellable_new();
-    return mCancellable ? PR_TRUE : PR_FALSE;
-  }
-
-  GCancellable *mCancellable;
+struct uWidgetAtom {
+  const char *raw;
+  nsIAtom **atom;
 };
 
-uGlobalMenuObject* NewGlobalMenuItem(uGlobalMenuObject *aParent,
-                                     uGlobalMenuDocListener *aListener,
-                                     nsIContent *aContent,
-                                     uGlobalMenuBar *aMenuBar);
-#endif
+static const uWidgetAtom atoms[] = {
+#define WIDGET_ATOM(_name, _value) { _value, &uWidgetAtoms::_name },
+#include "uWidgetAtomList.h"
+#undef WIDGET_ATOM
+};
+
+nsresult
+uWidgetAtoms::RegisterAtoms()
+{
+  nsCOMPtr<nsIAtomService> as = do_GetService("@mozilla.org/atom-service;1");
+  if (!as) {
+    NS_WARNING("No atom service, which means it's game over already");
+    return NS_ERROR_FAILURE;
+  }
+
+  nsAutoString aAtomStr;
+  nsCAutoString cAtomStr;
+
+  for (PRUint32 i = 0; i < NS_ARRAY_LENGTH(atoms); i++) {
+    cAtomStr = atoms[i].raw;
+    CopyUTF8toUTF16(cAtomStr, aAtomStr);
+    nsresult rv = as->GetAtom(aAtomStr, atoms[i].atom);
+    if (NS_FAILED(rv)) {
+      NS_WARNING("Failed to get atom");
+      return rv;
+    }
+  }
+
+  return NS_OK;
+}

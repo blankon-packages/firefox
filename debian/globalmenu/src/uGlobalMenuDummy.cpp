@@ -50,22 +50,25 @@
 
 #include "uDebug.h"
 
-nsresult
-uGlobalMenuDummy::ConstructDbusMenuItem()
+void
+uGlobalMenuDummy::InitializeDbusMenuItem()
 {
-  mDbusMenuItem = dbusmenu_menuitem_new();
-  if (!mDbusMenuItem)
-    return NS_ERROR_OUT_OF_MEMORY;
+  if (!mDbusMenuItem) {
+    mDbusMenuItem = dbusmenu_menuitem_new();
+    if (!mDbusMenuItem) {
+      return;
+    }
+  } else {
+    OnlyKeepProperties(static_cast<uMenuObjectProperties>(eVisible));
+  }
 
   dbusmenu_menuitem_property_set_bool(mDbusMenuItem,
                                       DBUSMENU_MENUITEM_PROP_VISIBLE,
                                       FALSE);
-
-  return NS_OK;
 }
 
 uGlobalMenuDummy::uGlobalMenuDummy():
-  uGlobalMenuObject(MenuDummy)
+  uGlobalMenuObject(eMenuDummy)
 {
   MOZ_COUNT_CTOR(uGlobalMenuDummy);
 }
@@ -85,7 +88,7 @@ uGlobalMenuDummy::Init()
   mParent = nsnull;
   mMenuBar = nsnull;
 
-  return ConstructDbusMenuItem();
+  return NS_OK;
 }
 
 /*static*/ uGlobalMenuObject*
@@ -111,26 +114,26 @@ uGlobalMenuDummy::Create()
 // the interface.
 void
 uGlobalMenuDummy::ObserveAttributeChanged(nsIDocument *aDocument,
-                                              nsIContent *aContent,
-                                              nsIAtom *aAttribute)
+                                          nsIContent *aContent,
+                                          nsIAtom *aAttribute)
 {
 
 }
 
 void
 uGlobalMenuDummy::ObserveContentRemoved(nsIDocument *aDocument,
-                                            nsIContent *aContainer,
-                                            nsIContent *aChild,
-                                            PRInt32 aIndexInContainer)
+                                        nsIContent *aContainer,
+                                        nsIContent *aChild,
+                                        PRInt32 aIndexInContainer)
 {
 
 }
 
 void
 uGlobalMenuDummy::ObserveContentInserted(nsIDocument *aDocument,
-                                             nsIContent *aContainer,
-                                             nsIContent *aChild,
-                                             PRInt32 aIndexInContainer)
+                                         nsIContent *aContainer,
+                                         nsIContent *aChild,
+                                         PRInt32 aIndexInContainer)
 {
 
 }

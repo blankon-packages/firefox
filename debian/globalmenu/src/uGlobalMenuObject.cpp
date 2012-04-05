@@ -40,14 +40,10 @@
 #include <nsStringAPI.h>
 #include <nsIURI.h>
 #include <nsILoadGroup.h>
-#include <nsServiceManagerUtils.h>
 #include <imgIContainer.h>
 #include <nsNetError.h>
 #include <nsNetUtil.h>
 #include <nsIImageToPixbuf.h>
-#if MOZILLA_BRANCH_MAJOR_VERSION < 11
-# include <nsIDOMNSElement.h>
-#endif
 #include <nsIDOMDOMTokenList.h>
 #include <nsIDOMDocument.h>
 #include <nsIDOMWindow.h>
@@ -57,17 +53,17 @@
 #include <nsIDOMCSSPrimitiveValue.h>
 #include <nsIDOMRect.h>
 #include <nsICaseConversion.h>
-#include <nsUnicharUtilCIID.h>
+#include <imgILoader.h>
 
 #include <libdbusmenu-gtk/menuitem.h>
 #include <gtk/gtk.h>
 
 #include "uGlobalMenuObject.h"
+#include "uGlobalMenuService.h"
 #include "uGlobalMenuBar.h"
 #include "uWidgetAtoms.h"
 
 #include "uDebug.h"
-#include "compat.h"
 
 #define MAX_LABEL_NCHARS 40
 
@@ -79,9 +75,22 @@ NS_IMPL_ISUPPORTS3(uGlobalMenuIconLoader, imgIDecoderObserver, imgIContainerObse
 // that is neither true or false, so that we don't need another static member
 // to indicate the intialization status of it.
 PRPackedBool uGlobalMenuIconLoader::sImagesInMenus = -1;
-nsCOMPtr<imgILoader> uGlobalMenuIconLoader::sLoader = 0;
 
-PRBool
+// Must be kept in sync with uMenuObjectProperties
+const char *properties[] = {
+  DBUSMENU_MENUITEM_PROP_LABEL,
+  DBUSMENU_MENUITEM_PROP_ENABLED,
+  DBUSMENU_MENUITEM_PROP_VISIBLE,
+  DBUSMENU_MENUITEM_PROP_ICON_DATA,
+  DBUSMENU_MENUITEM_PROP_TYPE,
+  DBUSMENU_MENUITEM_PROP_SHORTCUT,
+  DBUSMENU_MENUITEM_PROP_TOGGLE_TYPE,
+  DBUSMENU_MENUITEM_PROP_TOGGLE_STATE,
+  DBUSMENU_MENUITEM_PROP_CHILD_DISPLAY,
+  NULL
+};
+
+bool
 uGlobalMenuIconLoader::ShouldShowIcon()
 {
   // Ideally, we want to get the visibility of the XUL image in our menu item,
@@ -106,10 +115,10 @@ uGlobalMenuIconLoader::ShouldShowIcon()
   }
 
   if (sImagesInMenus) {
-    return PR_TRUE;
+    return true;
   }
 
-  return mMenuItem->WithFavicon();
+  return mMenuItem->ShouldAlwaysShowIcon();
 }
 
 void
@@ -155,7 +164,7 @@ uGlobalMenuIconLoader::Run()
     return NS_OK;
   }
 
-  mMenuItem->GetContent(getter_AddRefs(mContent));
+  mContent = mMenuItem->GetContent();
 
   nsIDocument *doc = mContent->GetCurrentDoc();
   if (!doc) {
@@ -169,11 +178,11 @@ uGlobalMenuIconLoader::Run()
     return NS_OK;
   }
 
-  mIconLoaded = PR_FALSE;
+  mIconLoaded = false;
 
   nsAutoString uriString;
-  PRBool hasImage = mContent->GetAttr(kNameSpaceID_None, uWidgetAtoms::image,
-                                      uriString);
+  bool hasImage = mContent->GetAttr(kNameSpaceID_None, uWidgetAtoms::image,
+                                    uriString);
 
   nsresult rv;
   nsCOMPtr<nsIDOMRect> domRect;
@@ -210,7 +219,7 @@ uGlobalMenuIconLoader::Run()
         if (primitiveType == nsIDOMCSSPrimitiveValue::CSS_URI) {
           rv = primitiveValue->GetStringValue(uriString);
           if (NS_SUCCEEDED(rv)) {
-            hasImage = PR_TRUE;
+            hasImage = true;
           }
         } else {
           NS_WARNING("list-style-image has wrong primitive type");
@@ -219,6 +228,7 @@ uGlobalMenuIconLoader::Run()
     }
 
     if (!hasImage) {
+      ClearIcon();
       return NS_OK;
     }
 
@@ -244,25 +254,19 @@ uGlobalMenuIconLoader::Run()
     return NS_OK;
   }
 
-  if (!sLoader) {
-    sLoader = do_GetService("@mozilla.org/image/loader;1");
-  }
-
-  NS_ASSERTION(sLoader, "No icon loader");
-  if (!sLoader) {
-    return NS_OK;
-  }
-
   nsCOMPtr<nsILoadGroup> loadGroup = doc->GetDocumentLoadGroup();
+  imgILoader *loader = uGlobalMenuService::GetIconLoader();
+  if (!loader) {
+    return NS_ERROR_FAILURE;
+  }
 
-#if MOZILLA_BRANCH_MAJOR_VERSION >= 8
-  rv = sLoader->LoadImage(uri, nsnull, nsnull, nsnull, loadGroup, this,
-#else
-  rv = sLoader->LoadImage(uri, nsnull, nsnull, loadGroup, this,
-#endif
-                          nsnull, nsIRequest::LOAD_NORMAL, nsnull,
-                          nsnull, nsnull, getter_AddRefs(mIconRequest));
-  NS_ENSURE_SUCCESS(rv, rv);
+  rv = loader->LoadImage(uri, nsnull, nsnull, nsnull, loadGroup, this,
+                         nsnull, nsIRequest::LOAD_NORMAL, nsnull,
+                         nsnull, nsnull, getter_AddRefs(mIconRequest));
+  if (NS_FAILED(rv)) {
+    NS_WARNING("Failed to load icon");
+    return rv;
+  }
 
   mIconRequest->RequestDecode();
 
@@ -318,7 +322,7 @@ uGlobalMenuIconLoader::OnStartFrame(imgIRequest *aRequest, PRUint32 aFrame)
 
 NS_IMETHODIMP
 uGlobalMenuIconLoader::OnDataAvailable(imgIRequest *aRequest,
-                                       MOZ_API_BOOL aCurrentFrame,
+                                       bool aCurrentFrame,
                                        const nsIntRect *aRect)
 {
   return NS_ERROR_NOT_IMPLEMENTED;
@@ -337,7 +341,7 @@ uGlobalMenuIconLoader::OnStopFrame(imgIRequest *aRequest, PRUint32 aFrame)
     return NS_OK;
   }
 
-  mIconLoaded = PR_TRUE;
+  mIconLoaded = true;
 
   nsCOMPtr<imgIContainer> img;
   aRequest->GetImage(getter_AddRefs(img));
@@ -351,7 +355,7 @@ uGlobalMenuIconLoader::OnStopFrame(imgIRequest *aRequest, PRUint32 aFrame)
   img->GetWidth(&origWidth);
   img->GetHeight(&origHeight);
 
-  PRBool needsClip = PR_FALSE;
+  bool needsClip = false;
 
   if (!mImageRect.IsEmpty()) {
     if (mImageRect.XMost() > origWidth || mImageRect.YMost() > origHeight) {
@@ -361,7 +365,7 @@ uGlobalMenuIconLoader::OnStopFrame(imgIRequest *aRequest, PRUint32 aFrame)
 
     if (!(mImageRect.x == 0 && mImageRect.y == 0 &&
          mImageRect.width == origWidth && mImageRect.height == origHeight)) {
-      needsClip = PR_TRUE;
+      needsClip = true;
     }
   }
 
@@ -386,8 +390,7 @@ uGlobalMenuIconLoader::OnStopFrame(imgIRequest *aRequest, PRUint32 aFrame)
     }
   }
 
-  nsCOMPtr<nsIImageToPixbuf> converter =
-    do_GetService("@mozilla.org/widget/image-to-gdk-pixbuf;1");
+  nsIImageToPixbuf *converter = uGlobalMenuService::GetImageToPixbufService();
   NS_ASSERTION(converter, "No image converter");
   if (!converter) {
     return NS_ERROR_FAILURE;
@@ -423,7 +426,7 @@ uGlobalMenuIconLoader::OnStopDecode(imgIRequest *aRequest, nsresult status,
 }
 
 NS_IMETHODIMP
-uGlobalMenuIconLoader::OnStopRequest(imgIRequest *aRequest, MOZ_API_BOOL aIsLastPart)
+uGlobalMenuIconLoader::OnStopRequest(imgIRequest *aRequest, bool aIsLastPart)
 {
   TRACE_WITH_MENUOBJECT(mMenuItem);
 
@@ -453,13 +456,11 @@ uGlobalMenuIconLoader::FrameChanged(imgIContainer *aContainer,
   return NS_ERROR_NOT_IMPLEMENTED;
 }
 
-#if MOZILLA_BRANCH_MAJOR_VERSION >= 11
 NS_IMETHODIMP
 uGlobalMenuIconLoader::OnImageIsAnimated(imgIRequest* aRequest)
 {
   return NS_OK;
 }
-#endif
 
 void
 uGlobalMenuIconLoader::Destroy()
@@ -474,16 +475,6 @@ uGlobalMenuIconLoader::Destroy()
 }
 
 void
-uGlobalMenuObject::GetContent(nsIContent **_retval)
-{
-  if (!_retval) {
-    return;
-  }
-  *_retval = mContent;
-  NS_IF_ADDREF(*_retval);
-}
-
-void
 uGlobalMenuObject::SyncLabelFromContent(nsIContent *aContent)
 {
   TRACE_WITH_THIS_MENUOBJECT();
@@ -494,9 +485,9 @@ uGlobalMenuObject::SyncLabelFromContent(nsIContent *aContent)
   nsAutoString label;
   if (aContent && aContent->GetAttr(kNameSpaceID_None,
                                     uWidgetAtoms::label, label)) {
-    UGM_BLOCK_EVENTS_FOR_CURRENT_SCOPE();
+    UNITY_MENU_BLOCK_EVENTS_FOR_CURRENT_SCOPE();
     DEBUG_WITH_CONTENT(aContent, "Content has label \"%s\"", DEBUG_CSTR_FROM_UTF16(label));
-    mContent->SetAttr(kNameSpaceID_None, uWidgetAtoms::label, label, MOZ_API_TRUE);
+    mContent->SetAttr(kNameSpaceID_None, uWidgetAtoms::label, label, true);
   } else {
     mContent->GetAttr(kNameSpaceID_None, uWidgetAtoms::label, label);
   }
@@ -505,31 +496,24 @@ uGlobalMenuObject::SyncLabelFromContent(nsIContent *aContent)
   mContent->GetAttr(kNameSpaceID_None, uWidgetAtoms::accesskey, accesskey);
 
   const PRUnichar *tmp = accesskey.BeginReading();
+  nsICaseConversion *converter = uGlobalMenuService::GetCaseConverter();
+
   PRUnichar keyUpper;
   PRUnichar keyLower;
-  // XXX: I think we need to link against libxul.so to get ToLowerCase
-  //      and ToUpperCase from nsUnicharUtils.h
-  nsCOMPtr<nsICaseConversion> converter =
-    do_GetService(NS_UNICHARUTIL_CONTRACTID);
   if (converter) {
     converter->ToUpper(*tmp, &keyUpper);
     converter->ToLower(*tmp, &keyLower);
   } else {
-    if (*tmp < 256) {
-      keyUpper = toupper(char(*tmp));
-      keyLower = tolower(char(*tmp));
-    } else {
-      NS_WARNING("accesskey matching is case-sensitive when it shouldn't be");
-      keyUpper = *tmp;
-      keyLower = *tmp;
-    }
+    NS_WARNING("No case converter");
+    keyUpper = *tmp;
+    keyLower = *tmp;
   }
 
   PRUnichar *cur = label.BeginWriting();
   PRUnichar *end = label.EndWriting();
   int length = label.Length();
   int pos = 0;
-  PRBool foundAccessKey = PR_FALSE;
+  bool foundAccessKey = false;
 
   while (cur < end) {
     if (*cur != PRUnichar('_')) {
@@ -538,7 +522,7 @@ uGlobalMenuObject::SyncLabelFromContent(nsIContent *aContent)
         pos++;
         continue;
       }
-      foundAccessKey = PR_TRUE;
+      foundAccessKey = true;
     }
 
     length += 1;
@@ -588,10 +572,12 @@ void
 uGlobalMenuObject::SyncVisibilityFromContent()
 {
   TRACE_WITH_THIS_MENUOBJECT();
-  mContentVisible = !IsHidden();
-  PRBool realVis = (!mMenuBar || !ShouldShowOnlyForKb() ||
-                    mMenuBar->OpenedByKeyboard()) ?
-                    mContentVisible : PR_FALSE;
+
+  SetOrClearFlags(!IsHidden(), UNITY_MENUITEM_CONTENT_IS_VISIBLE);
+
+  bool realVis = (!mMenuBar || !ShouldShowOnlyForKb() ||
+                  mMenuBar->OpenedByKeyboard()) ?
+                  !!(mFlags & UNITY_MENUITEM_CONTENT_IS_VISIBLE) : false;
   DEBUG_WITH_THIS_MENUOBJECT("Setting %s", realVis ? "visible" : "hidden");
 
   dbusmenu_menuitem_property_set_bool(mDbusMenuItem,
@@ -610,19 +596,19 @@ uGlobalMenuObject::SyncSensitivityFromContent(nsIContent *aContent)
   } else {
     content = mContent;
   }
-  PRBool disabled = content->AttrValueIs(kNameSpaceID_None,
-                                         uWidgetAtoms::disabled,
-                                         uWidgetAtoms::_true,
-                                         eCaseMatters);
+  bool disabled = content->AttrValueIs(kNameSpaceID_None,
+                                       uWidgetAtoms::disabled,
+                                       uWidgetAtoms::_true,
+                                       eCaseMatters);
   DEBUG_WITH_THIS_MENUOBJECT("Setting %s", disabled ? "disabled" : "enabled");
 
   if (aContent) {
-    UGM_BLOCK_EVENTS_FOR_CURRENT_SCOPE();
+    UNITY_MENU_BLOCK_EVENTS_FOR_CURRENT_SCOPE();
     if (disabled) {
       mContent->SetAttr(kNameSpaceID_None, uWidgetAtoms::disabled,
-                        NS_LITERAL_STRING("true"), MOZ_API_TRUE);
+                        NS_LITERAL_STRING("true"), true);
     } else {
-      mContent->UnsetAttr(kNameSpaceID_None, uWidgetAtoms::disabled, MOZ_API_TRUE);
+      mContent->UnsetAttr(kNameSpaceID_None, uWidgetAtoms::disabled, true);
     }
   }
 
@@ -641,7 +627,7 @@ void
 uGlobalMenuObject::UpdateInfoFromContentClass()
 {
   TRACE_WITH_THIS_MENUOBJECT();
-  nsCOMPtr<nsIDOMNSElement> element(do_QueryInterface(mContent));
+  nsCOMPtr<nsIDOMElement> element(do_QueryInterface(mContent));
   if (!element) {
     return;
   }
@@ -652,20 +638,18 @@ uGlobalMenuObject::UpdateInfoFromContentClass()
     return;
   }
 
-  MOZ_API_BOOL tmp;
-  classes->Contains(NS_LITERAL_STRING("show-only-for-keyboard"),
-                    &tmp);
-  mShowOnlyForKb = !!tmp;
+  bool tmp;
 
-  classes->Contains(NS_LITERAL_STRING("menuitem-with-favicon"),
-                    &tmp);
-  mWithFavicon = !!tmp;
+  classes->Contains(NS_LITERAL_STRING("show-only-for-keyboard"), &tmp);
+  DEBUG_WITH_THIS_MENUOBJECT("show-only-for-keyboard class? %s", tmp ? "Yes" : "No");
+  SetOrClearFlags(tmp, UNITY_MENUITEM_SHOW_ONLY_FOR_KB);
 
-  DEBUG_WITH_THIS_MENUOBJECT("show-only-for-keyboard class? %s", mShowOnlyForKb ? "Yes" : "No");
-  DEBUG_WITH_THIS_MENUOBJECT("menuitem-with-favicon class? %s", mWithFavicon ? "Yes" : "No");
+  classes->Contains(NS_LITERAL_STRING("menuitem-with-favicon"), &tmp);
+  DEBUG_WITH_THIS_MENUOBJECT("menuitem-with-favicon class? %s", tmp ? "Yes" : "No");
+  SetOrClearFlags(tmp, UNITY_MENUITEM_ALWAYS_SHOW_ICON);
 }
 
-PRBool
+bool
 uGlobalMenuObject::IsHidden()
 {
   return mContent->AttrValueIs(kNameSpaceID_None, uWidgetAtoms::hidden,
@@ -682,8 +666,8 @@ uGlobalMenuObject::UpdateVisibility()
     return;
   }
 
-  PRBool newVis = (!ShouldShowOnlyForKb() || mMenuBar->OpenedByKeyboard()) ?
-                   mContentVisible : PR_FALSE;
+  bool newVis = (!ShouldShowOnlyForKb() || mMenuBar->OpenedByKeyboard()) ?
+                 !!(mFlags & UNITY_MENUITEM_CONTENT_IS_VISIBLE) : false;
 
   DEBUG_WITH_THIS_MENUOBJECT("Setting %s", newVis ? "visible" : "hidden");
   dbusmenu_menuitem_property_set_bool(mDbusMenuItem,
@@ -707,5 +691,41 @@ uGlobalMenuObject::DestroyIconLoader()
 {
   if (mIconLoader) {
     mIconLoader->Destroy();
+  }
+}
+
+DbusmenuMenuitem*
+uGlobalMenuObject::GetDbusMenuItem()
+{
+  if (!mDbusMenuItem) {
+    InitializeDbusMenuItem();
+  }
+
+  return mDbusMenuItem;
+}
+
+void
+uGlobalMenuObject::SetDbusMenuItem(DbusmenuMenuitem *aDbusMenuItem)
+{
+  NS_ASSERTION(!mDbusMenuItem, "This node already has a corresponding DbusmenuMenuitem");
+  if (mDbusMenuItem) {
+    return;
+  }
+
+  mDbusMenuItem = aDbusMenuItem;
+  g_object_ref(mDbusMenuItem);
+
+  InitializeDbusMenuItem();
+}
+
+void
+uGlobalMenuObject::OnlyKeepProperties(uMenuObjectProperties aKeep)
+{
+  uMenuObjectProperties mask = static_cast<uMenuObjectProperties>(1);
+  for (PRUint32 i = 0; properties[i] != NULL; i++) {
+    if (!(mask & aKeep)) {
+      dbusmenu_menuitem_property_remove(mDbusMenuItem, properties[i]);
+    }
+    mask = static_cast<uMenuObjectProperties>(mask << 1);
   }
 }

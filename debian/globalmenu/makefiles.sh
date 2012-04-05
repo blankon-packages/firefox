@@ -37,8 +37,8 @@
 
 add_makefiles "
 extensions/globalmenu/Makefile
+extensions/globalmenu/build/Makefile
 extensions/globalmenu/chrome/Makefile
-extensions/globalmenu/components/Makefile
-extensions/globalmenu/components/public/Makefile
-extensions/globalmenu/components/src/Makefile
+extensions/globalmenu/public/Makefile
+extensions/globalmenu/src/Makefile
 "

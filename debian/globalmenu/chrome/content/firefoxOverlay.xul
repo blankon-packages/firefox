@@ -38,4 +38,7 @@
   
 <overlay id="globalmenu-extension-browser-overlay" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
   <script type="application/x-javascript" src="chrome://globalmenu/content/firefoxMenu.js" />
+  <menupopup id="menu_EditPopup"
+             onpopupshowing="gEditUIVisible = true; goUpdateGlobalEditMenuItems()">
+  </menupopup>
 </overlay>

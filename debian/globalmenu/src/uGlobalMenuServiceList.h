@@ -1,0 +1,6 @@
+SERVICE(CaseConverter, nsICaseConversion, NS_UNICHARUTIL_CONTRACTID)
+SERVICE(IconLoader, imgILoader, "@mozilla.org/image/loader;1")
+SERVICE(ImageToPixbufService, nsIImageToPixbuf, "@mozilla.org/widget/image-to-gdk-pixbuf;1")
+SERVICE(PrefService, nsIPrefBranch, NS_PREFSERVICE_CONTRACTID)
+SERVICE(XBLService, nsIXBLService, "@mozilla.org/xbl;1")
+SERVICE(XPConnect, nsIXPConnect, nsIXPConnect::GetCID())

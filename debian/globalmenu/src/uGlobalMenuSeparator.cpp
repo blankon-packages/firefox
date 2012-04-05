@@ -50,12 +50,17 @@
 
 #include "uDebug.h"
 
-nsresult
-uGlobalMenuSeparator::ConstructDbusMenuItem()
+void
+uGlobalMenuSeparator::InitializeDbusMenuItem()
 {
-  mDbusMenuItem = dbusmenu_menuitem_new();
-  if (!mDbusMenuItem)
-    return NS_ERROR_OUT_OF_MEMORY;
+  if (!mDbusMenuItem) {
+    mDbusMenuItem = dbusmenu_menuitem_new();
+    if (!mDbusMenuItem) {
+      return;
+    }
+  } else {
+    OnlyKeepProperties(static_cast<uMenuObjectProperties>(eVisible | eType));
+  }
 
   dbusmenu_menuitem_property_set(mDbusMenuItem,
                                  DBUSMENU_MENUITEM_PROP_TYPE,
@@ -63,8 +68,6 @@ uGlobalMenuSeparator::ConstructDbusMenuItem()
 
   UpdateInfoFromContentClass();
   SyncVisibilityFromContent();
-
-  return NS_OK;
 }
 
 nsresult
@@ -84,12 +87,15 @@ uGlobalMenuSeparator::Init(uGlobalMenuObject *aParent,
   mMenuBar = aMenuBar;
 
   nsresult rv = mListener->RegisterForContentChanges(mContent, this);
-  NS_ENSURE_SUCCESS(rv, rv);
+  if (NS_FAILED(rv)) {
+    NS_WARNING("Failed to register for content changes");
+    return rv;
+  }
 
-  return ConstructDbusMenuItem();
+  return NS_OK;
 }
 
-uGlobalMenuSeparator::uGlobalMenuSeparator(): uGlobalMenuObject(MenuSeparator)
+uGlobalMenuSeparator::uGlobalMenuSeparator(): uGlobalMenuObject(eMenuSeparator)
 {
   MOZ_COUNT_CTOR(uGlobalMenuSeparator);
 }
@@ -151,8 +157,8 @@ uGlobalMenuSeparator::ObserveAttributeChanged(nsIDocument *aDocument,
     return;
   }
 
-  if (mParent->GetType() == Menu &&
-      !(static_cast<uGlobalMenu *>(mParent))->IsOpening()) {
+  if (mParent->GetType() == eMenu &&
+      !(static_cast<uGlobalMenu *>(mParent))->IsOpenOrOpening()) {
     Invalidate();
     return;
   }

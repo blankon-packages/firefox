@@ -44,6 +44,7 @@
 #include <nsAutoPtr.h>
 #include <nsCOMPtr.h>
 #include <nsIContent.h>
+#include <nsThreadUtils.h>
 
 #include <libdbusmenu-glib/server.h>
 
@@ -67,10 +68,10 @@ public:
 
   ~uGlobalMenu();
 
-  PRBool CanOpen();
+  bool CanOpen();
   void OpenMenu();
   void AboutToShowNotify();
-  PRBool IsOpening() { return !!mOpening; }
+  bool IsOpenOrOpening() { return !!(mFlags & UNITY_MENU_IS_OPEN_OR_OPENING); }
 
 private:
   uGlobalMenu();
@@ -80,37 +81,49 @@ private:
                 uGlobalMenuDocListener *aListener,
                 nsIContent *aContent,
                 uGlobalMenuBar *aMenuBar);
-  PRBool InsertMenuObjectAt(uGlobalMenuObject *menuObj,
-                            PRUint32 index);
-  PRBool AppendMenuObject(uGlobalMenuObject *menuObj);
-  PRBool RemoveMenuObjectAt(PRUint32 index);
-  nsresult ConstructDbusMenuItem();
+  bool InsertMenuObjectAt(uGlobalMenuObject *menuObj,
+                          PRUint32 index);
+  bool AppendMenuObject(uGlobalMenuObject *menuObj);
+  bool RemoveMenuObjectAt(PRUint32 index);
+  void InitializeDbusMenuItem();
   nsresult Build();
   void SyncProperties();
   void GetMenuPopupFromMenu(nsIContent **aResult);
-  static PRBool MenuAboutToOpenCallback(DbusmenuMenuitem *menu,
-                                        void *data);
-  static PRBool MenuEventCallback(DbusmenuMenuitem *menu,
-                                  const gchar *name,
-                                  GVariant *value,
-                                  guint timestamp,
-                                  void *data);
+  static bool MenuAboutToOpenCallback(DbusmenuMenuitem *menu,
+                                      void *data);
+  static bool MenuEventCallback(DbusmenuMenuitem *menu,
+                                const gchar *name,
+                                GVariant *value,
+                                guint timestamp,
+                                void *data);
   void AboutToOpen();
   void OnOpen();
   void OnClose();
   void Activate();
   void Deactivate();
-  void SetNeedsRebuild() { mNeedsRebuild = PR_TRUE; }
-  void ClearNeedsRebuild() { mNeedsRebuild = PR_FALSE; }
-  PRBool DoesNeedRebuild() { return !!mNeedsRebuild; }
+  void SetNeedsRebuild() { mFlags = mFlags | UNITY_MENU_NEEDS_REBUILDING; }
+  void ClearNeedsRebuild() { mFlags = mFlags & ~UNITY_MENU_NEEDS_REBUILDING; }
+  bool DoesNeedRebuild() { return !!(mFlags & UNITY_MENU_NEEDS_REBUILDING); }
+  void FreeRecycleList() { mRecycleList = nsnull; }
+
+  struct RecycleList
+  {
+    RecycleList(uGlobalMenu *aMenu);
+    ~RecycleList();
+
+    DbusmenuMenuitem* PopRecyclableItem();
+    void PrependRecyclableItem(DbusmenuMenuitem *aItem);
+    void AppendRecyclableItem(DbusmenuMenuitem *aItem);
+
+    PRUint32 mMarker;
+    nsTArray<DbusmenuMenuitem *> mList;
+    uGlobalMenu *mMenu;
+    nsRefPtr<nsRunnableMethod<uGlobalMenu, void, false> > mFreeEvent;
+  };
 
   nsCOMPtr<nsIContent> mPopupContent;
   nsTArray< nsAutoPtr<uGlobalMenuObject> > mMenuObjects;
-  PRUint32 mOpenHandlerID;
-  PRUint32 mEventHandlerID;
-  PRPackedBool mOpening;
-  PRPackedBool mNeedsRebuild;
-  PRPackedBool mPrimed;
+  nsAutoPtr<RecycleList> mRecycleList;
 };
 
 #endif

@@ -1,27 +1,27 @@
 /* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* ***** BEGIN LICENSE BLOCK *****
- * Version: MPL 1.1/GPL 2.0/LGPL 2.1
+ *	 Version: MPL 1.1/GPL 2.0/LGPL 2.1
  *
  * The contents of this file are subject to the Mozilla Public License Version
  * 1.1 (the "License"); you may not use this file except in compliance with
  * the License. You may obtain a copy of the License at
  * http://www.mozilla.org/MPL/
- *
+ * 
  * Software distributed under the License is distributed on an "AS IS" basis,
  * WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License
  * for the specific language governing rights and limitations under the
  * License.
  *
- * The Original Code is mozilla.org code.
+ * The Original Code is globalmenu-extension.
  *
  * The Initial Developer of the Original Code is
- * Netscape Communications Corporation.
- * Portions created by the Initial Developer are Copyright (C) 1998
+ * Canonical Ltd.
+ * Portions created by the Initial Developer are Copyright (C) 2010
  * the Initial Developer. All Rights Reserved.
  *
  * Contributor(s):
- *   Original Author: Mike Pinkerton (pinkerton@netscape.com)
- *   Chris Coulson <chris.coulson@canonical.com>
+ * Chris Coulson <chris.coulson@canonical.com>
+ * Mike Conley <mconley@mozillamessaging.com>
  *
  * Alternatively, the contents of this file may be used under the terms of
  * either the GNU General Public License Version 2 or later (the "GPL"), or
@@ -34,48 +34,35 @@
  * and other provisions required by the GPL or the LGPL. If you do not delete
  * the provisions above, a recipient may use your version of this file under
  * the terms of any one of the MPL, the GPL or the LGPL.
- *
+ * 
  * ***** END LICENSE BLOCK ***** */
 
-#include <uWidgetAtoms.h>
-#include <nsDebug.h>
-#include <nsIAtomService.h>
-#include <nsIAtom.h>
-#include <nsServiceManagerUtils.h>
-#include <nsStringAPI.h>
-#include <nsMemory.h>
+#ifndef _U_GLOBALMENUDUMMY_H
+#define _U_GLOBALMENUDUMMY_H
 
-#define WIDGET_ATOM(_name, _value) nsIAtom* uWidgetAtoms::_name = 0;
-#include "uWidgetAtomList.h"
-#undef WIDGET_ATOM
+#include "uGlobalMenuObject.h"
+#include "uMenuChangeObserver.h"
 
-struct uWidgetAtom {
-  const char *raw;
-  nsIAtom **atom;
-};
+class nsIContent;
+class uGlobalMenuDocListener;
 
-static const uWidgetAtom atoms[] = {
-#define WIDGET_ATOM(_name, _value) { _value, &uWidgetAtoms::_name },
-#include "uWidgetAtomList.h"
-#undef WIDGET_ATOM
-};
-
-nsresult
-uWidgetAtoms::RegisterAtoms()
+class uGlobalMenuDummy: public uGlobalMenuObject,
+                        public uMenuChangeObserver
 {
-  nsCOMPtr<nsIAtomService> as =
-      do_GetService("@mozilla.org/atom-service;1");
-  NS_ENSURE_TRUE(as, NS_ERROR_OUT_OF_MEMORY);
+public:
+  NS_DECL_UMENUCHANGEOBSERVER
 
-  nsAutoString aAtomStr;
-  nsCAutoString cAtomStr;
+  static uGlobalMenuObject* Create();
 
-  for (PRUint32 i = 0; i < NS_ARRAY_LENGTH(atoms); i++) {
-    cAtomStr = atoms[i].raw;
-    CopyUTF8toUTF16(cAtomStr, aAtomStr);
-    nsresult rv = as->GetAtom(aAtomStr, atoms[i].atom);
-    NS_ENSURE_SUCCESS(rv, rv);
-  }
+private:
+  uGlobalMenuDummy();
 
-  return NS_OK;
-}
+  nsresult Init();
+
+  ~uGlobalMenuDummy();
+
+  void InitializeDbusMenuItem(); 
+};
+
+
+#endif

@@ -112,8 +112,8 @@ private:
 
 #define DEBUG_WITH_MENUOBJECT(object, format...)              \
   if (getenv("GLOBAL_MENU_VERBOSE")) {                        \
-    nsCOMPtr<nsIContent> content;                             \
-    if (object) object->GetContent(getter_AddRefs(content));  \
+    nsIContent *content;                                      \
+    if (object) content = object->GetContent();               \
     nsAutoString id;                                          \
     nsCAutoString cid;                                        \
     if (content) content->GetAttr(kNameSpaceID_None, uWidgetAtoms::id, id); \
@@ -148,8 +148,8 @@ private:
 #define TRACE_WITH_MENUOBJECT(object)                         \
   char *_id_s;                                                \
   {                                                           \
-    nsCOMPtr<nsIContent> content;                             \
-    if (object) object->GetContent(getter_AddRefs(content));  \
+    nsIContent *content;                                      \
+    if (object) content = object->GetContent();               \
     nsAutoString _id;                                         \
     if (content) content->GetAttr(kNameSpaceID_None, uWidgetAtoms::id, _id); \
     nsCAutoString _cid;                                       \

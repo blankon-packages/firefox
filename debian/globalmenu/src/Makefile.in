@@ -35,24 +35,21 @@
 #
 # ***** END LICENSE BLOCK *****
 
-DEPTH		= ../../../..
+DEPTH		= ../../..
 topsrcdir	= @top_srcdir@
 srcdir		= @srcdir@
 VPATH		= @srcdir@
 
 include $(DEPTH)/config/autoconf.mk
 
-IS_COMPONENT	= 1
 MODULE		= globalmenu
-LIBRARY_NAME	= globalmenu
+LIBRARY_NAME	= globalmenu_s
 MODULE_NAME	= uGlobalMenuModule
-#USE_STATIC_LIBS	= 1
-#EXPORT_LIBRARY  = 1
+FORCE_STATIC_LIB = 1
 
 XPI_NAME	= globalmenu
 
 CPPSRCS		= \
-		  uGlobalMenuModule.cpp \
 		  uGlobalMenuLoader.cpp \
 		  uGlobalMenuService.cpp \
 		  uGlobalMenuUtils.cpp \
@@ -67,8 +64,6 @@ CPPSRCS		= \
 		  uDebug.cpp \
 		  $(NULL)
 
-ifneq (extensions, $(MOZ_BUILD_APP))
-# Support in-tree builds where we need to figure this out for ourselves
 MOZILLA_BRANCH_MAJOR_VERSION=$(shell echo $(MOZILLA_VERSION) | sed -e 's/[ab].*//' -e 's/^\([0-9]*\)\.*\([0-9]*\)\.*\([0-9]*\).*/\1/;')
 MOZILLA_BRANCH_MINOR_VERSION=$(shell echo $(MOZILLA_VERSION) | sed -e 's/[ab].*//' -e 's/^\([0-9]*\)\.*\([0-9]*\)\.*\([0-9]*\).*/\2/;')
 MOZILLA_BRANCH_MICRO_VERSION=$(shell echo $(MOZILLA_VERSION) | sed -e 's/[ab].*//' -e 's/^\([0-9]*\)\.*\([0-9]*\)\.*\([0-9]*\).*/\3/;')
@@ -79,13 +74,6 @@ endif
 ifeq (,$(MOZILLA_BRANCH_MICRO_VERSION))
 MOZILLA_BRANCH_MICRO_VERSION=0
 endif
-endif
-
-EXTRA_DSO_LDOPTS += $(XPCOM_GLUE_LDOPTS) \
-		    $(NSPR_LIBS) \
-		    $(DBUSMENU_LIBS) \
-		    $(MOZ_GTK2_LIBS) \
-		    $(NULL)
 
 include $(topsrcdir)/config/rules.mk
 
@@ -93,11 +81,6 @@ CXXFLAGS += $(DBUSMENU_CFLAGS) \
 	    $(MOZ_GTK2_CFLAGS) \
 	    $(NULL)
 
-ifneq (extensions, $(MOZ_BUILD_APP))
-CXXFLAGS += -DMOZILLA_BRANCH_MAJOR_VERSION="$(MOZILLA_BRANCH_MAJOR_VERSION)" \
-	    -DMOZILLA_BRANCH_MINOR_VERSION="$(MOZILLA_BRANCH_MINOR_VERSION)" \
-	    -DMOZILLA_BRANCH_MICRO_VERSION="$(MOZILLA_BRANCH_MICRO_VERSION)"
-endif
-
-libs::
-	@$(PYTHON) $(MOZILLA_DIR)/config/buildlist.py $(FINAL_TARGET)/components/components.manifest "category profile-after-change uGlobalMenuLoader @canonical.com/globalmenu-loader;1"
+DEFINES += -DMOZILLA_BRANCH_MAJOR_VERSION="$(MOZILLA_BRANCH_MAJOR_VERSION)" \
+	   -DMOZILLA_BRANCH_MINOR_VERSION="$(MOZILLA_BRANCH_MINOR_VERSION)" \
+	   -DMOZILLA_BRANCH_MICRO_VERSION="$(MOZILLA_BRANCH_MICRO_VERSION)"

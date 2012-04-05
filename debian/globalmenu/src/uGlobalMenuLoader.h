@@ -21,7 +21,6 @@
  *
  * Contributor(s):
  * Chris Coulson <chris.coulson@canonical.com>
- * Mike Conley <mconley@mozillamessaging.com>
  *
  * Alternatively, the contents of this file may be used under the terms of
  * either the GNU General Public License Version 2 or later (the "GPL"), or
@@ -37,32 +36,42 @@
  * 
  * ***** END LICENSE BLOCK ***** */
 
-#ifndef _U_GLOBALMENUDUMMY_H
-#define _U_GLOBALMENUDUMMY_H
+#include <nsIObserver.h>
+#include <nsIWindowMediatorListener.h>
+#include <nsIWebProgressListener.h>
+#include <nsWeakReference.h>
 
-#include "uGlobalMenuObject.h"
-#include "uMenuChangeObserver.h"
+#include "uIGlobalMenuService.h"
 
-class nsIContent;
-class uGlobalMenuDocListener;
+#define U_GLOBALMENULOADER_CID \
+{ 0x1e8f2f48, 0xe0a8, 0x4649, { 0x98, 0xef, 0x13, 0x22, 0xc0, 0x3f, 0xf0, 0x8e } }
 
-class uGlobalMenuDummy: public uGlobalMenuObject,
-                        public uMenuChangeObserver
+#define U_GLOBALMENULOADER_CONTRACTID "@canonical.com/globalmenu-loader;1"
+
+class nsIXULWindow;
+class nsIDocShell;
+class nsIWidget;
+
+class uGlobalMenuLoader: public nsIObserver,
+                         public nsIWindowMediatorListener,
+                         public nsIWebProgressListener,
+                         public nsSupportsWeakReference
 {
 public:
-  NS_DECL_UMENUCHANGEOBSERVER
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSIOBSERVER
+  NS_DECL_NSIWINDOWMEDIATORLISTENER
+  NS_DECL_NSIWEBPROGRESSLISTENER
 
-  static uGlobalMenuObject* Create();
-
-private:
-  uGlobalMenuDummy();
-
+  uGlobalMenuLoader() { };
+  ~uGlobalMenuLoader();
   nsresult Init();
 
-  ~uGlobalMenuDummy();
+private:
+  void RegisterAllMenus();
+  void RegisterMenuForWindow(nsIXULWindow *aWindow);
+  bool RegisterMenu(nsIWidget *aWindow,
+                    nsIDocShell *aDocShell);
 
-  nsresult ConstructDbusMenuItem(); 
+  nsCOMPtr<uIGlobalMenuService> mService;
 };
-
-
-#endif

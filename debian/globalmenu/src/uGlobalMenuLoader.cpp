@@ -56,7 +56,6 @@
 #include "uGlobalMenuLoader.h"
 
 #include "uDebug.h"
-#include "compat.h"
 
 // XXX: The sole purpose of this class is to listen for new nsIXULWindows
 //      and do the task that xpfe/appshell/src/nsWebShellWindow.cpp
@@ -81,7 +80,7 @@ uGlobalMenuLoader::RegisterMenuForWindow(nsIXULWindow *aWindow)
   if (!docShell)
     return;
 
-  PRBool res = RegisterMenu(mainWidget, docShell);
+  bool res = RegisterMenu(mainWidget, docShell);
 
   if (!res) {
     // If we've been called off a window open event from the window mediator,
@@ -95,19 +94,19 @@ uGlobalMenuLoader::RegisterMenuForWindow(nsIXULWindow *aWindow)
   }
 }
 
-PRBool
+bool
 uGlobalMenuLoader::RegisterMenu(nsIWidget *aWindow,
                                 nsIDocShell *aDocShell)
 {
   nsCOMPtr<nsIContentViewer> cv;
   aDocShell->GetContentViewer(getter_AddRefs(cv));
   if (!cv)
-    return PR_FALSE;
+    return false;
 
   nsIDocument *doc = cv->GetDocument();
   nsCOMPtr<nsIDOMDocument> domDoc = do_QueryInterface(doc);
   if (!domDoc)
-    return PR_FALSE;
+    return false;
 
   nsresult rv;
   nsCOMPtr<nsIDOMNodeList> elements;
@@ -115,18 +114,18 @@ uGlobalMenuLoader::RegisterMenu(nsIWidget *aWindow,
                                       NS_LITERAL_STRING("menubar"),
                                       getter_AddRefs(elements));
   if (NS_FAILED(rv) || !elements)
-    return PR_TRUE;
+    return true;
 
   nsCOMPtr<nsIDOMNode> menubar;
   elements->Item(0, getter_AddRefs(menubar));
   if (!menubar)
-    return PR_TRUE;
+    return true;
 
   nsCOMPtr<nsIContent> menubarContent = do_QueryInterface(menubar);
   // XXX: Should we do anything with errors here?
   mService->CreateGlobalMenuBar(aWindow, menubarContent);
 
-  return PR_TRUE;
+  return true;
 }
 
 void
@@ -144,7 +143,7 @@ uGlobalMenuLoader::RegisterAllMenus()
     return;
   }
 
-  MOZ_API_BOOL hasMore;
+  bool hasMore;
   iter->HasMoreElements(&hasMore);
 
   while (hasMore) {
@@ -168,17 +167,23 @@ nsresult
 uGlobalMenuLoader::Init()
 {
   mService = do_GetService("@canonical.com/globalmenu-service;1");
-  NS_ENSURE_TRUE(mService, NS_ERROR_OUT_OF_MEMORY);
+  if (!mService) {
+    NS_WARNING("Failed to get menu service");
+    return NS_ERROR_FAILURE;
+  }
 
   mService->RegisterNotification(this);
 
   nsCOMPtr<nsIWindowMediator> wm =
       do_GetService("@mozilla.org/appshell/window-mediator;1");
-  NS_ENSURE_TRUE(wm, NS_ERROR_OUT_OF_MEMORY);
+  if (!wm) {
+    NS_WARNING("Failed to get window mediator service");
+    return NS_ERROR_FAILURE;
+  }
 
   wm->AddListener(this);
 
-  MOZ_API_BOOL online;
+  bool online;
   mService->GetOnline(&online);
   if (online) {
     RegisterAllMenus();
@@ -289,12 +294,8 @@ uGlobalMenuLoader::OnProgressChange(nsIWebProgress *aWebProgress,
 NS_IMETHODIMP
 uGlobalMenuLoader::OnLocationChange(nsIWebProgress *aWebProgress,
                                     nsIRequest *aRequest,
-#if MOZILLA_BRANCH_MAJOR_VERSION <= 10
-                                    nsIURI *aLocation)
-#else
                                     nsIURI *aLocation,
                                     PRUint32 aFlags)
-#endif
 {
   return NS_ERROR_NOT_IMPLEMENTED;
 }

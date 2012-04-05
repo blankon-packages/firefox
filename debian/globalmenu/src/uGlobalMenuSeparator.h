@@ -36,14 +36,8 @@
  * 
  * ***** END LICENSE BLOCK ***** */
 
-#ifndef _U_GLOBALMENUITEM_H
-#define _U_GLOBALMENUITEM_H
-
-#include <prtypes.h>
-#include <nsCOMPtr.h>
-#include <nsStringAPI.h>
-
-#include <libdbusmenu-glib/server.h>
+#ifndef _U_GLOBALMENUSEPARATOR_H
+#define _U_GLOBALMENUSEPARATOR_H
 
 #include "uGlobalMenuObject.h"
 #include "uMenuChangeObserver.h"
@@ -52,14 +46,8 @@ class nsIContent;
 class uGlobalMenuDocListener;
 class uGlobalMenuBar;
 
-enum uMenuItemType {
-  Normal,
-  CheckBox,
-  Radio
-};
-
-class uGlobalMenuItem: public uGlobalMenuObject,
-                       public uMenuChangeObserver
+class uGlobalMenuSeparator: public uGlobalMenuObject,
+                            public uMenuChangeObserver
 {
 public:
   NS_DECL_UMENUCHANGEOBSERVER
@@ -72,32 +60,15 @@ public:
   void AboutToShowNotify();
 
 private:
-  uGlobalMenuItem();
+  uGlobalMenuSeparator();
 
   nsresult Init(uGlobalMenuObject *aParent,
                 uGlobalMenuDocListener *aListener,
                 nsIContent *aContent,
                 uGlobalMenuBar *aMenuBar);
-  ~uGlobalMenuItem();
+  ~uGlobalMenuSeparator();
 
-  PRUint32 GetKeyCode(nsAString &aKeyName);
-  PRUint32 MozKeyCodeToGdkKeyCode(PRUint32 aMozKeyCode);
-  void SyncAccelFromContent();
-  void SyncProperties();
-  void SyncTypeAndStateFromContent();
-  nsresult ConstructDbusMenuItem();
-  static void ItemActivatedCallback(DbusmenuMenuitem *menuItem,
-                                    PRUint32 timeStamp,
-                                    void *data);
-  void Activate();
-  void UncheckSiblings();
-
-  nsCOMPtr<nsIContent> mCommandContent;
-  nsCOMPtr<nsIContent> mKeyContent;
-  PRUint32 mHandlerID;
-  PRPackedBool mIsToggle;
-  PRPackedBool mToggleState;
-  uMenuItemType mType;
+  void InitializeDbusMenuItem();
 };
 
 

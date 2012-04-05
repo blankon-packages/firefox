@@ -44,8 +44,10 @@ include $(DEPTH)/config/autoconf.mk
 
 MODULE	= globalmenu
 DIRS	= \
-	  components \
+	  public \
+	  src \
 	  chrome \
+	  build \
 	  $(NULL)
 
 XPI_NAME		= globalmenu

@@ -46,27 +46,77 @@
 #include <imgIRequest.h>
 #include <imgIContainerObserver.h>
 #include <nsThreadUtils.h>
-#include <imgILoader.h>
 
 #include <libdbusmenu-glib/server.h>
 
 #include "uGlobalMenuDocListener.h"
 
+// The menuitem attributes need updating
+#define UNITY_MENUITEM_IS_DIRTY           (1 << 0)
+
+// The content node says that this menuitem should be visible
+#define UNITY_MENUITEM_CONTENT_IS_VISIBLE (1 << 1)
+
+// This menuitem is ignoring DOM events
+#define UNITY_MENUITEM_EVENTS_ARE_BLOCKED (1 << 2)
+
+// The icon for this menuitem should always be shown (eg, bookmarks)
+#define UNITY_MENUITEM_ALWAYS_SHOW_ICON   (1 << 3)
+
+// This menuitem should only be visible when its menu is opened by the keyboard
+#define UNITY_MENUITEM_SHOW_ONLY_FOR_KB   (1 << 4)
+
+// The menu is in the process of opening
+#define UNITY_MENU_IS_OPEN_OR_OPENING     (1 << 5)
+
+// The menu needs rebuilding
+#define UNITY_MENU_NEEDS_REBUILDING       (1 << 6)
+
+// The shell sent the first "AboutToOpen" event
+#define UNITY_MENU_READY                  (1 << 7)
+
+// This menuitem is a checkbox or radioitem which is active
+#define UNITY_MENUITEM_TOGGLE_IS_ACTIVE   (1 << 8)
+
+// This menuitem is a checkbox
+#define UNITY_MENUITEM_IS_CHECKBOX        (1 << 9)
+
+// This menuitem is a radio item
+#define UNITY_MENUITEM_IS_RADIO           (1 << 10)
+
+// The menubar has been registered with the shell
+#define UNITY_MENUBAR_IS_REGISTERED       (1 << 11)
+
 enum uMenuObjectType {
-  MenuBar,
-  Menu,
-  MenuItem,
-  MenuSeparator,
-  MenuDummy
+  eMenuBar,
+  eMenu,
+  eMenuItem,
+  eMenuSeparator,
+  eMenuDummy
+};
+
+enum uMenuObjectProperties {
+  eLabel = (1 << 0),
+  eEnabled = (1 << 1),
+  eVisible = (1 << 2),
+  eIconData = (1 << 3),
+  eType = (1 << 4),
+  eShortcut = (1 << 5),
+  eToggleType = (1 << 6),
+  eToggleState = (1 << 7),
+  eChildDisplay = (1 << 8)
 };
 
 class uGlobalMenuObject;
 class uGlobalMenuBar;
 
-#define UGM_BLOCK_EVENTS_FOR_CURRENT_SCOPE()                       \
-  uGlobalMenuObjectEventBlocker _event_blocker(this);
-#define UGM_ENSURE_EVENTS_UNBLOCKED()                              \
-  if (mEventsBlocked) {                                            \
+#define UNITY_MENU_BLOCK_EVENTS_FOR_CURRENT_SCOPE()                                \
+  uGlobalMenuScopedFlagsRestorer _event_blocker(this,                               \
+                                                UNITY_MENUITEM_EVENTS_ARE_BLOCKED); \
+  mFlags = mFlags | UNITY_MENUITEM_EVENTS_ARE_BLOCKED;
+
+#define UNITY_MENU_ENSURE_EVENTS_UNBLOCKED()                       \
+  if (mFlags & UNITY_MENUITEM_EVENTS_ARE_BLOCKED) {                \
     DEBUG_WITH_THIS_MENUOBJECT("Events are blocked on this node"); \
     return;                                                        \
   }
@@ -92,37 +142,35 @@ protected:
 
 private:
   void ClearIcon();
-  PRBool ShouldShowIcon();
+  bool ShouldShowIcon();
 
-  PRBool mIconLoaded;
+  bool mIconLoaded;
   uGlobalMenuObject *mMenuItem;
   nsCOMPtr<nsIContent> mContent;
   nsCOMPtr<imgIRequest> mIconRequest;
   nsIntRect mImageRect;
   static PRPackedBool sImagesInMenus;
-  static nsCOMPtr<imgILoader> sLoader;
 };
 
 class uGlobalMenuObject
 {
-  friend class uGlobalMenuIconLoader;
-  friend class uGlobalMenuObjectEventBlocker;
 public:
   uGlobalMenuObject (uMenuObjectType aType): mDbusMenuItem(nsnull),
                                              mListener(nsnull),
                                              mParent(nsnull),
                                              mType(aType),
-                                             mEventsBlocked(PR_FALSE),
-                                             mDirty(PR_FALSE)
+                                             mFlags(0)
                                              { };
-  DbusmenuMenuitem* GetDbusMenuItem() { return mDbusMenuItem; }
+  DbusmenuMenuitem* GetDbusMenuItem();
+  void SetDbusMenuItem(DbusmenuMenuitem *aDbusMenuItem);
   uGlobalMenuObject* GetParent() { return mParent; }
   uMenuObjectType GetType() { return mType; }
-  void GetContent(nsIContent **_retval);
+  nsIContent* GetContent() { return mContent; }
   virtual void AboutToShowNotify() { };
   virtual ~uGlobalMenuObject() { };
 
 protected:
+  virtual void InitializeDbusMenuItem()=0;
   void SyncLabelFromContent(nsIContent *aContent);
   void SyncLabelFromContent();
   void SyncVisibilityFromContent();
@@ -132,11 +180,28 @@ protected:
   void UpdateInfoFromContentClass();
   void UpdateVisibility();
   void DestroyIconLoader();
-  PRBool WithFavicon() { return !!mWithFavicon; }
-  PRBool IsHidden();
-  void Invalidate() { mDirty = PR_TRUE; }
-  void ClearInvalid() { mDirty = PR_FALSE; }
-  PRBool IsDirty() { return !!mDirty; }
+  bool IsHidden();
+  void Invalidate() { mFlags = mFlags | UNITY_MENUITEM_IS_DIRTY; }
+  void ClearInvalid() { mFlags = mFlags & ~UNITY_MENUITEM_IS_DIRTY; }
+  bool IsDirty() { return !!(mFlags & UNITY_MENUITEM_IS_DIRTY); }
+  void OnlyKeepProperties(uMenuObjectProperties aKeep);
+
+  bool ShouldShowOnlyForKb()
+  {
+    return !!(mFlags & UNITY_MENUITEM_SHOW_ONLY_FOR_KB);
+  }
+
+  void SetFlags(PRUint16 aFlags) { mFlags = mFlags | aFlags; }
+  void ClearFlags(PRUint16 aFlags) { mFlags = mFlags & ~aFlags; }
+
+  void SetOrClearFlags(bool aSet, PRUint16 aFlags)
+  {
+    if (aSet) {
+      SetFlags(aFlags);
+    } else {
+      ClearFlags(aFlags);
+    }
+  }
 
   nsCOMPtr<nsIContent> mContent;
   DbusmenuMenuitem *mDbusMenuItem;
@@ -144,31 +209,53 @@ protected:
   uGlobalMenuObject *mParent;
   uMenuObjectType mType;
   uGlobalMenuBar *mMenuBar;
-  PRPackedBool mContentVisible;
-  PRPackedBool mEventsBlocked;
 
-private:
-  PRBool ShouldShowOnlyForKb() { return !!mShowOnlyForKb; }
+protected:
+  friend class uGlobalMenuScopedFlagsRestorer;
 
-  nsRefPtr<uGlobalMenuIconLoader> mIconLoader;
-  PRPackedBool mWithFavicon;
-  PRPackedBool mShowOnlyForKb;
-  PRPackedBool mDirty;
-};
+  PRUint16 mFlags;
 
-class uGlobalMenuObjectEventBlocker
-{
-public:
-  uGlobalMenuObjectEventBlocker(uGlobalMenuObject *aMenuObject):
-                                mMenuObject(aMenuObject)
+protected:
+  friend class uGlobalMenuIconLoader;
+
+  bool ShouldAlwaysShowIcon()
   {
-    mMenuObject->mEventsBlocked = PR_TRUE;
+    return !!(mFlags & UNITY_MENUITEM_ALWAYS_SHOW_ICON);
   }
 
-  ~uGlobalMenuObjectEventBlocker() { mMenuObject->mEventsBlocked = PR_FALSE; }
+private:
+  nsRefPtr<uGlobalMenuIconLoader> mIconLoader;
+};
+
+class uGlobalMenuScopedFlagsRestorer
+{
+public:
+  uGlobalMenuScopedFlagsRestorer(uGlobalMenuObject *aMenuObject, PRUint16 aMask = 0):
+                                 mMenuObject(aMenuObject), mMask(aMask)
+  {
+    mFlags = mMenuObject->mFlags;
+    mMask = aMask;
+  }
+
+  void Cancel() { mMenuObject = nsnull; }
+
+  void ClearFlagWhenDone(PRUint16 aFlags)
+  {
+    mMask = mMask | aFlags;
+    mFlags = mFlags & ~aFlags;
+  }
+
+  ~uGlobalMenuScopedFlagsRestorer()
+  {
+    if (mMenuObject) {
+      mMenuObject->mFlags = (mMenuObject->mFlags & ~mMask) | (mFlags & mMask);
+    }
+  }
 
 private:
   uGlobalMenuObject *mMenuObject;
+  PRUint16 mFlags;
+  PRUint16 mMask;
 };
 
 #endif

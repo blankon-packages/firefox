@@ -43,6 +43,7 @@
 #include <nsTArray.h>
 #include <nsCOMPtr.h>
 #include <nsIWindowMediatorListener.h>
+#include <nsIWindowMediator.h>
 
 #include <glib.h>
 #include <gio/gio.h>
@@ -57,6 +58,12 @@
 #define U_GLOBALMENUSERVICE_CONTRACTID "@canonical.com/globalmenu-service;1"
 
 class nsIWidget;
+class nsICaseConversion;
+class imgILoader;
+class nsIImageToPixbuf;
+class nsIPrefBranch;
+class nsIXBLService;
+class nsIXPConnect;
 
 class uGlobalMenuService: public uIGlobalMenuService,
                           public nsIWindowMediatorListener
@@ -66,15 +73,30 @@ public:
   NS_DECL_UIGLOBALMENUSERVICE
   NS_DECL_NSIWINDOWMEDIATORLISTENER
 
-  uGlobalMenuService() : mOnline(PR_FALSE),
+  uGlobalMenuService() : mOnline(false),
                          mDbusProxy(NULL),
                          mCancellable(NULL) { };
   nsresult Init();
 
   ~uGlobalMenuService();
 
+  static uGlobalMenuService* GetInstanceForService();
+
+  static void Shutdown();
+
+  static bool RegisterGlobalMenuBar(uGlobalMenuBar *aMenuBar,
+                                    uGlobalMenuRequestAutoCanceller *aCanceller,
+                                    PRUint32 aXID, nsACString& aPath);
+
+  static bool InitService();
+
+#define SERVICE(Name, Interface, CID) \
+  static Interface* Get##Name();
+#include "uGlobalMenuServiceList.h"
+#undef SERVICE
+
 private:
-  void SetOnline(PRBool aOnline);
+  void SetOnline(bool aOnline);
   static void ProxyCreatedCallback(GObject *object,
                                    GAsyncResult *res,
                                    gpointer userdata);
@@ -84,15 +106,23 @@ private:
   static void RegisterWindowCallback(GObject *object,
                                      GAsyncResult *res,
                                      gpointer userdata);
-  PRBool WidgetHasGlobalMenu(nsIWidget *aWidget);
+  bool WidgetHasGlobalMenu(nsIWidget *aWidget);
   void DestroyMenus();
   void DestroyMenuForWidget(nsIWidget *aWidget);
 
-  PRPackedBool mOnline;
+  static uGlobalMenuService *sService;
+#define SERVICE(Name, Interface, CID) \
+  static Interface *s##Name;
+#include "uGlobalMenuServiceList.h"
+#undef SERVICE
+  static bool sShutdown;
+
+  bool mOnline;
   GDBusProxy *mDbusProxy;
-  nsAutoPtr<uGlobalMenuRequestAutoCanceller> mCancellable;
-  PRUint32 mNOCHandlerID;
-  nsTArray< nsAutoPtr<uGlobalMenuBar> > mMenus;
+  GCancellable *mCancellable;
+  nsTArray<nsAutoPtr<uGlobalMenuBar> > mMenus;
+  nsTArray<nsCOMPtr<nsIObserver> > mListeners;
+  nsCOMPtr<nsIWindowMediator> mWindowMediator;
 };
 
 #endif

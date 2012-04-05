@@ -38,9 +38,12 @@
  * ***** END LICENSE BLOCK ***** */
 
 Components.utils.import("resource://gre/modules/XPCOMUtils.jsm");
+Components.utils.import("resource://gre/modules/Services.jsm");
 
 (function unity_overrides() {
   "use strict";
+
+  var fx13 = Services.vc.compare(Services.appinfo.version, "13.0a1") >= 0;
 
   function enablePlacesNativeViewMenu(name) {
     // store the original ctor
@@ -50,12 +53,13 @@ Components.utils.import("resource://gre/modules/XPCOMUtils.jsm");
     // Note that somebody might have had the same stupid idea to override the ctor. ;)
     // So, try to interfere the least
     window[name] = function(aEvent) {
-      var rootElt = aEvent.target;
-      var viewElt = rootElt.parentNode;
-      if (viewElt.parentNode.localName == "menubar") {
+      let rootElt = aEvent.target;
+      if (rootElt.parentNode.parentNode.localName == "menubar") {
         this._nativeView = true;
-        rootElt._startMarker = -1;
-        rootElt._endMarker = -1;
+        if (!fx13) {
+          rootElt._startMarker = -1;
+          rootElt._endMarker = -1;
+        }
       }
       menuCtor.apply(this, arguments);
     }
@@ -88,21 +92,7 @@ Components.utils.import("resource://gre/modules/XPCOMUtils.jsm");
     },
 
     observe: function(subject, topic, data) {
-      if (topic == "native-menu-service:popup-open") {
-        if (data == "menu_EditPopup") {
-          // This is really hacky, but the edit menu items only set the correct
-          // sensitivity when the menupopup state == showing or open, which is
-          // a read only property set in layout/xul/base/src/nsMenuPopupFrame.cpp
-          // We can't do this off the popupshowing event, because we might run
-          // before the handler hanging off the onpopupshowing attribute, which
-          // will set the wrong sensitivity again, so we have our own notification
-          // Uuuurgh! :(
-          var saved_gEditUIVisible = gEditUIVisible;
-          gEditUIVisible = true;
-          goUpdateGlobalEditMenuItems();
-          gEditUIVisible = saved_gEditUIVisible;
-        }
-      } else if (topic == "native-menu-service:online") {
+      if (topic == "native-menu-service:online") {
         this.fixupUI(true);
       } else if (topic == "native-menu-service:offline") {
         this.fixupUI(false);

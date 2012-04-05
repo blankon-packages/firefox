@@ -84,7 +84,6 @@ private:
 class uGlobalMenuBar: public uGlobalMenuObject,
                       public uMenuChangeObserver
 {
-  friend class uGlobalMenuBarListener;
 public:
   NS_DECL_UMENUCHANGEOBSERVER
 
@@ -92,61 +91,61 @@ public:
                                 nsIContent *aMenuBar);
   ~uGlobalMenuBar();
 
-  // Return the native ID of the window
-  PRUint32 GetWindowID();
-
-  // Returns the path of the menubar on the session bus
-  const char* GetMenuPath();
-
   // Checks if the menubar shares the same top level window as the 
   // specified nsIWidget
-  PRBool WidgetHasSameToplevelWindow(nsIWidget *aWidget);
+  bool WidgetHasSameToplevelWindow(nsIWidget *aWidget);
 
   // Returns whether the menu was opened via a keyboard shortcut
-  PRBool OpenedByKeyboard() { return !!mOpenedByKeyboard; }
+  bool OpenedByKeyboard() { return !!mOpenedByKeyboard; }
 
-  // Called from the menu service. Used to hide the DOM element for the menubar
-  void SetMenuBarRegistered(PRBool aRegistered);
+  bool IsRegistered() { return !!(mFlags & UNITY_MENUBAR_IS_REGISTERED); }
 
-  PRBool IsRegistered() { return mCancellable == nsnull; }
+private:
+  friend class uGlobalMenuService;
 
-protected:
+  void NotifyMenuBarRegistered();
+
+private:
+  friend class uGlobalMenuBarListener;
+
   void Focus();
   void Blur();
   nsresult KeyPress(nsIDOMEvent *aKeyEvent);
   nsresult KeyUp(nsIDOMEvent *aKeyEvent);
   nsresult KeyDown(nsIDOMEvent *aKeyEvent);
+
 private:
   uGlobalMenuBar();
   // Initialize the menu structure
   nsresult Init(nsIWidget *aWindow,
                 nsIContent *aMenuBar);
 
+  void InitializeDbusMenuItem();
   GtkWidget* WidgetToGTKWindow(nsIWidget *aWidget);
   nsresult Build();
   PRUint32 GetModifiersFromEvent(nsIDOMKeyEvent *aKeyEvent);
-  PRBool ShouldHandleKeyEvent(nsIDOMEvent *aKeyEvent);
+  bool ShouldHandleKeyEvent(nsIDOMEvent *aKeyEvent);
 
-  PRBool RemoveMenuObjectAt(PRUint32 index);
-  PRBool InsertMenuObjectAt(uGlobalMenuObject *menu,
-                            PRUint32 index);
-  PRBool AppendMenuObject(uGlobalMenuObject *menu);
-  PRBool ShouldParentStayVisible(nsIContent *aContent);
-  PRBool IsParentOfMenuBar(nsIContent *aContent);
-  void SetXULMenuBarHidden(PRBool hidden);
+  bool RemoveMenuObjectAt(PRUint32 index);
+  bool InsertMenuObjectAt(uGlobalMenuObject *menu,
+                          PRUint32 index);
+  bool AppendMenuObject(uGlobalMenuObject *menu);
+  bool ShouldParentStayVisible(nsIContent *aContent);
+  bool IsParentOfMenuBar(nsIContent *aContent);
+  void HideXULMenuBar();
+  void ShowXULMenuBar();
 
   DbusmenuServer *mServer;
   GtkWidget *mTopLevel;
-  nsCString mPath;
 
   nsCOMPtr<nsIContent> mHiddenElement;
   nsCOMPtr<nsIDOMEventTarget> mDocTarget;
-  PRPackedBool mRestoreHidden;
-  PRPackedBool mXULMenuHidden;
+  bool mRestoreHidden;
+  bool mXULMenuHidden;
   nsRefPtr<uGlobalMenuBarListener> mEventListener;
   PRInt32 mAccessKey;
   PRUint32 mAccessKeyMask;
-  PRPackedBool mOpenedByKeyboard;
+  bool mOpenedByKeyboard;
   nsAutoPtr<uGlobalMenuRequestAutoCanceller> mCancellable;
 
   // Should probably have a container class and subclass that

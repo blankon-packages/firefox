@@ -1,11 +1,61 @@
-firefox (11.0+build1-0ubuntu1+blankon1) rote; urgency=low
+firefox (11.0+build1-0ubuntu3+blankon1) rote; urgency=low
 
   * Initial impor
   * distribution.in branding to BlankOn
   * debian/control* blankfox
-  * drop ubuntu.patch.
-  
- -- Rahman Yusri Aftian <aftian@di.blankon.in>  Sun, 25 Mar 2012 11:35:36 +0700
+  * drop ubuntu.patch. 
+
+ -- Rahman Yusri Aftian <aftian@di.blankon.in>  Thu, 05 Apr 2012 19:20:36 +0700
+
+firefox (11.0+build1-0ubuntu3) precise; urgency=low
+
+  * Update globalmenu-extension to 3.1
+    - Fix a crash where a menu is destroyed whilst there is a pending event
+      to empty its recycle list
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Mon, 02 Apr 2012 16:19:01 +0100
+
+firefox (11.0+build1-0ubuntu2) precise; urgency=low
+
+  * Update globalmenu-extension to 3.0.1
+    - Reduce our memory footprint a bit, which wasn't really a lot anyway
+    - Avoid the use of the component manager for accessing commonly used
+      services, where "commonly used" means "accessed when building every
+      menu item". This should save some CPU cycles when building or
+      refreshing menus
+    - Try to recycle menuitems when they are removed from a menu by
+      adding contiguous blocks of removed items to a "free list" which
+      is emptied asynchronously, and reusing the items in this list when
+      new items are added in place of the removed items. This means that
+      refreshing the history menu contents when the menu is opened no
+      longer alters the menu structure, but results in a shifting of
+      properties between existing nodes instead. This has a few benefits:
+      + With no layout changes, unity-panel-service doesn't request
+        the entire menu structure, which significantly reduces dbus traffic
+        and makes it much faster to refresh the menu contents
+      + The size of the menu doesn't change when it is refreshed, which
+        eliminates the flicker that used to occur when opening the history
+        menu.
+      + The HUD can refresh our menus now without triggering layout updates
+        (assuming that menu layout really hasn't changed, eg, by adding
+        a bookmark)
+    - Remove all use of the global observer service for sending our own
+      internal notifications around
+    - Clean up the way we ensure that the correct edit commands are
+      enabled by just installing our own popupshowing handler rather
+      than using an additional notification to fix things up after the
+      default handler runs
+    - Get rid of a static initializer
+    - Don't support older than Firefox 11
+    - Fix some GError leaks
+    - Hide the internal menu when creating a native menu, rather than
+      waiting for confirmation that the native menu is registered
+      successfully. We don't try to create a native menu if we don't
+      find a menu service to register the menu with anyway
+    - Keep menu contents updated whilst the menu is open, rather than
+      just whilst it is opening
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Mon, 02 Apr 2012 08:30:28 +0100
 
 firefox (11.0+build1-0ubuntu1) precise; urgency=low
 

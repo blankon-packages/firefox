@@ -35,18 +35,41 @@
 #
 # ***** END LICENSE BLOCK *****
 
-DEPTH		= ../../../..
+DEPTH		= ../../..
 topsrcdir	= @top_srcdir@
 srcdir		= @srcdir@
 VPATH		= @srcdir@
 
 include $(DEPTH)/config/autoconf.mk
 
+IS_COMPONENT	= 1
 MODULE		= globalmenu
+LIBRARY_NAME	= globalmenu
+MODULE_NAME	= uGlobalMenuModule
+
 XPI_NAME	= globalmenu
 
-XPIDLSRCS	= \
-		  uIGlobalMenuService.idl \
-		  $(NULL)
+CPPSRCS		= uGlobalMenuModule.cpp
+
+EXTRA_DSO_LDOPTS += $(XPCOM_GLUE_LDOPTS) \
+		    $(NSPR_LIBS) \
+		    $(DBUSMENU_LIBS) \
+		    $(MOZ_GTK2_LIBS) \
+		    $(NULL)
+
+ifdef MOZ_DEBUG
+EXTRA_DSO_LDOPTS += -Wl,--unresolved-symbols=ignore-all
+endif
+
+LOCAL_INCLUDES = -I$(topsrcdir)/extensions/globalmenu/src
+
+SHARED_LIBRARY_LIBS = $(DEPTH)/extensions/globalmenu/src/$(LIB_PREFIX)globalmenu_s.$(LIB_SUFFIX)
 
 include $(topsrcdir)/config/rules.mk
+
+CXXFLAGS += $(DBUSMENU_CFLAGS) \
+	    $(MOZ_GTK2_CFLAGS) \
+	    $(NULL)
+
+libs::
+	@$(PYTHON) $(MOZILLA_DIR)/config/buildlist.py $(FINAL_TARGET)/components/components.manifest "category profile-after-change uGlobalMenuLoader @canonical.com/globalmenu-loader;1"

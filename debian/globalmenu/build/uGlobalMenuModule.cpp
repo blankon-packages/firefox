@@ -42,7 +42,8 @@
 #include "uGlobalMenuService.h"
 #include "uGlobalMenuLoader.h"
 
-NS_GENERIC_FACTORY_CONSTRUCTOR_INIT(uGlobalMenuService, Init)
+NS_GENERIC_FACTORY_SINGLETON_CONSTRUCTOR(uGlobalMenuService,
+                                         uGlobalMenuService::GetInstanceForService)
 NS_GENERIC_FACTORY_CONSTRUCTOR_INIT(uGlobalMenuLoader, Init)
 
 NS_DEFINE_NAMED_CID(U_GLOBALMENUSERVICE_CID);
@@ -60,10 +61,20 @@ static const mozilla::Module::ContractIDEntry kGlobalMenuContracts[] = {
     { NULL }
 };
 
+static void
+UnloadMenuModule()
+{
+    uGlobalMenuService::Shutdown();
+}
+
 static const mozilla::Module kGlobalMenuModule = {
     mozilla::Module::kVersion,
     kGlobalMenuCIDs,
-    kGlobalMenuContracts
+    kGlobalMenuContracts,
+    NULL,
+    NULL,
+    NULL,
+    UnloadMenuModule
 };
 
 // The following line implements the one-and-only "NSModule" symbol exported from this

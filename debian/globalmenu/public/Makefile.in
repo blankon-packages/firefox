@@ -39,16 +39,14 @@ DEPTH		= ../../..
 topsrcdir	= @top_srcdir@
 srcdir		= @srcdir@
 VPATH		= @srcdir@
-	
+
 include $(DEPTH)/config/autoconf.mk
-	
-MODULE	= globalmenu
-	
-DIRS	= \
-	  public \
-	  src \
-	  $(NULL)
-	
+
+MODULE		= globalmenu
 XPI_NAME	= globalmenu
-	
+
+XPIDLSRCS	= \
+		  uIGlobalMenuService.idl \
+		  $(NULL)
+
 include $(topsrcdir)/config/rules.mk

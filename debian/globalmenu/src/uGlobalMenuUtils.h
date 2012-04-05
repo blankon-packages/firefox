@@ -1,4 +1,4 @@
-/* -*- Mode: IDL; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*-
+/* -*- Mode: C++; tab-width: 2; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
 /* ***** BEGIN LICENSE BLOCK *****
  *	 Version: MPL 1.1/GPL 2.0/LGPL 2.1
  *
@@ -36,36 +36,69 @@
  * 
  * ***** END LICENSE BLOCK ***** */
 
-#include "nsISupports.idl"
-#include "nsIObserver.idl"
+#ifndef _U_GLOBALMENUFACTORY_H
+#define _U_GLOBALMENUFACTORY_H
 
-[ptr] native uGlobalMenuBarPtr(uGlobalMenuBar);
-[ptr] native nsIWidgetPtr(nsIWidget);
-[ptr] native nsIContentPtr(nsIContent);
-[ptr] native uGlobalMenuRequestAutoCancellerPtr(uGlobalMenuRequestAutoCanceller);
+#include <gio/gio.h>
 
-%{C++
-class uGlobalMenuBar;
-class uGlobalMenuRequestAutoCanceller;
-class nsIWidget;
+class uGlobalMenuObject;
+class uGlobalMenuDocListener;
 class nsIContent;
-%}
+class uGlobalMenuBar;
+class nsIAtom;
 
-[scriptable, uuid(92e2d4d4-84d6-400b-99ce-bb3b63639b5b)]
-interface uIGlobalMenuService : nsISupports
+class uGlobalMenuRequestAutoCanceller
 {
-  /* Create a menu bar from the specified DOM node and associate with the top-level
-   * window containing the specified DOM window */
-  [noscript] void  createGlobalMenuBar (in nsIWidgetPtr parent, in nsIContentPtr menuBarNode);
+public:
+  static uGlobalMenuRequestAutoCanceller* Create()
+  {
+    uGlobalMenuRequestAutoCanceller *canceller =
+      new uGlobalMenuRequestAutoCanceller();
+    if (!canceller) {
+      return nsnull;
+    }
 
-  /* Register a menu bar with the menu bar service */
-  [noscript, notxpcom] void  registerGlobalMenuBar (in uGlobalMenuBarPtr menuBar, in uGlobalMenuRequestAutoCancellerPtr canceller);
+    if (!canceller->Init()) {
+      delete canceller;
+      canceller = nsnull;
+    }
 
-  /* Convenience functions to register to receive notification of the menu 
-   * service online status changing */
-  void  registerNotification (in nsIObserver observer);
-  void  unregisterNotification (in nsIObserver observer);
+    return canceller;
+  }
 
-  /* Menu service online status */
-  readonly attribute boolean online;
+  GCancellable* GetCancellable()
+  {
+    return mCancellable;
+  }
+
+  void Destroy()
+  {
+    if (mCancellable) {
+      g_object_unref(mCancellable);
+      mCancellable = nsnull;
+    }
+  }
+
+  ~uGlobalMenuRequestAutoCanceller()
+  {
+    if (mCancellable) {
+      g_cancellable_cancel(mCancellable);
+      g_object_unref(mCancellable);
+    }
+  }
+private:
+  uGlobalMenuRequestAutoCanceller() { };
+  bool Init()
+  {
+    mCancellable = g_cancellable_new();
+    return mCancellable ? true : false;
+  }
+
+  GCancellable *mCancellable;
 };
+
+uGlobalMenuObject* NewGlobalMenuItem(uGlobalMenuObject *aParent,
+                                     uGlobalMenuDocListener *aListener,
+                                     nsIContent *aContent,
+                                     uGlobalMenuBar *aMenuBar);
+#endif

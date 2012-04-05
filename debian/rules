@@ -151,7 +151,7 @@ ifneq (,$(filter powerpc,$(DEB_HOST_ARCH)))
 endif
 
 # Ensure the crash reporter gets disabled for derivatives
-ifneq (Ubuntu, $(DISTRIB))
+ifneq (BlankOn, $(DISTRIB))
 	MOZ_ENABLE_BREAKPAD = 0
 endif
 
@@ -175,8 +175,8 @@ MOZ_DISPLAY_NAME	= $(shell cat $(DEB_BUILDDIR)/$(BRANDING_DIR)/locales/en-US/bra
 
 export LDFLAGS
 export DEB_BUILD_HARDENING=1
-ifeq (Ubuntu, $(DISTRIB))
-export MOZ_UA_VENDOR=Ubuntu
+ifeq (BlankOn, $(DISTRIB))
+export MOZ_UA_VENDOR=BlankOn
 endif
 ifeq (1,$(shell test "$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)" -lt "1110" && echo "1"))
 	MOZ_BUILD_PGO := 0
