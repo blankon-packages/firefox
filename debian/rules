@@ -37,19 +37,19 @@ MOZ_USE_HUNSPELL	?= default
 MOZ_USE_VPX		?= default
 
 # Build-dependencies when using system libraries
-NSPR_SYSTEM_BD		= libnspr4-dev (>= 4.8.8)
-CAIRO_SYSTEM_BD		= libcairo2-dev (>= 1.10.0), libfreetype6-dev, libpixman-1-dev (>= 0.19.2)
-SQLITE_SYSTEM_BD	= libsqlite3-dev (>= 3.7.5)
+NSPR_SYSTEM_BD		= libnspr4-dev (>= 4.9.0)
+CAIRO_SYSTEM_BD		= libcairo2-dev (>= 1.10.0), libpixman-1-dev (>= 0.19.2)
+SQLITE_SYSTEM_BD	= libsqlite3-dev (>= 3.7.10)
 HUNSPELL_SYSTEM_BD	= libhunspell-dev
 VPX_SYSTEM_BD		= libvpx-dev
-NSS_SYSTEM_BD		= libnss3-dev (>= 3.12.10)
+NSS_SYSTEM_BD		= libnss3-dev (>= 3.13.2)
 
 # Build-dependencies when using in-tree libraries
 CAIRO_TREE_BD		= libxrender-dev
 
 # Additional build-dependencies
-EXTRA_SYSTEM_BD		= \n\tlibfreetype6-dev (>= 2.0.1),\n\tlibjpeg62-dev,\n\tlibpng12-dev,\n\tzlib1g-dev,\n\tlibbz2-dev,\n\tlibevent-dev,
-EXTRA_DEFAULT_BD	= \n\tlibfreetype6-dev (>= 2.0.1),
+EXTRA_SYSTEM_BD		= \n\tlibjpeg62-dev,\n\tlibpng12-dev,\n\tzlib1g-dev,\n\tlibbz2-dev,\n\tlibevent-dev,\n\tlibffi-dev (>= 3.0.9)
+EXTRA_DEFAULT_BD	= 
 
 DEFAULT_TREE_LIBS	= CAIRO NSPR NSS SQLITE HUNSPELL VPX
 DEFAULT_SYSTEM_LIBS	=
@@ -94,11 +94,11 @@ DEB_DH_STRIP_ARGS	:= --dbg-package=$(MOZ_APP_NAME)-dbg
 DEB_INSTALL_DOCS_ALL 	:= $(NULL)
 
 MOZ_VERSION		= $(shell cat $(DEB_BUILDDIR)/browser/config/version.txt)
-MOZ_PREFIX		:= /usr
-MOZ_LIBDIR		= $(MOZ_PREFIX)/lib/$(MOZ_APP_NAME)
-MOZ_INCDIR		= $(MOZ_PREFIX)/include/$(MOZ_APP_NAME)
-MOZ_IDLDIR		= $(MOZ_PREFIX)/share/idl/$(MOZ_APP_NAME)
-MOZ_SDKDIR		= $(MOZ_PREFIX)/lib/$(MOZ_APP_NAME)-devel
+MOZ_LIBDIR		= usr/lib/$(MOZ_APP_NAME)
+MOZ_INCDIR		= usr/include/$(MOZ_APP_NAME)
+MOZ_IDLDIR		= usr/share/idl/$(MOZ_APP_NAME)
+MOZ_SDKDIR		= usr/lib/$(MOZ_APP_NAME)-devel
+MOZ_ADDONDIR		= usr/lib/$(MOZ_APP_NAME)-addons
 
 NSPR_DEPENDS		:= $(NULL)
 NSS_DEPENDS		:= $(NULL)
@@ -190,9 +190,9 @@ else
 	MOZ_SYSTEM_DICTDIR = /usr/share/myspell/dicts
 endif
 ifeq (1,$(shell test "$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)" -eq "1110" && echo "1"))
-	DIST_SEARCHPLUGIN_DIR = usr/lib/$(MOZ_APP_NAME)-addons/distribution/searchplugins
+	DIST_SEARCHPLUGIN_DIR = $(MOZ_ADDONDIR)/distribution/searchplugins
 else
-	DIST_SEARCHPLUGIN_DIR = usr/lib/$(MOZ_APP_NAME)/distribution/searchplugins
+	DIST_SEARCHPLUGIN_DIR = $(MOZ_LIBDIR)/distribution/searchplugins
 endif
 export MOZCONFIG=$(CURDIR)/debian/config/mozconfig
 ifneq (1,$(MOZ_BUILD_UNOFFICIAL))
@@ -205,25 +205,25 @@ endif
 
 ifeq ($(MOZ_APP_BASENAME), $(MOZ_APP_NAME))
 ifeq (1,$(shell test "$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)" -eq "1004" && echo "1"))
-PLUGIN_BREAKS := flashplugin-installer (<= 11.1.102.63ubuntu0.10.04.1), adobe-flashplugin (<= 11.1.102.63-0lucid1)
+PLUGIN_BREAKS := flashplugin-installer (<= 11.2.202.233ubuntu0.10.04.1), adobe-flashplugin (<= 11.1.102.63-0lucid1)
 PLUGIN_CONFLICTS := gcu-plugin (<= 0.10.12-2ubuntu1), gecko-mediaplayer (<= 0.9.9.2-1ubuntu0.10.04.1), \
 		    mozilla-gtk-vnc (<= 0.3.10-2ubuntu2.1), mozilla-opensc  (<= 0.11.12-1ubuntu3.2), \
 		    mozilla-plugin-pcmanx (<= 0.3.9-2ubuntu2), mozplugger (<= 1.13.3-1ubuntu1), \
 		    xine-plugin (<= 1.0.2-1ubuntu2), mozilla-virt-viewer (<= 0.0.3-6ubuntu7.xul191.1)
 else
 ifeq (1,$(shell test "$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)" -eq "1010" && echo "1"))
-PLUGIN_BREAKS := flashplugin-installer (<= 11.1.102.63ubuntu0.10.10.1), adobe-flashplugin (<= 11.1.102.63-0maverick1)
+PLUGIN_BREAKS := flashplugin-installer (<= 11.2.202.228ubuntu0.10.10.1), adobe-flashplugin (<= 11.1.102.63-0maverick1)
 PLUGIN_CONFLICTS := gcu-plugin (<= 0.12.3-1), gecko-mediaplayer (<= 0.9.9.2-1ubuntu0.10.10.1), \
 		    mozilla-gtk-vnc (<= 0.4.1-3ubuntu2), mozilla-opensc (<= 0.11.13-1ubuntu2.1), \
 		    mozilla-plugin-pcmanx (<= 0.3.9-2ubuntu2), mozplugger (<= 1.14.1-2~exp3ubuntu1), \
 		    xine-plugin (<= 1.0.2-2ubuntu1)
 else
 ifeq (1,$(shell test "$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)" -eq "1104" && echo "1"))
-PLUGIN_BREAKS := flashplugin-installer (<= 11.1.102.63ubuntu0.11.04.1), adobe-flashplugin (<= 11.1.102.63-0natty1)
+PLUGIN_BREAKS := flashplugin-installer (<= 11.2.202.233ubuntu0.11.04.2), adobe-flashplugin (<= 11.1.102.63-0natty1)
 PLUGIN_CONFLICTS := gcu-plugin (<=  0.12.7-1ubuntu1)
 else
 ifeq (1,$(shell test "$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)" -eq "1110" && echo "1"))
-PLUGIN_BREAKS := flashplugin-installer (<= 11.1.102.63ubuntu0.11.10.1), adobe-flashplugin (<= 11.1.102.63-0oneiric1)
+PLUGIN_BREAKS := flashplugin-installer (<= 11.2.202.233ubuntu0.11.10.3), adobe-flashplugin (<= 11.1.102.63-0oneiric1)
 PLUGIN_CONFLICTS := gcu-plugin (<= 0.12.8-1ubuntu3)
 else
 PLUGIN_BREAKS := flashplugin-installer (<= 11.1.102.63ubuntu1), adobe-flashplugin (<= 11.1.102.63-0precise1)
@@ -246,7 +246,7 @@ APP_CONTROL_ARGS := -Vapp:Provides="firefox-3.6, firefox-3.5, firefox-3.0, firef
 				     firefox-branding (<= 4.0~b11+build3+nobinonly-0ubuntu1), $(PLUGIN_CONFLICTS)" \
 		    -Vapp:Replaces="firefox-3.6, firefox-3.5, firefox-3.0, firefox-3.6-gnome-support, firefox-2, firefox-2-libthai, \
 				    firefox-2-dom-inspector, abrowser, abrowser-branding, firefox-branding, kubuntu-firefox-installer" \
-		    -Vapp:Breaks="(PLUGIN_BREAKS)"
+		    -Vapp:Breaks="$(PLUGIN_BREAKS)"
 DEV_CONTROL_ARGS := -Vdev:Provides="firefox-3.6-dev, firefox-3.5-dev, firefox-3.0-dev, firefox-2-dev" \
 		    -Vdev:Replaces="firefox-3.6-dev, firefox-3.5-dev, firefox-3.0-dev, firefox-2-dev" \
 		    -Vdev:Conflicts="firefox-3.6-dev (<< 3.6~hg20100117r33523+nobinonly), firefox-3.5-dev (<< 3.6~hg20100117r33523), \
@@ -274,9 +274,11 @@ DEB_DH_GENCONTROL_ARGS_$(MOZ_APP_NAME) := -- -Vsupport:Suggests="$(MOZ_APP_NAME)
 endif
 endif
 DEB_DH_GENCONTROL_ARGS_$(MOZ_APP_NAME)-dev := -- -Vnspr:Depends=$(NSPR_DEPENDS) -Vnss:Depends=$(NSS_DEPENDS) -Vcairo:Depends=$(CAIRO_DEPENDS) $(DEV_CONTROL_ARGS)
-ifneq (1,$(GS_CONTROL_ARGS))
-DEB_DH_GENCONTROL_ARGS_$(MOZ_APP_NAME)-gnome-support := -- $(GS_CONTROL_ARGS)
+# With GSettings and at-spi2 in 11.10, we no longer rely on gconf for anything
+ifeq (1,$(shell test "$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)" -lt "1110" && echo "1"))
+GCONF_DEPENDS := libgconf2-4
 endif
+DEB_DH_GENCONTROL_ARGS_$(MOZ_APP_NAME)-gnome-support := -- -Vgconf:Depends="$(GCONF_DEPENDS)" $(GS_CONTROL_ARGS)
 ifneq (,$(DBG_CONTROL_ARGS))
 DEB_DH_GENCONTROL_ARGS_$(MOZ_APP_NAME)-dbg := -- $(DBG_CONTROL_ARGS)
 endif
@@ -286,7 +288,7 @@ DEB_DEFINES = 	-DMOZ_LIBDIR="$(MOZ_LIBDIR)" -DMOZ_APP_NAME="$(MOZ_APP_NAME)" -DM
 		-DMOZ_INCDIR="$(MOZ_INCDIR)" -DMOZ_IDLDIR="$(MOZ_IDLDIR)" -DMOZ_VERSION="$(MOZ_VERSION)" -DDEB_HOST_ARCH="$(DEB_HOST_ARCH)" \
 		-DMOZ_DISPLAY_NAME="$(MOZ_DISPLAY_NAME)" -DMOZ_SYSTEM_DICTDIR="$(MOZ_SYSTEM_DICTDIR)" -DMOZ_OVERRIDE_SHLIBS="$(MOZ_OVERRIDE_SHLIBS)" \
 		-DMOZ_BRANDING_OPTION="$(MOZ_BRANDING_OPTION)" -DTOPSRCDIR="$(CURDIR)" -DDEB_HOST_GNU_TYPE="$(DEB_HOST_GNU_TYPE)" \
-		-DMOZ_PREFIX="$(MOZ_PREFIX)" -DMOZ_SDKDIR="$(MOZ_SDKDIR)" -DMOZ_DISTDIR="$(MOZ_DISTDIR)" -DMOZ_UPDATE_CHANNEL="$(CHANNEL)" \
+		-DMOZ_ADDONDIR="$(MOZ_ADDONDIR)" -DMOZ_SDKDIR="$(MOZ_SDKDIR)" -DMOZ_DISTDIR="$(MOZ_DISTDIR)" -DMOZ_UPDATE_CHANNEL="$(CHANNEL)" \
 		-DMOZ_OBJDIR="$(MOZ_OBJDIR)" -DDEB_BUILDDIR="$(DEB_BUILDDIR)" -DMOZ_PYTHON="$(MOZ_PYTHON)" -DMOZ_PROFILE_PREFIX=".mozilla/"
 
 SHLIB_OVERRIDE = $(if $(shell test "system" = "$(MOZ_OVERRIDE_SHLIBS)" && echo "1"), $(eval MOZ_USE_$(1) = system), \
@@ -316,9 +318,6 @@ ifneq ($(DEB_BUILD_GNU_TYPE),$(DEB_HOST_GNU_TYPE))
 endif
 ifeq (1,$(MOZ_BUILD_PGO))
 	DEB_DEFINES += -DMOZ_BUILD_PGO
-endif
-ifeq (1,$(shell test "$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)" -ge "1104" && echo "1"))
-	DEB_DEFINES += -DMOZ_DISABLE_GNOMEVFS
 endif
 ifeq (1,$(MOZ_DEBUG))
 	DEB_DEFINES += -DMOZ_DEBUG
@@ -356,7 +355,7 @@ ifneq (1, $(MOZ_TREE_NSS))
 	NSS_DEPENDS = libnss3-dev
 endif
 
-DEBIAN_EXECUTABLES = $(MOZ_APP_NAME)$(MOZ_LIBDIR)/firefox.sh \
+DEBIAN_EXECUTABLES = $(MOZ_APP_NAME)/$(MOZ_LIBDIR)/firefox.sh \
 		     $(NULL)
 
 subst_files = \
@@ -489,9 +488,9 @@ common-build-indep:: make-langpack-xpis
 
 common-install-arch common-install-indep::
 	$(foreach dir,$(MOZ_LIBDIR) $(MOZ_INCDIR) $(MOZ_IDLDIR) $(MOZ_SDKDIR), \
-		if [ -d debian/tmp$(dir)-$(MOZ_VERSION) ]; \
+		if [ -d debian/tmp/$(dir)-$(MOZ_VERSION) ]; \
 		then \
-			mv debian/tmp$(dir)-$(MOZ_VERSION) debian/tmp$(dir); \
+			mv debian/tmp/$(dir)-$(MOZ_VERSION) debian/tmp/$(dir); \
 		fi; )
 
 common-binary-arch:: make-buildsymbols
@@ -504,18 +503,18 @@ endif
 
 ifeq (1, $(MOZ_ENABLE_GLOBALMENU))
 binary-install/$(MOZ_APP_NAME)-globalmenu::
-	unzip -o -d debian/$(MOZ_APP_NAME)-globalmenu$(MOZ_PREFIX)/lib/$(MOZ_APP_NAME)-addons/extensions/globalmenu@ubuntu.com/ $(MOZ_DISTDIR)/xpi-stage/globalmenu.xpi
-	find debian/$(MOZ_APP_NAME)-globalmenu$(MOZ_PREFIX)/lib/$(MOZ_APP_NAME)-addons/extensions/globalmenu@ubuntu.com/ -type f -executable | xargs chmod -x
+	unzip -o -d debian/$(MOZ_APP_NAME)-globalmenu/$(MOZ_ADDONDIR)/extensions/globalmenu@ubuntu.com/ $(MOZ_DISTDIR)/xpi-stage/globalmenu.xpi
+	find debian/$(MOZ_APP_NAME)-globalmenu/$(MOZ_ADDONDIR)/extensions/globalmenu@ubuntu.com/ -type f -executable | xargs chmod -x
 endif
 
-GNOME_SUPPORT_FILES = libmozgnome.so libnkgnomevfs.so
+GNOME_SUPPORT_FILES = libmozgnome.so
 
 binary-post-install/$(MOZ_APP_NAME)::
-	$(foreach file,$(GNOME_SUPPORT_FILES),rm -fv debian/$(MOZ_APP_NAME)$(MOZ_LIBDIR)/components/$(file);) true
+	$(foreach file,$(GNOME_SUPPORT_FILES),rm -fv debian/$(MOZ_APP_NAME)/$(MOZ_LIBDIR)/components/$(file);) true
 
 ifeq (1, $(MOZ_TREE_NSPR))
 binary-post-install/$(MOZ_APP_NAME)-dev::
-	rm -f debian/$(MOZ_APP_NAME)-dev$(MOZ_INCDIR)/nspr/md/_linux.cfg
+	rm -f debian/$(MOZ_APP_NAME)-dev/$(MOZ_INCDIR)/nspr/md/_linux.cfg
 	dh_link -p$(MOZ_APP_NAME)-dev $(MOZ_INCDIR)/nspr/prcpucfg.h $(MOZ_INCDIR)/nspr/md/_linux.cfg
 endif
 
@@ -536,9 +535,9 @@ common-binary-post-install-indep::
 			id=`python $(CURDIR)/debian/build/get-xpi-id.py $(CURDIR)/$(MOZ_DISTDIR)/linux-$(DEB_HOST_GNU_CPU)/xpi/$(MOZ_APP_NAME)-$(MOZ_VERSION).$${language}.langpack.xpi` ; \
 			[ $$? -eq 0 ] || exit 1 ; \
 			echo "Installing $(MOZ_APP_NAME)-$(MOZ_VERSION).$${language}.langpack.xpi to $${id}.xpi in $(MOZ_APP_NAME)-locale-$${pkgname}" ; \
-			dh_installdirs -p$(MOZ_APP_NAME)-locale-$${pkgname} usr/lib/$(MOZ_APP_NAME)-addons/extensions ; \
+			dh_installdirs -p$(MOZ_APP_NAME)-locale-$${pkgname} $(MOZ_ADDONDIR)/extensions ; \
 			cp $(CURDIR)/$(MOZ_DISTDIR)/linux-$(DEB_HOST_GNU_CPU)/xpi/$(MOZ_APP_NAME)-$(MOZ_VERSION).$${language}.langpack.xpi \
-			  $(CURDIR)/debian/$(MOZ_APP_NAME)-locale-$${pkgname}/usr/lib/$(MOZ_APP_NAME)-addons/extensions/$${id}.xpi ; \
+			  $(CURDIR)/debian/$(MOZ_APP_NAME)-locale-$${pkgname}/$(MOZ_ADDONDIR)/extensions/$${id}.xpi ; \
 			dh_installdirs -p$(MOZ_APP_NAME)-locale-$${pkgname} $(DIST_SEARCHPLUGIN_DIR)/locale/$${language} ; \
 			cp -r $(CURDIR)/$(MOZ_DISTDIR)/xpi-stage/locale-$${language}/searchplugins/*.xml \
 			  $(CURDIR)/debian/$(MOZ_APP_NAME)-locale-$${pkgname}/$(DIST_SEARCHPLUGIN_DIR)/locale/$${language}/. ; \
@@ -559,7 +558,7 @@ common-binary-fixup-indep::
 ifeq (1, $(MOZ_TREE_NSS))
 binary-predeb/$(MOZ_APP_NAME)::
 	$(foreach lib,libsoftokn3.so libfreebl3.so libnssdbm3.so, \
-	        LD_LIBRARY_PATH=debian/$(MOZ_APP_NAME)$(MOZ_LIBDIR):$$LD_LIBRARY_PATH \
+	        LD_LIBRARY_PATH=debian/$(MOZ_APP_NAME)/$(MOZ_LIBDIR):$$LD_LIBRARY_PATH \
 	        $(MOZ_DISTDIR)/bin/shlibsign -v -i debian/$(MOZ_APP_NAME)$(MOZ_LIBDIR)/$(lib);)
 endif
 
@@ -567,7 +566,7 @@ common-binary-predeb-arch::
 	$(foreach file,$(DEBIAN_EXECUTABLES),chmod a+x debian/$(file);)
 	# we want the gnome dependencies not to be in the main package at shlibdeps runtime, hence we dont
 	# install them at binary-install/* stage, but copy them over _after_ the shlibdeps had been generated
-	$(foreach file,$(GNOME_SUPPORT_FILES),mv debian/$(MOZ_APP_NAME)-gnome-support$(MOZ_LIBDIR)/components/$(file) debian/$(MOZ_APP_NAME)$(MOZ_LIBDIR)/components/;) true
+	$(foreach file,$(GNOME_SUPPORT_FILES),mv debian/$(MOZ_APP_NAME)-gnome-support/$(MOZ_LIBDIR)/components/$(file) debian/$(MOZ_APP_NAME)/$(MOZ_LIBDIR)/components/;) true
 
 pre-build:: $(subst_files)
 	cp $(CURDIR)/debian/syspref.js $(CURDIR)/debian/$(MOZ_APP_BASENAME).js

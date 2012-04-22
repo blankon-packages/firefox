@@ -111,6 +111,7 @@ private:
     RecycleList(uGlobalMenu *aMenu);
     ~RecycleList();
 
+    void Empty();
     DbusmenuMenuitem* PopRecyclableItem();
     void PrependRecyclableItem(DbusmenuMenuitem *aItem);
     void AppendRecyclableItem(DbusmenuMenuitem *aItem);

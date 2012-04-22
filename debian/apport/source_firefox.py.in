@@ -25,6 +25,9 @@ import tempfile
 import re
 import apport.packaging
 from apport.hookutils import *
+from glob import glob
+import zipfile
+import stat
 
 class PrefParseError(Exception):
     def __init__(self, msg):
@@ -122,6 +125,42 @@ class AppINIParser(ConfigParser):
         return self.get('App', 'ID')
 
 
+class ExtensionINIParser(ConfigParser):
+    def __init__(self, path):
+        ConfigParser.__init__(self)
+        self.read(os.path.join(path, "extensions.ini"))
+
+        self._extensions = []
+
+        if self.has_section('ExtensionDirs'):
+            items = self.items('ExtensionDirs')
+            for item in items:
+                self._extensions.append(item[1])
+
+    def __getitem__(self, key):
+        if key > len(self) - 1:
+            raise IndexError
+        return self._extensions[key]
+
+    def __iter__(self):
+
+        class ExtensionINIParserIter:
+            def __init__(self, parser):
+                self.parser = parser
+                self.index = 0
+
+            def next(self):
+                if self.index == len(self.parser):
+                    raise StopIteration
+                res = self.parser[self.index]
+                self.index += 1
+                return res
+
+        return ExtensionINIParserIter(self)
+
+    def __len__(self):
+        return len(self._extensions)            
+
 def compare_versions(a, b):
     '''Compare 2 version numbers, returns -1 for a<b, 0 for a=b and 1 for a>b
        This is basically just a python reimplementation of nsVersionComparator'''
@@ -209,25 +248,30 @@ def compare_versions(a, b):
     return res
 
 
-class Plugin:
+class Plugin(object):
     def __init__(self):
         self.lib = None
         self.path = None
         self.desc = None
-        self.package = None
+        self._package = None
+        self._checked_package = False
 
     def dump(self):
         if self.path.startswith(os.path.join(os.environ['HOME'], '.mozilla', '@MOZ_APP_NAME@')):
-            location = "app-profile"
+            location = "[Profile]"
         else:
             location = os.path.dirname(self.path)
 
-        return "%s - Lib=%s, Location=%s%s" % (self.desc, self.lib, location, " (%s)" % self.package if self.package != None else "")
+        pkgname = ' (%s)' % self.package if self.package != None else ''
+        return ("%s - %s%s" % (self.desc, os.path.join(location, self.lib), pkgname))
 
     @property
     def package(self):
-        if self._package == None:
-            self._package = apport.packaging.get_file_package(self.path)
+        if self._checked_package == False:
+            package = apport.packaging.get_file_package(self.path)
+            if package != None:
+                self._package = package.encode()
+            self._checked_package = True
         return self._package
 
 class PluginRegistry:
@@ -240,9 +284,8 @@ class PluginRegistry:
     STATE_FINISHED = 5
 
     def __init__(self, filename):
-        self.plugins = {}
+        self.plugins = []
         self._state = PluginRegistry.STATE_PENDING
-        self._count = 0
         self._current_plugin = None
         self.available = False
         try:
@@ -289,34 +332,38 @@ class PluginRegistry:
             self._state += 1
             return 0
         elif self._state == PluginRegistry.STATE_PROCESSING_3:
-            self.plugins[self._count] = self._current_plugin
-            self._count += 1
+            self.plugins.append(self._current_plugin)
             self._state = PluginRegistry.STATE_START
             return int(line.strip())
         else:
             return -1
 
     def __getitem__(self, key):
-        if not key in self.plugins:
+        if key > len(self) - 1:
             raise IndexError
         return self.plugins[key]
 
     def __iter__(self):
-        self._current_index = 0
-        return self
 
-    def next(self):
-        if self._current_index == len(self.plugins):
-            raise StopIteration
-        ret = self.plugins[self._current_index]
-        self._current_index += 1
-        return ret
+        class PluginRegistryIter:
+            def __init__(self, registry):
+                self.registry = registry
+                self.index = 0
+
+            def next(self):
+                if self.index == len(self.registry):
+                    raise StopIteration
+                ret = self.registry[self.index]
+                self.index += 1
+                return ret
+
+        return PluginRegistryIter(self)
 
     def __len__(self):
         return len(self.plugins)
 
 
-class PrefFile:
+class Prefs:
     '''Class which represents a pref file. Handles all of the parsing, and can be accessed
        like a normal python dictionary'''
     PREF_WHITELIST = [
@@ -330,8 +377,13 @@ class PrefFile:
         r'browser\.tabs\.*',
         r'browser\.zoom\.*',
         r'dom\.*',
+        r'extensions\.autoDisableScopes',
         r'extensions\.checkCompatibility\.*',
-        r'extensions\.lastAppVersion\.*',
+        r'extensions\.enabledScopes',
+        r'extensions\.lastAppVersion',
+        r'extensions\.minCompatibleAppVersion',
+        r'extensions\.minCompatiblePlatformVersion',
+        r'extensions\.strictCompatibility',
         r'font\.*',
         r'general\.skins\.*',
         r'general\.useragent\.*',
@@ -356,33 +408,137 @@ class PrefFile:
         r'^network.*proxy\.*',
         r'.*print_to_filename$',
         r'print\.tmp\.',
-        r'print\.printer_*'
+        r'print\.printer_*',
+        r'printer_*'
     ]
 
-    def __init__(self, filename, whitelist=None, blacklist=None):
-        self.whitelist = whitelist if whitelist != None else PrefFile.PREF_WHITELIST
-        self.blacklist = blacklist if blacklist != None else PrefFile.PREF_BLACKLIST
+    def __init__(self, profile_path, extra_paths=None, whitelist=None, blacklist=None):
+        self.whitelist = whitelist if whitelist != None else Prefs.PREF_WHITELIST
+        self.blacklist = blacklist if blacklist != None else Prefs.PREF_BLACKLIST
         self.prefs = {}
+        self._pref_files = []
+        self._errors = {}
+
+        # Report non-default preferences = ie, those from syspref.js, prefs.js,
+        # user.js and extension prefs. The load order is important
+        if profile_path != None:
+            locations = [
+                "/etc/@MOZ_APP_NAME@/syspref.js",
+                os.path.join(profile_path, "prefs.js"),
+                os.path.join(profile_path, "user.js")
+            ]
+
+            extensions = ExtensionINIParser(profile_path)
+            for extension in extensions:
+                if not extension.endswith('.xpi'):
+                    extension = os.path.join(extension, "defaults", "preferences")
+                locations.append(extension)
+        else: locations = []
+
+        if extra_paths != None:
+            for extra in extra_paths:
+                locations.append(extra)
+
+        for location in locations:
+            if location.endswith('.js'):
+                self._parse_file(location)
+            elif location.endswith('.xpi'):
+                self._parse_xpi(location)
+            else:
+                self._parse_dir(location)
+
+    def _parse_file(self, filename):
+        f = None
         self._in_comment = False
-        self.available = False
         try:
             f = open(filename)
-            for line in f.readlines():
-                self._parseline(line)
-            self.available = True
-        except Exception as e:
-            self.parse_error = str(e)
+            try:
+                for line in f.readlines():
+                    self._parseline(line, filename)
+            except Exception as e:
+                self._errors[filename] = str(e)
+        except:
+            pass
+        finally:
+            if f != None:
+                f.close()
+            if filename not in self._errors:
+                self._pref_files.append(filename)
 
-    def _maybe_add_pref(self, key, value):
+    def _parse_dir(self, dirname):
+        for filename in glob(os.path.join(dirname, '*.js')):
+            self._parse_file(filename)
+
+    def _parse_xpi(self, xpi):
+        xpifile = None
+        try:
+            xpifile = zipfile.ZipFile(xpi)
+            entries = xpifile.namelist()
+            for entry in entries:
+                if re.match(r'^defaults/preferences/*.js$', entry):
+                    self._in_comment = False
+                    source = '%s:%s' % (xpi, entry)
+                    try:
+                        f = xpifile.open(entry, 'r')
+                        for line in f.readlines():
+                            self._parseline(line, source)
+                    except Exception as e:
+                        self._errors[source] = str(e)
+                    finally:
+                        if source not in self._errors:
+                            self._pref_files.append(source)
+        except:
+            pass
+        finally:
+            if xpifile != None:
+                xpifile.close()
+
+    def _maybe_add_pref(self, key, value, source, default, locked):
+
+        class Pref(object):
+            def __init__(self):
+                self._default = None
+                self._value = None
+                self._default_source = None
+                self._value_source = None
+                self.locked = False
+
+            @property
+            def value(self):
+                if self._value:
+                    return self._value
+                return self._default
+
+            @property
+            def source(self):
+                if self._value != None: 
+                    return self._value_source
+                return self._default_source
+
+            def set_value(self, value, source, default, locked):
+                if self.locked == True:
+                    return
+
+                if default == True:
+                    self._default = value
+                    self._default_source = source
+                else:
+                    self._value = value
+                    self._value_source = source
+                self.locked = locked
+
         for match in self.blacklist:
             if re.match(match, key):
                 return
 
         for match in self.whitelist:
             if re.match(match, key):
-                self.prefs[key] = value
+                if key not in self.prefs:
+                    self.prefs[key] = Pref()
 
-    def _do_parse(self, line, start):
+                self.prefs[key].set_value(value, source, default, locked)
+
+    def _do_parse(self, line, start, source, default, locked):
         # XXX: I pity the poor soul who ever needs to change anything inside this function
         in_escape = False
         in_name = True
@@ -451,11 +607,11 @@ class PrefFile:
                     raise PrefParseError("Unexpected character")
 
         if done == True and in_name == False and in_value == False:
-            self._maybe_add_pref(name, value)
+            self._maybe_add_pref(name, value, source, default, locked)
         else:
             raise PrefParseError("Failed to parse line")
 
-    def _parseline(self, line):
+    def _parseline(self, line, source):
         line = line.strip()
         if line == '' or line[0] == '#' or line.startswith('//'):
             return
@@ -471,9 +627,11 @@ class PrefFile:
             return
 
         if line.startswith("user_pref("):
-            self._do_parse(line, 10)
+            self._do_parse(line, 10, source, False, False)
         elif line.startswith("pref("):
-            self._do_parse(line, 5)
+            self._do_parse(line, 5, source, True, False)
+        elif line.startswith("lockPref("):
+            self._do_parse(line, 9, source, True, True)
         else:
             raise PrefParseError("Unexpected line start")
 
@@ -483,16 +641,20 @@ class PrefFile:
         return self.prefs[key]
 
     def __iter__(self):
-        self.keys = self.prefs.keys()
-        self.current = 0
-        return self
 
-    def next(self):
-        if self.current == len(self.keys):
-            raise StopIteration
-        val = self.keys[self.current]
-        self.current += 1
-        return val
+        class PrefsIter:
+            def __init__(self, prefs):
+                self.index = 0
+                self.keys = prefs.prefs.keys()
+
+            def next(self):
+                if self.index == len(self.keys):
+                    raise StopIteration
+                res = self.keys[self.index]
+                self.index += 1
+                return res
+
+        return PrefsIter(self)
 
     def __len__(self):
         return len(self.prefs)
@@ -500,7 +662,9 @@ class PrefFile:
 
 class Extension:
     '''Small class representing an extension'''
-    def __init__(self, ext_id, location, ver, ext_type, active, desc, min_appver, max_appver, cur_appver):
+    def __init__(self, ext_id, location, ver, ext_type, active, desc, min_appver,
+                 max_appver, cur_appver, visible, userDisabled, appDisabled,
+                 softDisabled, foreign, hasBinary, strictCompat, appStrictCompat):
         self.ext_id = ext_id;
         self.location = location
         self.ver = ver
@@ -510,14 +674,45 @@ class Extension:
         self.min_appver = min_appver
         self.max_appver = max_appver
         self.cur_appver = cur_appver
+        self.visible = visible
+        self.userDisabled = userDisabled
+        self.appDisabled = appDisabled
+        self.softDisabled = softDisabled
+        self.foreign = foreign
+        self.hasBinary = hasBinary
+        self.strictCompat = strictCompat
+        self.appStrictCompat = appStrictCompat
 
     def dump(self):
-        active = "Yes" if self.active == 1 else "No"
-        return "%s - ID=%s, Version=%s, minVersion=%s, maxVersion=%s, Location=%s, Type=%s, Active=%s" % (self.desc, self.ext_id, self.ver, self.min_appver, self.max_appver, self.location, self.ext_type, active)
+        active = "Yes" if self.active == True else "No"
+        foreign = "Yes" if self.foreign == True else "No"
+        visible = "Yes" if self.visible == True else "No"
+        hasBinary = "Yes" if self.hasBinary == True else "No"
+        strictCompat = "Yes" if self.strictCompat == True else "No"
+        if self.active == True:
+            disabled_reason = ""
+        elif self.softDisabled == True:
+            disabled_reason = "(Soft-blocked)"
+        elif self.appDisabled == True:
+            disabled_reason = "(Application disabled)"
+        elif self.userDisabled == True:
+            disabled_reason = "(User disabled)"
+        else:
+            disabled_reason = "(Reason unknown)"
+
+        return ("%s - ID=%s, Version=%s, minVersion=%s, maxVersion=%s, Location=%s, " +
+                "Type=%s, Foreign=%s, Visible=%s, BinaryComponents=%s, StrictCompat=%s, " +
+                "Active=%s %s") % \
+               (self.desc, self.ext_id, self.ver, self.min_appver, self.max_appver,
+                self.location, self.ext_type, foreign, visible, hasBinary,
+                strictCompat, active, disabled_reason)
 
     @property
     def active_but_incompatible(self):
-        return self.active and (self.cur_appver != None and compare_versions(self.cur_appver, self.min_appver) == -1 or compare_versions(self.cur_appver, self.max_appver) == 1)
+        return self.active and (self.cur_appver != None and \
+                                (compare_versions(self.cur_appver, self.min_appver) == -1 or \
+                                 compare_versions(self.cur_appver, self.max_appver) == 1) and \
+                                (self.hasBinary or self.strictCompat or self.appStrictCompat))
 
 
 class Profile:
@@ -532,13 +727,13 @@ class Profile:
         self.default = is_default
         self.appini = appini
 
+        self.prefs = Prefs(path)
+
         try:
             self._populate_extensions()
         except:
             self.extensions = None
 
-        self.prefs = PrefFile(os.path.join(path, "prefs.js"))
-        self.userjs = PrefFile(os.path.join(path, "user.js"))
         self.plugins = PluginRegistry(os.path.join(path, "pluginreg.dat"))
 
     def _populate_extensions(self):
@@ -554,7 +749,14 @@ class Profile:
             location = row[2]
             ext_ver = row[3]
             ext_type = row[4]
-            active = True if row[6] == 1 else False
+            visible = True if row[6] == 1 else False
+            active = True if row[7] == 1 else False
+            userDisabled = True if row[8] == 1 else False
+            appDisabled = True if row[9] == 1 else False
+            softDisabled = True if row[10] == 1 else False
+            foreign = True if row[11] == 1 else False
+            hasBinary = True if row[12] == 1 else False
+            strictCompat = True if row[13] == 1 else False
 
             cur = conn.cursor()
             cur.execute("select name from locale where id=:id", { "id": row[5] })
@@ -565,10 +767,17 @@ class Profile:
                         { "id": row[0], "appid": self.appini.appid, "tkid": "toolkit@mozilla.org" })
             (min_ver, max_ver) = cur.fetchone()
 
-            return Extension(ext_id, location, ext_ver, ext_type, active, desc, min_ver, max_ver, self.last_version)
+            appStrictCompat = 'extensions.strictCompatibility' in self.prefs and \
+                              self.prefs['extensions.strictCompatibility'].value == 'true'
+            return Extension(ext_id, location, ext_ver, ext_type, active, desc,
+                             min_ver, max_ver, self.last_version, visible,
+                             userDisabled, appDisabled, softDisabled, foreign,
+                             hasBinary, strictCompat, appStrictCompat)
 
         cur = conn.cursor()
-        cur.execute("select internal_id, id, location, version, type, defaultLocale, active from addon")
+        cur.execute("select internal_id, id, location, version, type, defaultLocale, " + \
+                    "visible, active, userDisabled, appDisabled, softDisabled, " + \
+                    "isForeignInstall, hasBinaryComponents, strictCompatibility from addon")
         rows = cur.fetchall()
         for row in rows:
             extension = get_extension_from_row(row)
@@ -596,7 +805,7 @@ class Profile:
             ret += "Location: " + location + "\n\n"
             for extension in storage_array[location]:
                 prefix = "  (Inactive) " if not extension.active else ""
-                ret += "\t%s%s = ID=%s, Version=%s, minVersion=%s, maxVersion=%s\n" % (prefix, extension.desc, extension.ext_id, extension.ver, extension.min_appver, extension.max_appver)
+                ret += '\t%s%s\n' % (prefix, extension.dump())
             ret += "\n\n\n"
         return ret
 
@@ -618,6 +827,14 @@ class Profile:
 
         return self._running
 
+    def _anonymize_path(self, path):
+        if path == os.path.join(self.path, 'prefs.js'):
+            return 'prefs.js'
+        elif path == os.path.join(self.path, 'user.js'):
+            return 'user.js'
+
+        return os.path.join('[Profile]', os.path.relpath(path, self.path))
+
     def dump_extensions(self):
         return self._do_dump(self.extensions)
 
@@ -628,27 +845,9 @@ class Profile:
         return self._do_dump(self.themes)
 
     def dump_prefs(self):
-        if self.prefs.available == False:
-            if os.path.exists(os.path.join(self.path, "prefs.js")):
-                return "prefs.js exists but isn't parseable - %s" % self.prefs.parse_error
-            else:
-                return "prefs.js is not available"
-
         ret = ''
         for pref in self.prefs:
-            ret += pref + " - " + self.prefs[pref] + '\n'
-        return ret
-
-    def dump_user_js(self):
-        if self.userjs.available == False:
-            if os.path.exists(os.path.join(self.path, "user.js")):
-                return "user.js exists but isn't parseable - %s" % self.userjs.parse_error
-            else:
-                return None
-
-        ret = ''
-        for pref in self.userjs:
-            ret += pref + " - " + self.userjs[pref] + '\n'
+            ret += pref + ' - ' + self.prefs[pref].value + ' (' + self._anonymize_path(self.prefs[pref].source) + ')\n'
         return ret
 
     def dump_plugins(self):
@@ -677,7 +876,7 @@ class Profile:
 
     @property
     def has_active_but_incompatible_extensions(self):
-        if self.last_version == None:
+        if self.last_version == None or self.extensions == None:
             return False
         for storage_array in self.extensions, self.locales, self.themes:
             for location in storage_array:
@@ -687,22 +886,56 @@ class Profile:
         return False
 
     def dump_active_but_incompatible_extensions(self):
-        if self.last_version == None:
-            return "Unavailable (corrupt or non-existant compatibility.ini)"
+        if self.last_version == None or self.extensions == None:
+            return "Unavailable (corrupt or non-existant compatibility.ini or extensions.sqlite)"
         res = ''
         for storage_array in self.extensions, self.locales, self.themes:
             for location in storage_array:
                 for extension in storage_array[location]:
                     if extension.active_but_incompatible:
-                        res += extension.dump() + "\n"
+                        res += extension.desc + " - " + extension.ext_id + "\n"
         return res
+
+    def dump_files_with_broken_permissions(self):
+        broken = []
+        blacklist = [
+            r'^lock$'
+        ]
+
+        for dirpath, dirnames, filenames in os.walk(self.path):
+
+            def check_path(path):
+                relpath = os.path.relpath(path, self.path)
+                for i in blacklist:
+                    if re.match(i, relpath):
+                        return
+
+                flags = os.R_OK | os.W_OK
+                if os.path.isdir(path):
+                    flags |= os.X_OK
+                if not os.access(path, flags):
+                    broken.append(relpath)
+
+            check_path(dirpath)
+            for name in filenames:
+                check_path(os.path.join(dirpath, name))
+
+        uid = os.getuid()
+        broken.sort()
+        broken_txt = ''
+        for file in broken:
+            fstat = os.stat(os.path.join(self.path, file))
+            summary = "%#o" % (fstat.st_mode & (stat.S_IRWXU | stat.S_IRWXG |
+                                                stat.S_IRWXO))
+            if fstat.st_uid != uid:
+                summary += ', wrong owner'
+            broken_txt += file + ' (' + summary + ')\n'
+
+        return broken_txt
 
     @property
     def has_forced_layers_acceleration(self):
-        if self.prefs != None and "layers.acceleration.force-enabled" in self.prefs and self.prefs["layers.acceleration.force-enabled"] == "true":
-            return True
-
-        if self.userjs != None and "layers.acceleration.force-enabled" in self.userjs and self.userjs["layers.acceleration.force-enabled"] == "true":
+        if "layers.acceleration.force-enabled" in self.prefs and self.prefs["layers.acceleration.force-enabled"].value == "true":
             return True
 
         return False
@@ -728,56 +961,58 @@ class Profile:
             pref = "extensions.checkCompatibility.nightly"
         else:
             pref = "extensions.checkCompatibility.%s" % re.sub(r'(^[^\.]+\.[0-9]+[a-z]*).*', r'\1', self.last_version)
-        return pref in self.prefs and self.prefs[pref] == 'false'
+        return pref in self.prefs and self.prefs[pref].value == 'false'
 
 
 class Profiles:
     '''Small class to build an array of profiles from a profile.ini.
        Can be accessed like a normal array'''
     def __init__(self, ini_file, appini):
-        self.profiles = {}
+        self.profiles = []
 
         parser = ConfigParser()
         parser.read(ini_file)
         profile_folder = os.path.dirname(ini_file)
 
-        i = 0
         for section in parser.sections():
             if section == "General": continue
             if not parser.has_option(section, "Path"): continue
             path = parser.get(section, "Path")
             name = parser.get(section, "Name")
             is_default = True if parser.has_option(section, "Default") and parser.getint(section, "Default") == 1 else False
-            self.profiles[i] = Profile(section, name, os.path.join(profile_folder, path), is_default, appini)
-            i += 1
+            self.profiles.append(Profile(section, name, os.path.join(profile_folder, path), is_default, appini))
 
         # No "Default" entry when there is one profile
         if len(self) == 1: self[0].default = True
 
     def __getitem__(self, key):
-        if not key in self.profiles:
+        if key > len(self) - 1:
             raise IndexError
         return self.profiles[key]
 
     def __iter__(self):
-        self.current_index = 0
-        return self
+
+        class ProfilesIter:
+            def __init__(self, profiles):
+                self.profiles = profiles
+                self.index = 0
+
+            def next(self):
+                if self.index == len(self.profiles):
+                    raise StopIteration
+                res = self.profiles[self.index]
+                self.index += 1
+                return res
+
+        return ProfilesIter(self)
 
     def __len__(self):
         return len(self.profiles)
 
-    def next(self):
-        if self.current_index == len(self.profiles):
-            raise StopIteration
-        else:
-            val = self.profiles[self.current_index]
-            self.current_index += 1
-            return val
-
     def dump_profile_summaries(self):
         res = ''
         for profile in self:
-            running = " (Running)" if profile.running == True else ""
+            running = " (In use)" if profile.running == True else ""
             default = " (Default)" if profile.default else ""
             outdated = " (Out of date)" if not profile.current else ""
             res += "%s%s - LastVersion=%s/%s%s%s\n" % (profile.id, default, profile.last_version, profile.last_buildid, running, outdated)
@@ -838,15 +1073,16 @@ def add_info(report, ui):
         return
 
     conf_dir = os.path.join(os.environ["HOME"], ".mozilla", "@MOZ_APP_NAME@")
-    appini = AppINIParser('@MOZ_LIBDIR@')
+    appini = AppINIParser('/@MOZ_LIBDIR@')
     populate_item("BuildID", appini.buildid)
+    profiles = None
     try:
         profiles = Profiles(os.path.join(conf_dir, "profiles.ini"), appini)
         populate_item("Profiles", profiles.dump_profile_summaries())
     except:
         pass
     finally:
-        if len(profiles) == 0: report["NoProfiles"] = 'True'
+        if profiles == None or len(profiles) == 0: report["NoProfiles"] = 'True'
 
     for profile in profiles:
         if profile.running and not profile.current:
@@ -872,7 +1108,7 @@ def add_info(report, ui):
         populate_item(prefix + "Plugins", profile.dump_plugins())
         populate_item(prefix + "IncompatibleExtensions", profile.dump_active_but_incompatible_extensions())
         populate_item(prefix + "Prefs", profile.dump_prefs())
-        populate_item(prefix + "UserJS", profile.dump_user_js())
+        populate_item(prefix + "BrokenPermissions", profile.dump_files_with_broken_permissions())
 
         if (profile.current or profile.default) and profile.has_active_but_incompatible_extensions:
             running_incompatible_addons = True
@@ -880,6 +1116,39 @@ def add_info(report, ui):
             forced_layers_accel = True
         if (profile.current or profile.default) and profile.addon_compat_check_disabled:
             addon_compat_check_disabled = True
+
+    crash_reports = []
+    report_to_mtime = {}
+    most_recent_report = None
+    most_recent_mtime = 0
+    for crash in glob(os.path.join(conf_dir, 'Crash Reports', 'submitted', '*.txt')):
+        id = re.sub(r'\.txt$', '', os.path.basename(crash))
+        report_to_mtime[id] = os.stat(crash).st_mtime
+        crash_reports.append(id)
+        if most_recent_report == None or report_to_mtime[id] > most_recent_mtime:
+            most_recent_report = id
+            most_recent_mtime = report_to_mtime[id]
+
+    def crashes_sort(a, b):
+        if report_to_mtime[b] > report_to_mtime[a]:
+            return 1
+        elif report_to_mtime[b] < report_to_mtime[a]:
+            return -1
+        else:
+            return 0
+
+    # Put the most recent first
+    crash_reports.sort(crashes_sort)
+
+    crash_reports_str = ''
+    i = 0
+    for crash in crash_reports:
+        crash_reports_str += crash + '\n'
+        i += 1
+        if i == 15: break
+
+    populate_item('SubmittedCrashIDs', crash_reports_str)
+    populate_item('MostRecentCrashID', most_recent_report)            
 
     plugin_packages = []
     for profile in profiles:
@@ -890,27 +1159,18 @@ def add_info(report, ui):
     report["ForcedLayersAccel"] = 'True' if forced_layers_accel == True else 'False'
     report["AddonCompatCheckDisabled"] = 'True' if addon_compat_check_disabled == True else 'False'
 
-    syspref = PrefFile("/etc/@MOZ_APP_NAME@/syspref.js")
-    if syspref.available == False:
-        report["EtcFirefoxSyspref"] = "Cannot parse /etc/@MOZ_APP_NAME@/syspref.js - %s" % syspref.parse_error
-    for pref in syspref:
-        report["EtcFirefoxSyspref"] += "%s - %s\n" % (pref, syspref[pref])
-
     if '@MOZ_APP_NAME@' == 'firefox-trunk':
         report["Channel"] = 'nightly'
         append_tag('nightly-channel')
         if report["SourcePackage"] == 'firefox-trunk':
             report["SourcePackage"] = 'firefox'
     else:
-        channelpref = PrefFile("@MOZ_LIBDIR@/defaults/pref/channel-prefs.js", whitelist = [ r'app\.update\.channel' ])
-        if channelpref.available == False:
-            report["Channel"] = 'release'
+        channelpref = Prefs(None, ['/@MOZ_LIBDIR@/defaults/pref/channel-prefs.js'], whitelist = [ r'app\.update\.channel' ])
+        if "app.update.channel" in channelpref:
+            report["Channel"] = channelpref["app.update.channel"].value
+            append_tag(channelpref["app.update.channel"].value + '-channel')
         else:
-            if "app.update.channel" in channelpref:
-                report["Channel"] = channelpref["app.update.channel"]
-                append_tag(channelpref["app.update.channel"] + '-channel')
-            else:
-                report["Channel"] = 'Unavailable'
+            report["Channel"] = 'Unavailable'
 
     if os.path.exists('/sys/bus/pci'):
         report['Lspci'] = command_output(['lspci','-vvnn'])

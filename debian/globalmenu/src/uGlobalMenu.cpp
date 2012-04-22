@@ -81,6 +81,16 @@ uGlobalMenu::RecycleList::~RecycleList()
   mFreeEvent->Revoke();
 }
 
+void
+uGlobalMenu::RecycleList::Empty()
+{
+  for (PRUint32 i = 0; i < mList.Length(); i++) {
+    dbusmenu_menuitem_child_delete(mMenu->GetDbusMenuItem(), mList[i]);
+  }
+
+  mList.SetLength(0);
+}
+
 DbusmenuMenuitem*
 uGlobalMenu::RecycleList::PopRecyclableItem()
 {
@@ -462,9 +472,10 @@ IsRecycledItemCompatible(DbusmenuMenuitem *aRecycled,
                          uGlobalMenuObject *aNewItem)
 {
   // If the recycled item was a separator, it can only be reused as a separator
-  if (!g_strcmp0(dbusmenu_menuitem_property_get(aRecycled, DBUSMENU_MENUITEM_PROP_TYPE),
-                 "separator") &&
-      aNewItem->GetType() != eMenuSeparator) {
+  if ((g_strcmp0(dbusmenu_menuitem_property_get(aRecycled,
+                                                DBUSMENU_MENUITEM_PROP_TYPE),
+                 "separator") == 0) !=
+      (aNewItem->GetType() == eMenuSeparator)) {
     return false;
   }
 
@@ -485,6 +496,8 @@ uGlobalMenu::InsertMenuObjectAt(uGlobalMenuObject *menuObj,
     } else if (index > mRecycleList->mMarker) {
       correctedIndex += mRecycleList->mList.Length();
     } else {
+      // If this node is being inserted in to a gap left by previously
+      // removed nodes, then recycle one that we just removed
       recycled = mRecycleList->PopRecyclableItem();
       if (!IsRecycledItemCompatible(recycled, menuObj)) {
         recycled = nsnull;
@@ -510,6 +523,8 @@ uGlobalMenu::AppendMenuObject(uGlobalMenuObject *menuObj)
 {
   DbusmenuMenuitem *recycled = nsnull;
   if (mRecycleList && mRecycleList->mMarker > mMenuObjects.Length()) {
+    // If any nodes were just removed from the end of the menu, then recycle
+    // one now
     recycled = mRecycleList->PopRecyclableItem();
     if (!IsRecycledItemCompatible(recycled, menuObj)) {
       recycled = nsnull;
@@ -536,28 +551,34 @@ uGlobalMenu::RemoveMenuObjectAt(PRUint32 index)
     return false;
   }
 
+  // We add contiguous blocks of removed nodes to a recycle list, so that
+  // we can reuse them again if they can be reinserted in to the menu without
+  // changing its structure. The list is cleaned in an idle event, so nodes
+  // must be removed and inserted without running the event loop if they are
+  // to benefit from this recycling feature.
+  // This feature allows menu contents to be refreshed by removing all children
+  // and inserting new ones, without altering the overall structure. It is used
+  // by the history menu in Firefox
   if (!mRecycleList) {
     mRecycleList = new RecycleList(this);
+  } else if (mRecycleList->mList.Length() > 0 &&
+             (index < mRecycleList->mMarker - 1 ||
+              index > mRecycleList->mMarker)) {
+    // If this node is not adjacent to any previously removed nodes, then
+    // free the existing nodes already and restart the process
+    mRecycleList->Empty();
   }
 
-  gboolean res = TRUE;
   if (mRecycleList->mList.Length() == 0 || index == mRecycleList->mMarker) {
     mRecycleList->AppendRecyclableItem(mMenuObjects[index]->GetDbusMenuItem());
-  } else if (index == mRecycleList->mMarker - 1) {
-    mRecycleList->PrependRecyclableItem(mMenuObjects[index]->GetDbusMenuItem());
   } else {
-    mRecycleList = nsnull;
-    res = dbusmenu_menuitem_child_delete(mDbusMenuItem,
-                                         mMenuObjects[index]->GetDbusMenuItem());
+    mRecycleList->PrependRecyclableItem(mMenuObjects[index]->GetDbusMenuItem());
   }
-
-  if (mRecycleList) {
-    mRecycleList->mMarker = index;
-  }
+  mRecycleList->mMarker = index;
 
   mMenuObjects.RemoveElementAt(index);
 
-  return !!res;
+  return true;
 }
 
 nsresult

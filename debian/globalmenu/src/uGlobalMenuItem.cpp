@@ -479,25 +479,13 @@ uGlobalMenuItem::SyncTypeAndStateFromContent()
       SetMenuItemType(eRadio);
     }
 
-    nsIContent *content = mCommandContent ? mCommandContent : mContent;
-    SetCheckState(content->AttrValueIs(kNameSpaceID_None, uWidgetAtoms::checked,
+    SetCheckState(mContent->AttrValueIs(kNameSpaceID_None, uWidgetAtoms::checked,
                                        uWidgetAtoms::_true, eCaseMatters));
     dbusmenu_menuitem_property_set_int(mDbusMenuItem,
                                        DBUSMENU_MENUITEM_PROP_TOGGLE_STATE,
                                        IsChecked() ?
                                        DBUSMENU_MENUITEM_TOGGLE_STATE_CHECKED : 
                                         DBUSMENU_MENUITEM_TOGGLE_STATE_UNCHECKED);
-
-    if (mCommandContent) {
-      UNITY_MENU_BLOCK_EVENTS_FOR_CURRENT_SCOPE();
-      if (IsChecked()) {
-        mContent->SetAttr(kNameSpaceID_None, uWidgetAtoms::checked,
-                          NS_LITERAL_STRING("true"), true);
-      } else {
-        mContent->UnsetAttr(kNameSpaceID_None, uWidgetAtoms::checked,
-                            true);
-      }
-    }
 
   } else {
     dbusmenu_menuitem_property_remove(mDbusMenuItem,
@@ -577,14 +565,13 @@ uGlobalMenuItem::Activate()
   if (!mContent->AttrValueIs(kNameSpaceID_None, uWidgetAtoms::autocheck,
                              uWidgetAtoms::_false, eCaseMatters) &&
       IsCheckboxOrRadioItem()) {
-    nsIContent *content = mCommandContent ? mCommandContent : mContent;
     if (!IsChecked()) {
       // We're currently not checked, so check now
-      content->SetAttr(kNameSpaceID_None, uWidgetAtoms::checked,
-                       NS_LITERAL_STRING("true"), true);
+      mContent->SetAttr(kNameSpaceID_None, uWidgetAtoms::checked,
+                        NS_LITERAL_STRING("true"), true);
     } else if (IsChecked() && (mFlags & UNITY_MENUITEM_IS_CHECKBOX)) {
       // We're currently checked, so uncheck now. Don't do this for radio buttons
-      content->UnsetAttr(kNameSpaceID_None, uWidgetAtoms::checked, true);
+      mContent->UnsetAttr(kNameSpaceID_None, uWidgetAtoms::checked, true);
     }
   }
 
@@ -771,8 +758,7 @@ uGlobalMenuItem::ObserveAttributeChanged(nsIDocument *aDocument,
                aContent == mKeyContent,
                "Received an event that wasn't meant for us!");
 
-  if ((aContent == mContent || aContent == mCommandContent) &&
-      aAttribute == uWidgetAtoms::checked &&
+  if (aContent == mContent && aAttribute == uWidgetAtoms::checked &&
       aContent->AttrValueIs(kNameSpaceID_None, uWidgetAtoms::checked,
                             uWidgetAtoms::_true, eCaseMatters)) {
     UncheckSiblings();
@@ -817,8 +803,6 @@ uGlobalMenuItem::ObserveAttributeChanged(nsIDocument *aDocument,
       SyncLabelFromContent(mCommandContent);
     } else if (aAttribute == uWidgetAtoms::disabled) {
       SyncSensitivityFromContent(mCommandContent);
-    } else if (aAttribute == uWidgetAtoms::checked) {
-      SyncTypeAndStateFromContent();
     }
   } else if (aContent == mKeyContent) {
     SyncAccelFromContent();

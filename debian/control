@@ -3,10 +3,10 @@ Section: web
 Priority: optional
 Maintainer: BlankOn Developers <BlankOn-dev@googlegroups.com>
 XSBC-Original-Maintainer: Ubuntu Mozilla Team <ubuntu-mozillateam@lists.ubuntu.com>
-Vcs-Bzr: https://code.launchpad.net/~mozillateam/firefox/firefox.head
+Vcs-Bzr: https://code.launchpad.net/~mozillateam/firefox/firefox-aurora.head
 Build-Depends: cdbs,
 	locales,
-	debhelper (>= 5),
+	debhelper (>= 7),
 	m4,
 	autotools-dev,
 	autoconf2.13,
@@ -15,11 +15,11 @@ Build-Depends: cdbs,
 	libx11-dev,
 	libxt-dev,
 	libxext-dev,
-	libgtk2.0-dev (>= 2.10),
-	libglib2.0-dev,
+	libgtk2.0-dev (>= 2.14),
+	libglib2.0-dev (>= 2.18),
 	libpango1.0-dev (>= 1.14.0),
-	libidl-dev (>= 0.8.0),
 	libfontconfig1-dev,
+	libfreetype6-dev (>= 2.0.1),
 	libgconf2-dev (>= 1.2.1),
 	libgnomeui-dev (>= 2.2.0),
 	libstartup-notification0-dev,
@@ -32,9 +32,7 @@ Build-Depends: cdbs,
 	mesa-common-dev,
 	libnotify-dev (>= 0.4),  
 	libxrender-dev, 
-	libfreetype6-dev (>= 2.0.1),
-	libgnomevfs2-dev (>= 1:2.0),
-	yasm (>= 1.1),
+	yasm-1 (>= 1.1) | yasm (>= 1.1),
 	xvfb,
 	libdbusmenu-gtk-dev,
 	unzip,
@@ -46,8 +44,9 @@ Architecture: any
 Depends: lsb-release,
 	${misc:Depends},
 	${shlibs:Depends}
-Recommends: blanfox,
-	firefox-globalmenu
+Recommends: blankfox,
+	firefox-globalmenu,
+	libcanberra0
 Provides: www-browser,
 	iceweasel,
 	gnome-www-browser,
@@ -69,6 +68,7 @@ Architecture: any
 Section: gnome
 Depends: ${shlibs:Depends}, 
 	${misc:Depends},
+	${gconf:Depends},
 	firefox
 Provides: ${gs:Provides}
 Replaces: ${gs:Replaces}
@@ -145,38 +145,6 @@ Description: Unity appmenu integration for Firefox
  This package provides an extension which adds support for the Unity
  appmenu to Firefox 
 
-# Transitional packages below here
-
-Package: abrowser
-Architecture: any
-Depends: ${misc:Depends}, firefox (>= 9.0)
-Description: Safe and easy web browser from Mozilla - transitional package
- This is a transitional package to ensure that upgrades work correctly.
- It can be safely removed
-
-Package: firefox-branding
-Architecture: any
-Depends: ${misc:Depends}, firefox (>= 9.0)
-Description: Safe and easy web browser from Mozilla - transitional package
- This is a transitional package to ensure that upgrades work correctly.
- It can be safely removed
-
-Package: abrowser-branding
-Architecture: any
-Depends: ${misc:Depends}, firefox (>= 9.0)
-Description: Safe and easy web browser from Mozilla - transitional package
- This is a transitional package to ensure that upgrades work correctly.
- It can be safely removed
-
-Package: firefox-gnome-support-dbg
-Architecture: any
-Section: debug
-Priority: extra
-Depends: ${misc:Depends}, firefox-gnome-support, firefox-dbg (= ${binary:Version})
-Description: Safe and easy web browser from Mozilla - transitional package
- This is a transitional package to ensure that upgrades work correctly.
- It can be safely removed
-
 # Language packs below here
 
 Package: firefox-locale-af
@@ -198,10 +166,11 @@ Description: Arabic language pack for Firefox
 Package: firefox-locale-as
 Architecture: all
 Depends: ${misc:Depends}
-Replaces: language-pack-as-base
-Description: Assamese language pack for Firefox
- This package contains Assamese translations and search plugins
- for Firefox
+Description: Transitional package for unavailable language
+ This language is unavailable for the current version of Firefox
+ .
+ This is an empty transitional package to ensure a clean upgrade
+ process. You can safely remove this package after installation.
 
 Package: firefox-locale-ast
 Architecture: all
@@ -270,10 +239,11 @@ Description: Czech language pack for Firefox
 Package: firefox-locale-csb
 Architecture: all
 Depends: ${misc:Depends}
-Replaces: language-pack-csb-base
-Description: Kashubian language pack for Firefox
- This package contains Kashubian translations and search plugins
- for Firefox
+Description: Transitional package for unavailable language
+ This language is unavailable for the current version of Firefox
+ .
+ This is an empty transitional package to ensure a clean upgrade
+ process. You can safely remove this package after installation.
 
 Package: firefox-locale-cy
 Architecture: all
@@ -499,6 +469,15 @@ Replaces: language-pack-kk-base
 Description: Kazakh language pack for Firefox
  This package contains Kazakh translations and search plugins
  for Firefox
+
+Package: firefox-locale-km
+Architecture: all
+Depends: ${misc:Depends}
+Description: Transitional package for unavailable language
+ This language is unavailable for the current version of Firefox
+ .
+ This is an empty transitional package to ensure a clean upgrade
+ process. You can safely remove this package after installation.
 
 Package: firefox-locale-kn
 Architecture: all

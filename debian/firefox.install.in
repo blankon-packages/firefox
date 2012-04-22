@@ -1,48 +1,48 @@
-debian/tmp@MOZ_LIBDIR@/icons
-debian/tmp@MOZ_LIBDIR@/chrome/icons
-debian/tmp@MOZ_LIBDIR@/components/*.manifest
-debian/tmp@MOZ_LIBDIR@/components/*.so
-debian/tmp@MOZ_LIBDIR@/omni.ja
-debian/tmp@MOZ_LIBDIR@/*.so
-debian/tmp@MOZ_LIBDIR@/@MOZ_APP_NAME@
+@MOZ_LIBDIR@/icons
+@MOZ_LIBDIR@/chrome/icons
+@MOZ_LIBDIR@/components/*.manifest
+@MOZ_LIBDIR@/components/*.so
+@MOZ_LIBDIR@/omni.ja
+@MOZ_LIBDIR@/*.so
+@MOZ_LIBDIR@/@MOZ_APP_NAME@
 %%ifdef MOZ_ENABLE_BREAKPAD
-debian/tmp@MOZ_LIBDIR@/crashreporter
+@MOZ_LIBDIR@/crashreporter
 %%endif
-debian/tmp@MOZ_LIBDIR@/plugin-container
-debian/tmp@MOZ_LIBDIR@/chrome.manifest
+@MOZ_LIBDIR@/plugin-container
+@MOZ_LIBDIR@/chrome.manifest
 %%ifdef MOZ_SYMLINKED_DIST
-debian/distribution.ini /usr/lib/@MOZ_APP_NAME@-addons/distribution
-debian/tmp@MOZ_LIBDIR@/searchplugins/* /usr/lib/@MOZ_APP_NAME@-addons/distribution/searchplugins/locale/en-US
+debian/distribution.ini @MOZ_ADDONDIR@/distribution
+@MOZ_LIBDIR@/searchplugins/* @MOZ_ADDONDIR@/distribution/searchplugins/locale/en-US
 %%else
 debian/distribution.ini @MOZ_LIBDIR@/distribution
-debian/tmp@MOZ_LIBDIR@/searchplugins/* @MOZ_LIBDIR@/distribution/searchplugins/locale/en-US
+@MOZ_LIBDIR@/searchplugins/* @MOZ_LIBDIR@/distribution/searchplugins/locale/en-US
 %%endif
-debian/tmp@MOZ_LIBDIR@/blocklist.xml
-debian/tmp@MOZ_LIBDIR@/dependentlibs.list
-debian/tmp@MOZ_LIBDIR@/extensions/\{972ce4c6-7e08-4474-a285-3208198ce6fd\} /usr/lib/@MOZ_APP_NAME@-addons/extensions
+@MOZ_LIBDIR@/blocklist.xml
+@MOZ_LIBDIR@/dependentlibs.list
+@MOZ_LIBDIR@/extensions/\{972ce4c6-7e08-4474-a285-3208198ce6fd\} @MOZ_ADDONDIR@/extensions
 %%if MOZ_UPDATE_CHANNEL == beta
 %%define SHIP_TESTPILOT
 %%elif MOZ_UPDATE_CHANNEL == aurora
 %%define SHIP_TESTPILOT
 %%endif
 %%ifdef SHIP_TESTPILOT
-debian/tmp@MOZ_LIBDIR@/distribution/extensions/testpilot@labs.mozilla.com.xpi /usr/lib/@MOZ_APP_NAME@-addons/distribution/extensions
+@MOZ_LIBDIR@/distribution/extensions/testpilot@labs.mozilla.com.xpi @MOZ_ADDONDIR@/distribution/extensions
 %%endif
-debian/tmp@MOZ_LIBDIR@/*.ini
+@MOZ_LIBDIR@/*.ini
 
-debian/tmp@MOZ_LIBDIR@/defaults/pref/channel-prefs.js
+@MOZ_LIBDIR@/defaults/pref/channel-prefs.js
 
-debian/@MOZ_APP_NAME@.desktop /usr/share/applications
+debian/@MOZ_APP_NAME@.desktop usr/share/applications
 
-debian/apport/source_@MOZ_APP_NAME@.py /usr/share/apport/package-hooks/
+debian/apport/source_@MOZ_APP_NAME@.py usr/share/apport/package-hooks/
 
 debian/firefox.sh @MOZ_LIBDIR@
 debian/vendor.js @MOZ_LIBDIR@/defaults/pref
 
 %%ifdef MOZ_NEW_SYSPREF
-debian/syspref.js /etc/@MOZ_APP_NAME@
+debian/syspref.js etc/@MOZ_APP_NAME@
 %%else
-debian/firefox.js /etc/@MOZ_APP_NAME@/pref
+debian/firefox.js etc/@MOZ_APP_NAME@/pref
 %%endif
 
-debian/usr.bin.@MOZ_APP_NAME@ /etc/apparmor.d
+debian/usr.bin.@MOZ_APP_NAME@ etc/apparmor.d

@@ -8,9 +8,9 @@ Index: mozilla/toolkit/mozapps/installer/packager.mk
 --- mozilla.orig/toolkit/mozapps/installer/packager.mk	2012-02-21 02:11:17.000000000 +0000
 +++ mozilla/toolkit/mozapps/installer/packager.mk	2012-02-22 16:48:40.583518663 +0000
 @@ -499,7 +499,6 @@
-   defaults \
    greprefs.js \
    jsloader \
+   jssubloader \
 -  hyphenation \
    update.locale \
    $(NULL)

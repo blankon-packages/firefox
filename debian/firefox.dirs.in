@@ -1,12 +1,12 @@
-/usr/lib/@MOZ_APP_NAME@-addons/distribution/extensions
-/usr/lib/@MOZ_APP_NAME@-addons/extensions
-/usr/lib/@MOZ_APP_NAME@-addons/searchplugins
-/usr/lib/@MOZ_APP_NAME@-addons/plugins
-/etc/apparmor.d/disable
-/etc/apport/native-origins.d
-/etc/apport/blacklist.d
+@MOZ_ADDONDIR@/distribution/extensions
+@MOZ_ADDONDIR@/extensions
+@MOZ_ADDONDIR@/searchplugins
+@MOZ_ADDONDIR@/plugins
+etc/apparmor.d/disable
+etc/apport/native-origins.d
+etc/apport/blacklist.d
 %%ifdef MOZ_SYMLINKED_DIST
-/usr/lib/@MOZ_APP_NAME@-addons/distribution/searchplugins/common
+@MOZ_ADDONDIR@/distribution/searchplugins/common
 %%else
 @MOZ_LIBDIR@/distribution/searchplugins/common
 %%endif

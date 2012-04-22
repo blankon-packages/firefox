@@ -2,8 +2,8 @@
 ac_add_options --build=@DEB_BUILD_GNU_TYPE@
 %%endif
 ac_add_options --host=@DEB_HOST_GNU_TYPE@
-ac_add_options --prefix=@MOZ_PREFIX@
-ac_add_options --libexecdir=@MOZ_LIBDIR@
+ac_add_options --prefix=/usr
+ac_add_options --libexecdir=/@MOZ_LIBDIR@
 ac_add_options --with-l10n-base=@TOPSRCDIR@/@DEB_BUILDDIR@/l10n
 ac_add_options --srcdir=@TOPSRCDIR@/@DEB_BUILDDIR@
 mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/@MOZ_OBJDIR@
@@ -22,7 +22,7 @@ ac_add_options --with-system-zlib=/usr
 ac_add_options --with-system-bz2=/usr
 ac_add_options --with-system-libevent=/usr
 ac_add_options --enable-system-pixman
-ac_add_options --disable-tree-freetype
+ac_add_options --enable-system-ffi
 %%elif MOZ_OVERRIDE_SHLIBS == tree
 ac_add_options --without-system-jpeg
 ac_add_options --without-system-png
@@ -30,7 +30,7 @@ ac_add_options --without-system-zlib
 ac_add_options --without-system-bz2
 ac_add_options --without-system-libevent
 ac_add_options --disable-system-pixman
-ac_add_options --enable-tree-freetype
+ac_add_options --disable-system-ffi
 %%endif
 %%ifdef MOZ_NO_OPTIMIZE
 ac_add_options --disable-optimize
@@ -93,10 +93,8 @@ ac_add_options @MOZ_BRANDING_OPTION@
 mk_add_options MOZ_PGO=1
 mk_add_options PROFILE_GEN_SCRIPT='xvfb-run -a @MOZ_PYTHON@ @TOPSRCDIR@/@MOZ_OBJDIR@/_profile/pgo/profileserver.py 10'
 %%endif
-%%ifdef MOZ_DISABLE_GNOMEVFS
 ac_add_options --disable-gnomevfs
 ac_add_options --enable-gio
-%%endif
 %%ifdef MOZ_UPDATE_CHANNEL
 ac_add_options --enable-update-channel=@MOZ_UPDATE_CHANNEL@
 %%endif

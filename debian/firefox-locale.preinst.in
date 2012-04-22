@@ -3,7 +3,7 @@
 set -e
 
 MOZ_APP_NAME=@MOZ_APP_NAME@
-MOZ_LIBDIR=@MOZ_LIBDIR@
+MOZ_LIBDIR=/@MOZ_LIBDIR@
 
 if [ "$1" = "install" ] || [ "$1" = "upgrade" ] ; then
 %%ifdef MOZ_NO_MORE_SYMLINKED_DIST

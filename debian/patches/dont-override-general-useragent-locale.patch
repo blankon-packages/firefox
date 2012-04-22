@@ -1,0 +1,22 @@
+Index: mozilla/browser/app/profile/firefox.js
+===================================================================
+--- mozilla.orig/browser/app/profile/firefox.js	2012-03-10 02:03:53.000000000 +0000
++++ mozilla/browser/app/profile/firefox.js	2012-03-11 00:34:58.498911185 +0000
+@@ -236,7 +236,6 @@
+ // "use the search service's default engine"
+ pref("keyword.URL", "");
+ 
+-pref("general.useragent.locale", "@AB_CD@");
+ pref("general.skins.selectedSkin", "classic/1.0");
+ 
+ pref("general.smoothScroll", true);
+Index: mozilla/browser/locales/en-US/firefox-l10n.js
+===================================================================
+--- mozilla.orig/browser/locales/en-US/firefox-l10n.js	2012-03-10 02:04:21.000000000 +0000
++++ mozilla/browser/locales/en-US/firefox-l10n.js	2012-03-11 00:36:47.458915661 +0000
+@@ -35,5 +35,3 @@
+ # ***** END LICENSE BLOCK *****
+ 
+ #filter substitution
+-
+-pref("general.useragent.locale", "@AB_CD@");

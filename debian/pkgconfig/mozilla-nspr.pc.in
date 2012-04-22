@@ -1,6 +1,6 @@
-prefix=@MOZ_PREFIX@
-sdkdir=@MOZ_SDKDIR@
-includedir=@MOZ_INCDIR@
+prefix=/usr
+sdkdir=/@MOZ_SDKDIR@
+includedir=/@MOZ_INCDIR@
 
 Name: NSPR
 Description: The Netscape Portable Runtime

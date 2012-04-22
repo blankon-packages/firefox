@@ -1,6 +1,6 @@
-# HG changeset patch
-# Parent c842e1cec6e374e4c692138ae9b52a1c2a273bc2
-# User Chris Coulson <chris.coulson@canonical.com>
+Description: Fix the appearance of the URL bar dropdown with dark themes
+Author: Chris Coulson <chris.coulson@canonical.com>
+Forwarded: not-needed
 
 diff --git a/toolkit/themes/gnomestripe/global/autocomplete.css b/toolkit/themes/gnomestripe/global/autocomplete.css
 --- a/toolkit/themes/gnomestripe/global/autocomplete.css

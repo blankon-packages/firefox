@@ -1,14 +1,14 @@
-debian/tmp@MOZ_INCDIR@/
-debian/tmp@MOZ_IDLDIR@/
+@MOZ_INCDIR@
+@MOZ_IDLDIR@
 
-debian/tmp@MOZ_SDKDIR@/sdk/lib/*.a
-debian/tmp@MOZ_SDKDIR@/*.h
-debian/tmp@MOZ_SDKDIR@/sdk/bin/
+@MOZ_SDKDIR@/sdk/lib/*.a
+@MOZ_SDKDIR@/*.h
+@MOZ_SDKDIR@/sdk/bin
 
 %%ifdef MOZ_LIBXUL_PKGCONFIG
 %%ifdef MOZ_TREE_NSPR
-debian/pkgconfig/mozilla-nspr.pc /usr/lib/pkgconfig
+debian/pkgconfig/mozilla-nspr.pc usr/lib/pkgconfig
 %%endif
-debian/pkgconfig/libxul.pc /usr/lib/pkgconfig
+debian/pkgconfig/libxul.pc usr/lib/pkgconfig
 %%endif
-debian/pkgconfig/mozilla-plugin.pc /usr/lib/pkgconfig
+debian/pkgconfig/mozilla-plugin.pc usr/lib/pkgconfig

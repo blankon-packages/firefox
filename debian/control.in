@@ -3,10 +3,10 @@ Section: web
 Priority: optional
 Maintainer: BlankOn Developers <BlankOn-dev@googlegroups.com>
 XSBC-Original-Maintainer: Ubuntu Mozilla Team <ubuntu-mozillateam@lists.ubuntu.com>
-Vcs-Bzr: https://code.launchpad.net/~mozillateam/firefox/firefox.head
+Vcs-Bzr: https://code.launchpad.net/~mozillateam/firefox/firefox-aurora.head
 Build-Depends: cdbs,
 	locales,
-	debhelper (>= 5),
+	debhelper (>= 7),
 	m4,
 	autotools-dev,
 	autoconf2.13,
@@ -15,11 +15,11 @@ Build-Depends: cdbs,
 	libx11-dev,
 	libxt-dev,
 	libxext-dev,
-	libgtk2.0-dev (>= 2.10),
-	libglib2.0-dev,
+	libgtk2.0-dev (>= 2.14),
+	libglib2.0-dev (>= 2.18),
 	libpango1.0-dev (>= 1.14.0),
-	libidl-dev (>= 0.8.0),
 	libfontconfig1-dev,
+	libfreetype6-dev (>= 2.0.1),
 	libgconf2-dev (>= 1.2.1),
 	libgnomeui-dev (>= 2.2.0),
 	libstartup-notification0-dev,
@@ -31,8 +31,7 @@ Build-Depends: cdbs,
 	libiw-dev,
 	mesa-common-dev,
 	libnotify-dev (>= 0.4), @SYSLIBS_BD@
-	libgnomevfs2-dev (>= 1:2.0),
-	yasm (>= 1.1),
+	yasm-1 (>= 1.1) | yasm (>= 1.1),
 	xvfb,
 	libdbusmenu-gtk-dev,
 	unzip,
@@ -44,8 +43,9 @@ Architecture: any
 Depends: lsb-release,
 	${misc:Depends},
 	${shlibs:Depends}
-Recommends: blankfox,
-	@MOZ_APP_NAME@-globalmenu
+Recommends: blnkfox,
+	@MOZ_APP_NAME@-globalmenu,
+	libcanberra0
 Provides: www-browser,
 	iceweasel,
 	gnome-www-browser,
@@ -67,6 +67,7 @@ Architecture: any
 Section: gnome
 Depends: ${shlibs:Depends}, 
 	${misc:Depends},
+	${gconf:Depends},
 	@MOZ_APP_NAME@
 Provides: ${gs:Provides}
 Replaces: ${gs:Replaces}
@@ -142,37 +143,5 @@ Depends: ${shlibs:Depends},
 Description: Unity appmenu integration for Firefox
  This package provides an extension which adds support for the Unity
  appmenu to Firefox 
-
-# Transitional packages below here
-
-Package: abrowser
-Architecture: any
-Depends: ${misc:Depends}, firefox (>= 9.0)
-Description: Safe and easy web browser from Mozilla - transitional package
- This is a transitional package to ensure that upgrades work correctly.
- It can be safely removed
-
-Package: firefox-branding
-Architecture: any
-Depends: ${misc:Depends}, firefox (>= 9.0)
-Description: Safe and easy web browser from Mozilla - transitional package
- This is a transitional package to ensure that upgrades work correctly.
- It can be safely removed
-
-Package: abrowser-branding
-Architecture: any
-Depends: ${misc:Depends}, firefox (>= 9.0)
-Description: Safe and easy web browser from Mozilla - transitional package
- This is a transitional package to ensure that upgrades work correctly.
- It can be safely removed
-
-Package: firefox-gnome-support-dbg
-Architecture: any
-Section: debug
-Priority: extra
-Depends: ${misc:Depends}, firefox-gnome-support, firefox-dbg (= ${binary:Version})
-Description: Safe and easy web browser from Mozilla - transitional package
- This is a transitional package to ensure that upgrades work correctly.
- It can be safely removed
 
 # Language packs below here

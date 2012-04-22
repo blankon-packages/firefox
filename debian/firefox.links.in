@@ -1,17 +1,17 @@
-/usr/lib/@MOZ_APP_NAME@-addons/extensions @MOZ_LIBDIR@/extensions
-/usr/lib/@MOZ_APP_NAME@-addons/plugins @MOZ_LIBDIR@/plugins
-/usr/lib/@MOZ_APP_NAME@-addons/searchplugins @MOZ_LIBDIR@/searchplugins
+@MOZ_ADDONDIR@/extensions @MOZ_LIBDIR@/extensions
+@MOZ_ADDONDIR@/plugins @MOZ_LIBDIR@/plugins
+@MOZ_ADDONDIR@/searchplugins @MOZ_LIBDIR@/searchplugins
 %%ifdef MOZ_SYMLINKED_DIST
-/usr/lib/@MOZ_APP_NAME@-addons/distribution @MOZ_LIBDIR@/distribution
+@MOZ_ADDONDIR@/distribution @MOZ_LIBDIR@/distribution
 %%else
-/usr/lib/@MOZ_APP_NAME@-addons/distribution/extensions @MOZ_LIBDIR@/distribution/extensions
+@MOZ_ADDONDIR@/distribution/extensions @MOZ_LIBDIR@/distribution/extensions
 %%endif
 @MOZ_SYSTEM_DICTDIR@ @MOZ_LIBDIR@/dictionaries
-/usr/share/hyphen @MOZ_LIBDIR@/hyphenation
-@MOZ_LIBDIR@/firefox.sh /usr/bin/@MOZ_APP_NAME@
-@MOZ_LIBDIR@/icons/mozicon128.png /usr/share/pixmaps/@MOZ_APP_NAME@.png
+usr/share/hyphen @MOZ_LIBDIR@/hyphenation
+@MOZ_LIBDIR@/firefox.sh usr/bin/@MOZ_APP_NAME@
+@MOZ_LIBDIR@/icons/mozicon128.png usr/share/pixmaps/@MOZ_APP_NAME@.png
 %%ifdef MOZ_NEW_SYSPREF
-/etc/@MOZ_APP_NAME@/syspref.js @MOZ_LIBDIR@/defaults/pref/syspref.js
+etc/@MOZ_APP_NAME@/syspref.js @MOZ_LIBDIR@/defaults/pref/syspref.js
 %%else
-/etc/@MOZ_APP_NAME@/pref @MOZ_LIBDIR@/defaults/syspref
+etc/@MOZ_APP_NAME@/pref @MOZ_LIBDIR@/defaults/syspref
 %%endif

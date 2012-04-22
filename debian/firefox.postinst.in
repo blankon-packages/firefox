@@ -2,7 +2,7 @@
 
 set -e
 
-MOZ_LIBDIR=@MOZ_LIBDIR@
+MOZ_LIBDIR=/@MOZ_LIBDIR@
 MOZ_APP_NAME=@MOZ_APP_NAME@
 
 # Move a conffile without triggering a dpkg question

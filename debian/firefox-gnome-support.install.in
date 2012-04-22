@@ -1,4 +1,1 @@
-%%ifndef MOZ_DISABLE_GNOMEVFS
-debian/tmp@MOZ_LIBDIR@/components/libnkgnomevfs.so
-%%endif
-debian/tmp@MOZ_LIBDIR@/components/libmozgnome.so
+@MOZ_LIBDIR@/components/libmozgnome.so

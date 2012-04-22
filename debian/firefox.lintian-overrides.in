@@ -1,5 +1,5 @@
-@MOZ_APP_NAME@ binary: embedded-libjpeg .@MOZ_LIBDIR@/libxul.so
-@MOZ_APP_NAME@ binary: embedded-zlib .@MOZ_LIBDIR@/libxul.so
+@MOZ_APP_NAME@ binary: embedded-library @MOZ_LIBDIR@/libxul.so: libjpeg
+@MOZ_APP_NAME@ binary: embedded-library @MOZ_LIBDIR@/libxul.so: sqlite
 @MOZ_APP_NAME@ binary: image-file-in-usr-lib usr/lib/@MOZ_APP_NAME@/icons/document.png
 @MOZ_APP_NAME@ binary: image-file-in-usr-lib usr/lib/@MOZ_APP_NAME@/icons/mozicon128.png
 @MOZ_APP_NAME@ binary: image-file-in-usr-lib usr/lib/@MOZ_APP_NAME@/chrome/icons/default/default16.png

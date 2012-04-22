@@ -22,40 +22,28 @@ INCLUDE = [
 ]
 
 EXCLUDE = [
-    ['build/mobile/sutagent/android', False],
-    ['build/package/mac_osx/mozilla.dsstore', False],
-    ['*.exe', True],
-    ['*.pyc', True],
-    ['gfx/angle/samples/gles2_book', False],
-    ['intl/unicharutil/tools/data', False],
-    ['layout/doc/object_diagram_template.sda', False],
-    ['layout/doc/SpaceMgr_BlockReflSt_OD.sda', False],
-    ['l10n/*/calendar', False],
-    ['l10n/*/editor', False],
-    ['l10n/*/embedding', False],
-    ['l10n/*/extensions', False],
-    ['l10n/*/mail', False],
-    ['l10n/*/mobile', False],
-    ['l10n/*/other-licenses/sunbird', False],
-    ['l10n/*/other-licenses/thunderbird', False],
-    ['l10n/*/suite', False],
-    ['netwerk/protocol/ftp/doc/rfc959.txt', False],
-    ['other-licenses/7zstub', False],
-    ['other-licenses/nsis', False],
-    ['security/nss/cmd/samples', False],
-    ['testing/extensions/community', False],
-    ['testing/mozmill/mozmill/docs/_build/doctrees', False],
-    ['testing/mozmill/virtualenv/virtualenv_support', False],
-    ['toolkit/crashreporter/client/macbuild/Contents/Resources/crashreporter.icns', False],
-    ['toolkit/crashreporter/client/macbuild/Contents/Resources/English.lproj/MainMenu.nib/keyedobjects.nib', False],
-    ['toolkit/crashreporter/client/macbuild/Contents/Resources/English.lproj/MainMenuRTL.nib/keyedobjects.nib', False],
-    ['toolkit/crashreporter/google-breakpad/src/client/mac', False],
-    ['toolkit/crashreporter/google-breakpad/src/tools/windows', False],
-    ['toolkit/mozapps/update/updater/macbuild/Contents/Resources/updater.icns', False],
-    ['toolkit/mozapps/update/updater/macbuild/Contents/Resources/English.lproj/MainMenu.nib/keyedobjects.nib', False],
-    ['widget/src/cocoa/resources/MainMenu.nib', False],
-    ['xpcom/tests/unit/data/presentation.key', False],
-    ['xpcom/tests/unit/data/SmallApp.app', False]
+    ['build/mobile/sutagent/android/network-libs', False], # jar files with Java class files
+    ['build/package/mac_osx/mozilla.dsstore', False], # Unknown binary file
+    ['*.exe', True], # Window executables
+    ['*.pyc', True], # Byte-compiled python files
+    ['*.sfx', True], # Self-extracting executables
+    ['*.dll', True], # Windows libraries
+    ['intl/unicharutil/tools/data', False], # Unknown binary files
+    ['layout/doc/object_diagram_template.sda', False], # Unknown binary file
+    ['layout/doc/SpaceMgr_BlockReflSt_OD.sda', False], # Unknown binary file
+    ['l10n/*/calendar', False], # Unnecessary l10n
+    ['l10n/*/editor', False], # Unnecessary l10n
+    ['l10n/*/embedding', False], # Unnecessary l10n
+    ['l10n/*/extensions', False], # Unnecessary l10n
+    ['l10n/*/mail', False], # Unnecessary l10n
+    ['l10n/*/mobile', False], # Unnecessary l10n
+    ['l10n/*/other-licenses/sunbird', False], # Unnecessary l10n
+    ['l10n/*/other-licenses/thunderbird', False], # Unnecessary l10n
+    ['l10n/*/suite', False], # Unnecessary l10n
+    ['security/nss/cmd/samples', False], # Unknown binary files
+    ['toolkit/crashreporter/google-breakpad/src/client/mac/testapp/crashduringload', False], # Unknown binary file
+    ['toolkit/crashreporter/google-breakpad/src/client/mac/testapp/crashInMain', False], # Unknown binary file
+    ['xpcom/tests/unit/data/SmallApp.app/Contents/MacOS/SmallApp', False] # Java class file
 ]
 
 class DependencyNotFound(Exception):
