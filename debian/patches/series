@@ -1,4 +1,3 @@
-reload-new-plugins.patch
 normalize-distribution-searchplugins.patch
 plugin-for-mimetype-pref.patch
 allow-lockPref-everywhere.patch
