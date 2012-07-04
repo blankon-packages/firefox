@@ -38,8 +38,10 @@
 
 #include <nsIContent.h>
 #include <nsIAtom.h>
+#include <nsIWidget.h>
 
-#include "uGlobalMenuObject.h"
+#include <gdk/gdk.h>
+
 #include "uGlobalMenu.h"
 #include "uGlobalMenuItem.h"
 #include "uGlobalMenuSeparator.h"
@@ -56,7 +58,7 @@ NewGlobalMenuItem(uGlobalMenuObject *aParent,
                   nsIContent *aContent,
                   uGlobalMenuBar *aMenuBar)
 {
-  TRACE_WITH_CONTENT(aContent);
+  TRACEC(aContent);
 
   if (!aContent->IsXUL()) {
     return uGlobalMenuDummy::Create();
@@ -79,4 +81,21 @@ NewGlobalMenuItem(uGlobalMenuObject *aParent,
   }
 
   return menuitem;
+}
+
+GtkWidget*
+WidgetToGTKWindow(nsIWidget *aWidget)
+{
+  // Get the main GDK drawing window from our nsIWidget
+  GdkWindow *window = static_cast<GdkWindow *>(aWidget->GetNativeData(NS_NATIVE_WINDOW));
+  if (!window)
+    return nsnull;
+
+  // Get the widget for the main drawing window, which should be a MozContainer
+  gpointer user_data = nsnull;
+  gdk_window_get_user_data(window, &user_data);
+  if (!user_data || !GTK_IS_CONTAINER(user_data))
+    return nsnull;
+
+  return gtk_widget_get_toplevel(GTK_WIDGET(user_data));
 }

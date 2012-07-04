@@ -38,6 +38,6 @@
 
 #include "uDebug.h"
 
-#ifdef DEBUG_chrisccoulson
+#if DEBUG_GLOBALMENU >= 3
 PRUint32 FunctionTracer::sDepth = 0;
 #endif

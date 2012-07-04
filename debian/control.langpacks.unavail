@@ -1,6 +1,6 @@
 
 Package: @MOZ_APP_NAME@-locale-@LANGCODE@
-Architecture: all
+Architecture: any
 Depends: ${misc:Depends}
 Description: Transitional package for unavailable language
  This language is unavailable for the current version of Firefox

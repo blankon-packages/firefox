@@ -46,7 +46,18 @@
 #include <libdbusmenu-glib/server.h>
 
 #include "uGlobalMenuObject.h"
-#include "uMenuChangeObserver.h"
+
+// This menuitem is a checkbox or radioitem which is active
+#define UNITY_MENUITEM_TOGGLE_IS_ACTIVE   (1 << 10)
+
+// This menuitem is a checkbox
+#define UNITY_MENUITEM_IS_CHECKBOX        (1 << 11)
+
+// This menuitem is a radio item
+#define UNITY_MENUITEM_IS_RADIO           (1 << 12)
+
+// Used by the reentrancy guard for SyncTypeAndStateFromContent()
+#define UNITY_MENUITEM_SYNC_TYPE_GUARD    (1 << 13)
 
 class nsIContent;
 class uGlobalMenuDocListener;
@@ -58,18 +69,19 @@ enum uMenuItemType {
   eRadio
 };
 
-class uGlobalMenuItem: public uGlobalMenuObject,
-                       public uMenuChangeObserver
+class uGlobalMenuItem: public uGlobalMenuObject
 {
 public:
-  NS_DECL_UMENUCHANGEOBSERVER
-
   static uGlobalMenuObject* Create(uGlobalMenuObject *aParent,
                                    uGlobalMenuDocListener *aListener,
                                    nsIContent *aContent,
                                    uGlobalMenuBar *aMenuBar);
 
-  void AboutToShowNotify();
+protected:
+  void ObserveAttributeChanged(nsIDocument *aDocument,
+                               nsIContent *aContent,
+                               nsIAtom *aAttribute);
+  void Refresh();
 
 private:
   uGlobalMenuItem();
@@ -83,13 +95,12 @@ private:
   PRUint32 GetKeyCode(nsAString &aKeyName);
   PRUint32 MozKeyCodeToGdkKeyCode(PRUint32 aMozKeyCode);
   void SyncAccelFromContent();
-  void SyncProperties();
   void SyncTypeAndStateFromContent();
   void InitializeDbusMenuItem();
   static void ItemActivatedCallback(DbusmenuMenuitem *menuItem,
                                     PRUint32 timeStamp,
                                     void *data);
-  void Activate();
+  void Activate(PRUint32 timeStamp);
   void UncheckSiblings();
   void SetMenuItemType(uMenuItemType aType)
   {

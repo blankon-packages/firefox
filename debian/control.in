@@ -1,9 +1,9 @@
 Source: @MOZ_APP_NAME@
 Section: web
 Priority: optional
-Maintainer: BlankOn Developers <BlankOn-dev@googlegroups.com>
+Maintainer: BlankOn Developers <blankon-dev@googlegroups.com>
 XSBC-Original-Maintainer: Ubuntu Mozilla Team <ubuntu-mozillateam@lists.ubuntu.com>
-Vcs-Bzr: https://code.launchpad.net/~mozillateam/firefox/firefox-aurora.head
+Vcs-Bzr: https://code.launchpad.net/~mozillateam/firefox/firefox-beta.head
 Build-Depends: cdbs,
 	locales,
 	debhelper (>= 7),
@@ -30,7 +30,8 @@ Build-Depends: cdbs,
 	lsb-release,
 	libiw-dev,
 	mesa-common-dev,
-	libnotify-dev (>= 0.4), @SYSLIBS_BD@
+	libnotify-dev (>= 0.4),
+	libxrender-dev,
 	yasm-1 (>= 1.1) | yasm (>= 1.1),
 	xvfb,
 	libdbusmenu-gtk-dev,
@@ -43,7 +44,7 @@ Architecture: any
 Depends: lsb-release,
 	${misc:Depends},
 	${shlibs:Depends}
-Recommends: blnkfox,
+Recommends: blankfox,
 	@MOZ_APP_NAME@-globalmenu,
 	libcanberra0
 Provides: www-browser,
@@ -104,13 +105,11 @@ Section: devel
 Priority: extra
 Depends: ${shlibs:Depends},
 	${misc:Depends},
-	@MOZ_APP_NAME@ (= ${binary:Version}),
-	${nspr:Depends},
-	${nss:Depends},
-	${cairo:Depends}
+	@MOZ_APP_NAME@ (= ${binary:Version})
 Provides: ${dev:Provides}
 Conflicts: xulrunner-2.0-dev,
 	xulrunner-1.9.2-dev,
+	xulrunner-1.9-dev,
 	${dev:Conflicts}
 Replaces: ${dev:Replaces}
 Description: Safe and easy web browser from Mozilla - development files
@@ -143,5 +142,37 @@ Depends: ${shlibs:Depends},
 Description: Unity appmenu integration for Firefox
  This package provides an extension which adds support for the Unity
  appmenu to Firefox 
+
+# Transitional packages below here
+
+Package: abrowser
+Architecture: any
+Depends: ${misc:Depends}, firefox (>= 9.0)
+Description: Safe and easy web browser from Mozilla - transitional package
+ This is a transitional package to ensure that upgrades work correctly.
+ It can be safely removed
+
+Package: firefox-branding
+Architecture: any
+Depends: ${misc:Depends}, firefox (>= 9.0)
+Description: Safe and easy web browser from Mozilla - transitional package
+ This is a transitional package to ensure that upgrades work correctly.
+ It can be safely removed
+
+Package: abrowser-branding
+Architecture: any
+Depends: ${misc:Depends}, firefox (>= 9.0)
+Description: Safe and easy web browser from Mozilla - transitional package
+ This is a transitional package to ensure that upgrades work correctly.
+ It can be safely removed
+
+Package: firefox-gnome-support-dbg
+Architecture: any
+Section: debug
+Priority: extra
+Depends: ${misc:Depends}, firefox-gnome-support, firefox-dbg (= ${binary:Version})
+Description: Safe and easy web browser from Mozilla - transitional package
+ This is a transitional package to ensure that upgrades work correctly.
+ It can be safely removed
 
 # Language packs below here

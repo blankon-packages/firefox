@@ -45,9 +45,11 @@
 #include <nsStringAPI.h>
 #include <nsMemory.h>
 
-#define WIDGET_ATOM(_name, _value) nsIAtom* uWidgetAtoms::_name = 0;
+#define WIDGET_ATOM(_name) nsIAtom* uWidgetAtoms::_name = 0;
+#define WIDGET_ATOM2(_name, _value) nsIAtom* uWidgetAtoms::_name = 0;
 #include "uWidgetAtomList.h"
 #undef WIDGET_ATOM
+#undef WIDGET_ATOM2
 
 struct uWidgetAtom {
   const char *raw;
@@ -55,9 +57,11 @@ struct uWidgetAtom {
 };
 
 static const uWidgetAtom atoms[] = {
-#define WIDGET_ATOM(_name, _value) { _value, &uWidgetAtoms::_name },
+#define WIDGET_ATOM(_name) { #_name, &uWidgetAtoms::_name },
+#define WIDGET_ATOM2(_name, _value) { _value, &uWidgetAtoms::_name },
 #include "uWidgetAtomList.h"
 #undef WIDGET_ATOM
+#undef WIDGET_ATOM2
 };
 
 nsresult

@@ -42,10 +42,11 @@
 #include <nsStringAPI.h>
 #include <nsXPCOM.h>
 
-#if defined DEBUG_chrisccoulson && !defined DEBUG
+#if DEBUG_GLOBALMENU >= 1 && !defined DEBUG
 #undef NS_ASSERTION
 #undef NS_WARN_IF_FALSE
 #undef NS_WARNING
+#undef NS_ERROR
 
 #define NS_ASSERTION(expr, str)                               \
   do {                                                        \
@@ -63,124 +64,120 @@
 
 #define NS_WARNING(str)                                       \
   NS_DebugBreak(NS_DEBUG_WARNING, str, nsnull, __FILE__, __LINE__)
+
+#define NS_ERROR(str)                                         \
+  NS_DebugBreak(NS_DEBUG_ASSERTION, str, "Error", __FILE__, __LINE__)
 #endif
 
-#ifdef DEBUG
-#define DEBUG_chrisccoulson
+#if defined DEBUG && !defined DEBUG_GLOBALMENU
+#define DEBUG_GLOBALMENU 2
 #endif
 
-#ifdef DEBUG_chrisccoulson
-class FunctionTracer
-{
-public:
-  FunctionTracer(const char *funcName, const char *extra): mFuncName(funcName), mExtra(extra)
-  {
-    if (getenv("GLOBAL_MENU_VERBOSE")) {
-      printf("%*s=== globalmenu-extension: Entering %s [%s] ===\n", sDepth, "", mFuncName.get(), mExtra.get());
-    }
-    sDepth++;
-  }
+#if DEBUG_GLOBALMENU >= 2
+#include <stdarg.h>
+#include <stdio.h>
+# define LOG_LENGTH 1024
 
-  FunctionTracer(const char *funcName): mFuncName(funcName)
-  {
-    if (getenv("GLOBAL_MENU_VERBOSE")) {
-      printf("%*s=== globalmenu-extension: Entering %s ===\n", sDepth, "", mFuncName.get());
-    }
-    sDepth++;
-  }
-
-  ~FunctionTracer()
-  {
-    sDepth--;
-    if (getenv("GLOBAL_MENU_VERBOSE")) {
-      if (mExtra.Length() > 0) {
-        printf("%*s=== globalmenu-extension: Leaving %s [%s] ===\n", sDepth, "", mFuncName.get(), mExtra.get());
-      } else {
-        printf("%*s=== globalmenu-extension: Leaving %s ===\n", sDepth, "", mFuncName.get());
-      }
-    }
-  }
-
-  static PRUint32 sDepth;
-private:
-  nsCString mFuncName;
-  nsCString mExtra;
-};
-
-#define DEBUG_WITH_THIS_MENUOBJECT(format...)                 \
-  DEBUG_WITH_MENUOBJECT(this, format)
-
-#define DEBUG_WITH_MENUOBJECT(object, format...)              \
-  if (getenv("GLOBAL_MENU_VERBOSE")) {                        \
-    nsIContent *content;                                      \
-    if (object) content = object->GetContent();               \
-    nsAutoString id;                                          \
-    nsCAutoString cid;                                        \
-    if (content) content->GetAttr(kNameSpaceID_None, uWidgetAtoms::id, id); \
-    CopyUTF16toUTF8(id, cid);                                 \
-    char *str;                                                \
-    asprintf(&str, format);                                   \
-    printf("%*s* globalmenu-extension %s: %s [menuobject: %p (id: %s)] [this: %p]\n", FunctionTracer::sDepth, "", __PRETTY_FUNCTION__, str, object, cid.get(), this); \
-    free(str);                                                \
-  }
-
-#define DEBUG_WITH_CONTENT(content, format...)                \
-  if (getenv("GLOBAL_MENU_VERBOSE")) {                        \
-    nsAutoString id;                                          \
-    nsCAutoString cid;                                        \
-    if (content) content->GetAttr(kNameSpaceID_None, uWidgetAtoms::id, id); \
-    CopyUTF16toUTF8(id, cid);                                 \
-    char *str;                                                \
-    asprintf(&str, format);                                   \
-    printf("%*s* globalmenu-extension %s: %s [content: %p (id: %s)] [this: %p]\n", FunctionTracer::sDepth, "", __PRETTY_FUNCTION__, str, content, cid.get(), this); \
-    free(str);                                                \
-  }
-
-#define DEBUG_CSTR_FROM_UTF16(str) __extension__({            \
+#define LOGU16TOU8(str) __extension__({                       \
   nsCAutoString cstr;                                         \
   CopyUTF16toUTF8(str, cstr);                                 \
   cstr.get();                                                 \
 })
 
-#define TRACE_WITH_THIS_MENUOBJECT()                          \
-  TRACE_WITH_MENUOBJECT(this)
+#if DEBUG_GLOBALMENU == 2
+# define DEBUG_DEPTH 0
+#else
+# define DEBUG_DEPTH FunctionTracer::sDepth * 2
+#endif
 
-#define TRACE_WITH_MENUOBJECT(object)                         \
-  char *_id_s;                                                \
-  {                                                           \
-    nsIContent *content;                                      \
-    if (object) content = object->GetContent();               \
-    nsAutoString _id;                                         \
-    if (content) content->GetAttr(kNameSpaceID_None, uWidgetAtoms::id, _id); \
-    nsCAutoString _cid;                                       \
-    CopyUTF16toUTF8(_id, _cid);                               \
-    asprintf(&_id_s, "menuobject: %p (id: %s)", object, _cid.get()); \
-  }                                                           \
-  FunctionTracer _marker(__PRETTY_FUNCTION__, _id_s);         \
-  free(_id_s);
+#define LOGTM(format...)                                      \
+  LOGM(this, format)
 
-#define TRACE_WITH_CONTENT(content)                           \
-  char *_id_s;                                                \
-  {                                                           \
-    nsAutoString _id;                                         \
-    content->GetAttr(kNameSpaceID_None, uWidgetAtoms::id, _id); \
-    nsCAutoString _cid;                                       \
-    CopyUTF16toUTF8(_id, _cid);                               \
-    asprintf(&_id_s, "id: %s", _cid.get());                   \
-  }                                                           \
-  FunctionTracer _marker(__PRETTY_FUNCTION__, _id_s);         \
-  free(_id_s);
+#define LOGM(object, format...)                               \
+  if (getenv("GLOBAL_MENU_LOGGING")) {                        \
+    nsAutoString id;                                          \
+    if (object) object->GetContent()->GetAttr(kNameSpaceID_None, uWidgetAtoms::id, id); \
+    char str[LOG_LENGTH+1];                                   \
+    snprintf(str, LOG_LENGTH, format);                        \
+    printf("%*s %s [menuobject: %p (id: %s)]: %s\n", DEBUG_DEPTH, "", str, (void *)object, LOGU16TOU8(id), __PRETTY_FUNCTION__); \
+  }
+
+#define LOGC(content, format...)                              \
+  if (getenv("GLOBAL_MENU_LOGGING")) {                        \
+    nsAutoString id;                                          \
+    content->GetAttr(kNameSpaceID_None, uWidgetAtoms::id, id); \
+    char str[LOG_LENGTH+1];                                   \
+    snprintf(str, LOG_LENGTH, format);                        \
+    printf("%*s %s [content: %p (id: %s)]: %s\n", DEBUG_DEPTH, "", str, (void *)content, LOGU16TOU8(id), __PRETTY_FUNCTION__); \
+  }
+
+#define LOG(format...)                                        \
+  if (getenv("GLOBAL_MENU_LOGGING")) {                        \
+    char str[LOG_LENGTH+1];                                   \
+    snprintf(str, LOG_LENGTH, format);                        \
+    printf("%*s %s: %s\n", DEBUG_DEPTH, "", str, __PRETTY_FUNCTION__); \
+  }
+
+#else
+#define LOGTM(format...)
+#define LOGM(object, format...)
+#define LOGC(content, format...)
+#define LOG(format...)
+#define LOGU16TOU8(str)
+#endif
+
+#if DEBUG_GLOBALMENU >= 3
+class FunctionTracer
+{
+public:
+  FunctionTracer(const char *s, ...)
+  {
+
+    if (getenv("GLOBAL_MENU_TRACING")) {
+      va_list ap;
+      va_start(ap, s);
+      vsnprintf(mString, LOG_LENGTH, s, ap);
+      va_end(ap);
+
+      printf("%*s=== Entering %s ===\n", sDepth * 2, "", mString);
+      sDepth++;
+    }
+  }
+
+  ~FunctionTracer()
+  {
+    if (getenv("GLOBAL_MENU_TRACING")) {
+      sDepth--;
+      printf("%*s=== Leaving %s ===\n", sDepth * 2, "", mString);
+    }
+  }
+
+  static PRUint32 sDepth;
+
+private:
+  char mString[LOG_LENGTH+1];
+};
+
+#define TRACETM()                                             \
+  TRACEM(this)
+
+#define TRACEM(object)                                        \
+  nsAutoString _id;                                           \
+  if (object) object->GetContent()->GetAttr(kNameSpaceID_None, uWidgetAtoms::id, _id); \
+  FunctionTracer _marker("%s [menuobject: %p (id: %s)]", __PRETTY_FUNCTION__, (void *)object, LOGU16TOU8(_id)); \
+
+#define TRACEC(content)                                       \
+  nsAutoString _id;                                           \
+  content->GetAttr(kNameSpaceID_None, uWidgetAtoms::id, _id); \
+  FunctionTracer _marker("%s [content: %p (id: %s)]", __PRETTY_FUNCTION__, (void *)content, LOGU16TOU8(_id)); \
 
 #define TRACE()                                               \
-  FunctionTracer _marker(__PRETTY_FUNCTION__);
+  FunctionTracer _marker("%s", __PRETTY_FUNCTION__);
+
 #else
-#define DEBUG_WITH_THIS_MENUOBJECT(format...)
-#define DEBUG_WITH_MENUOBJECT(object, format...)
-#define DEBUG_WITH_CONTENT(content, format...)
-#define DEBUG_CSTR_FROM_UTF16(str)
-#define TRACE_WITH_THIS_MENUOBJECT()
-#define TRACE_WITH_MENUOBJECT(object)
-#define TRACE_WITH_CONTENT(content)
+#define TRACETM()
+#define TRACEM(object)
+#define TRACEC(content)
 #define TRACE()
 #endif
 

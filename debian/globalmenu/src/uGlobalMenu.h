@@ -49,18 +49,23 @@
 #include <libdbusmenu-glib/server.h>
 
 #include "uGlobalMenuObject.h"
-#include "uMenuChangeObserver.h"
+
+// The menu is in the process of opening
+#define UNITY_MENU_IS_OPEN_OR_OPENING     (1 << 7)
+
+// The menu needs rebuilding
+#define UNITY_MENU_NEEDS_REBUILDING       (1 << 8)
+
+// The shell sent the first "AboutToOpen" event
+#define UNITY_MENU_READY                  (1 << 9)
 
 class uGlobalMenuItem;
 class uGlobalMenuBar;
 class uGlobalMenuDocListener;
 
-class uGlobalMenu: public uGlobalMenuObject,
-                   public uMenuChangeObserver
+class uGlobalMenu: public uGlobalMenuObject
 {
 public:
-  NS_DECL_UMENUCHANGEOBSERVER
-
   static uGlobalMenuObject* Create(uGlobalMenuObject *aParent,
                                    uGlobalMenuDocListener *aListener,
                                    nsIContent *aContent,
@@ -69,9 +74,25 @@ public:
   ~uGlobalMenu();
 
   bool CanOpen();
-  void OpenMenu();
-  void AboutToShowNotify();
+  void OpenMenuDelayed();
+  void Invalidate();
+  void ContainerIsOpening();
+  
   bool IsOpenOrOpening() { return !!(mFlags & UNITY_MENU_IS_OPEN_OR_OPENING); }
+
+protected:
+  void ObserveAttributeChanged(nsIDocument *aDocument,
+                               nsIContent *aContent,
+                               nsIAtom *aAttribute);
+  void ObserveContentRemoved(nsIDocument *aDocument,
+                             nsIContent *aContainer,
+                             nsIContent *aChild,
+                             PRInt32 aIndexInContainer);
+  void ObserveContentInserted(nsIDocument *aDocument,
+                              nsIContent *aContainer,
+                              nsIContent *aChild,
+                              PRInt32 aIndexInContainer);
+  void Refresh();
 
 private:
   uGlobalMenu();
@@ -87,7 +108,6 @@ private:
   bool RemoveMenuObjectAt(PRUint32 index);
   void InitializeDbusMenuItem();
   nsresult Build();
-  void SyncProperties();
   void GetMenuPopupFromMenu(nsIContent **aResult);
   static bool MenuAboutToOpenCallback(DbusmenuMenuitem *menu,
                                       void *data);
@@ -96,6 +116,7 @@ private:
                                 GVariant *value,
                                 guint timestamp,
                                 void *data);
+  static gboolean DoOpen(gpointer user_data);
   void AboutToOpen();
   void OnOpen();
   void OnClose();
@@ -108,13 +129,13 @@ private:
 
   struct RecycleList
   {
-    RecycleList(uGlobalMenu *aMenu);
+    RecycleList(uGlobalMenu *aMenu, PRUint32 aMarker);
     ~RecycleList();
 
     void Empty();
-    DbusmenuMenuitem* PopRecyclableItem();
-    void PrependRecyclableItem(DbusmenuMenuitem *aItem);
-    void AppendRecyclableItem(DbusmenuMenuitem *aItem);
+    DbusmenuMenuitem* Shift();
+    void Unshift(DbusmenuMenuitem *aItem);
+    void Push(DbusmenuMenuitem *aItem);
 
     PRUint32 mMarker;
     nsTArray<DbusmenuMenuitem *> mList;

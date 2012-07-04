@@ -11,7 +11,7 @@ usr/share/hyphen @MOZ_LIBDIR@/hyphenation
 @MOZ_LIBDIR@/firefox.sh usr/bin/@MOZ_APP_NAME@
 @MOZ_LIBDIR@/icons/mozicon128.png usr/share/pixmaps/@MOZ_APP_NAME@.png
 %%ifdef MOZ_NEW_SYSPREF
-etc/@MOZ_APP_NAME@/syspref.js @MOZ_LIBDIR@/defaults/pref/syspref.js
+etc/@MOZ_APP_NAME@/syspref.js @MOZ_LIBDIR@/defaults/preferences/syspref.js
 %%else
 etc/@MOZ_APP_NAME@/pref @MOZ_LIBDIR@/defaults/syspref
 %%endif

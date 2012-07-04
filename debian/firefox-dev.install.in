@@ -1,3 +1,6 @@
+%%if 1
+@MOZ_INCDIR@/np*.h
+%%else
 @MOZ_INCDIR@
 @MOZ_IDLDIR@
 
@@ -6,9 +9,8 @@
 @MOZ_SDKDIR@/sdk/bin
 
 %%ifdef MOZ_LIBXUL_PKGCONFIG
-%%ifdef MOZ_TREE_NSPR
 debian/pkgconfig/mozilla-nspr.pc usr/lib/pkgconfig
-%%endif
 debian/pkgconfig/libxul.pc usr/lib/pkgconfig
+%%endif
 %%endif
 debian/pkgconfig/mozilla-plugin.pc usr/lib/pkgconfig

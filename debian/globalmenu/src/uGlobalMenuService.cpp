@@ -52,11 +52,18 @@
 #include <nsIImageToPixbuf.h>
 #include <nsIPrefService.h>
 #include <nsIPrefBranch2.h>
-#include <nsIXBLService.h>
+#if MOZILLA_BRANCH_MAJOR_VERSION < 15
+# include <nsIXBLService.h>
+#endif
 #include <nsIXPConnect.h>
+#include <nsNetUtil.h>
+#include <nsIStyleSheetService.h>
 #include <prenv.h>
 
 #include <glib-object.h>
+#include <gtk/gtk.h>
+#include <gdk/gdk.h>
+#include <gdk/gdkx.h>
 
 #include "uGlobalMenuService.h"
 #include "uWidgetAtoms.h"
@@ -67,15 +74,12 @@ class RegisterWindowCbData
 {
 public:
   RegisterWindowCbData(uGlobalMenuBar *aMenu,
-                       uGlobalMenuRequestAutoCanceller *aCanceller):
+                       GCancellable *aCancellable):
                        mMenu(aMenu),
-                       mCanceller(aCanceller)
+                       mCancellable(aCancellable)
   {
-    mCancellable = mCanceller->GetCancellable();
-    if (mCancellable) {
-      g_object_ref(mCancellable);
-      mID = g_cancellable_connect(mCancellable, G_CALLBACK(Cancelled), this, nsnull);
-    }
+    g_object_ref(mCancellable);
+    mID = g_cancellable_connect(mCancellable, G_CALLBACK(Cancelled), this, nsnull);
   }
 
   static void Cancelled(GCancellable *aCancellable,
@@ -87,25 +91,20 @@ public:
     // If the request was cancelled, then invalidate pointers to objects
     // that might not exist anymore, as we don't assume that GDBus
     // cancellation is reliable (see https://launchpad.net/bugs/953562)
-
     cbdata->mMenu = nsnull;
-    cbdata->mCanceller = nsnull;
   }
 
   uGlobalMenuBar* GetMenuBar() { return mMenu; }
 
   ~RegisterWindowCbData()
   {
-    if (mCancellable) {
-      g_cancellable_disconnect(mCancellable, mID);
-      g_object_unref(mCancellable);
-    }
+    g_cancellable_disconnect(mCancellable, mID);
+    g_object_unref(mCancellable);
   }
 
 private:
   uGlobalMenuBar *mMenu;
   GCancellable *mCancellable;
-  uGlobalMenuRequestAutoCanceller *mCanceller;
   PRUint32 mID;
 };
 
@@ -311,7 +310,8 @@ void
 uGlobalMenuService::DestroyMenuForWidget(nsIWidget *aWidget)
 {
   for (PRUint32 i = 0; i < mMenus.Length(); i++) {
-    if (mMenus[i]->WidgetHasSameToplevelWindow(aWidget)) {
+    if (GDK_WINDOW_XID(gtk_widget_get_window(mMenus[i]->TopLevelWindow())) ==
+        GDK_WINDOW_XID(gtk_widget_get_window(WidgetToGTKWindow(aWidget)))) {
       mMenus.RemoveElementAt(i);
       return;
     }
@@ -325,12 +325,8 @@ uGlobalMenuService::SetOnline(bool aOnline)
     mOnline = !!aOnline;
 
     for (PRUint32 i = mListeners.Length(); i > 0; --i) {
-      mListeners[i - 1]->Observe(nsnull,
-                                 mOnline ? "native-menu-service:online" :
-                                           "native-menu-service:offline",
-                                 nsnull);
+      mListeners[i - 1]->OnMenuServiceOnlineChange(mOnline);
     }
-
 
     if (!mOnline) {
       DestroyMenus();
@@ -342,7 +338,8 @@ bool
 uGlobalMenuService::WidgetHasGlobalMenu(nsIWidget *aWidget)
 {
   for (PRUint32 i = 0; i < mMenus.Length(); i++) {
-    if (mMenus[i]->WidgetHasSameToplevelWindow(aWidget))
+    if (GDK_WINDOW_XID(gtk_widget_get_window(mMenus[i]->TopLevelWindow())) ==
+        GDK_WINDOW_XID(gtk_widget_get_window(WidgetToGTKWindow(aWidget))))
       return true;
   }
   return false;
@@ -351,8 +348,7 @@ uGlobalMenuService::WidgetHasGlobalMenu(nsIWidget *aWidget)
 nsresult
 uGlobalMenuService::Init()
 {
-  nsresult rv;
-  rv = uWidgetAtoms::RegisterAtoms();
+  nsresult rv = uWidgetAtoms::RegisterAtoms();
   if (NS_FAILED(rv)) {
     NS_WARNING("Failed to register atoms");
     return rv;
@@ -380,6 +376,27 @@ uGlobalMenuService::Init()
   }
 
   mWindowMediator->AddListener(this);
+
+  // Bootstrapped addons may initialize the stylesheet service before our
+  // extension chrome is registered. To workaround this, we manually register
+  // our UA stylesheet if it isn't already registered
+  // see https://launchpad.net/bugs/1017247
+  nsCOMPtr<nsIStyleSheetService> sss =
+    do_GetService("@mozilla.org/content/style-sheet-service;1");
+  if (sss) {
+    nsCOMPtr<nsIURI> uri;
+    rv = NS_NewURI(getter_AddRefs(uri),
+                   NS_LITERAL_CSTRING("chrome://globalmenu/content/ua-overrides.css"));
+    if (NS_SUCCEEDED(rv) && uri) {
+      bool registered;
+      sss->SheetRegistered(uri, nsIStyleSheetService::AGENT_SHEET,
+                           &registered);
+      if (!registered) {
+        sss->LoadAndRegisterSheet(uri, nsIStyleSheetService::AGENT_SHEET);
+      }
+    }
+  }
+
   return rv;
 }
 
@@ -395,7 +412,7 @@ uGlobalMenuService::~uGlobalMenuService()
 
   if (mDbusProxy) {
     g_signal_handlers_disconnect_by_func(mDbusProxy,
-                                         reinterpret_cast<gpointer>(NameOwnerChangedCallback),
+                                         FuncToVoidPtr(NameOwnerChangedCallback),
                                          NULL);
     g_object_unref(mDbusProxy);
   }
@@ -431,7 +448,7 @@ uGlobalMenuService::CreateGlobalMenuBar(nsIWidget  *aParent,
 
 /*static*/ bool
 uGlobalMenuService::RegisterGlobalMenuBar(uGlobalMenuBar *aMenuBar,
-                                          uGlobalMenuRequestAutoCanceller *aCanceller,
+                                          GCancellable *aCancellable,
                                           PRUint32 aXID, nsACString& aPath)
 {
   if (!InitService()) {
@@ -448,32 +465,32 @@ uGlobalMenuService::RegisterGlobalMenuBar(uGlobalMenuBar *aMenuBar,
     return false;
   }
 
-  RegisterWindowCbData *data = new RegisterWindowCbData(aMenuBar, aCanceller);
+  RegisterWindowCbData *data = new RegisterWindowCbData(aMenuBar, aCancellable);
 
   g_dbus_proxy_call(sService->mDbusProxy,
                     "RegisterWindow",
                     g_variant_new("(uo)", aXID, PromiseFlatCString(aPath).get()),
                     G_DBUS_CALL_FLAGS_NONE,
                     -1,
-                    aCanceller->GetCancellable(),
+                    aCancellable,
                     RegisterWindowCallback,
                     data);
 
   return true;
 }
 
-/* void registerNotification (in nsIObserver observer); */
+/* void registerNotification (in uIGlobalMenuServiceObserver observer); */
 NS_IMETHODIMP
-uGlobalMenuService::RegisterNotification(nsIObserver *aObserver)
+uGlobalMenuService::RegisterNotification(uIGlobalMenuServiceObserver *aObserver)
 {
   NS_ENSURE_ARG(aObserver);
 
   return mListeners.AppendElement(aObserver) ? NS_OK : NS_ERROR_FAILURE;
 }
 
-/* void unregisterNotification (in nsIObserver observer); */
+/* void unregisterNotification (in uIGlobalMenuServiceObserver observer); */
 NS_IMETHODIMP
-uGlobalMenuService::UnregisterNotification(nsIObserver *aObserver)
+uGlobalMenuService::UnregisterNotification(uIGlobalMenuServiceObserver *aObserver)
 {
   NS_ENSURE_ARG(aObserver);
 

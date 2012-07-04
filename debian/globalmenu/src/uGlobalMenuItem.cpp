@@ -46,7 +46,9 @@
 #include <nsPIDOMWindow.h>
 #include <nsIDOMWindow.h>
 #include <nsIDOMDocument.h>
-#include <nsIPrivateDOMEvent.h>
+#if MOZILLA_BRANCH_MAJOR_VERSION < 16
+# include <nsIPrivateDOMEvent.h>
+#endif
 #include <nsIDOMEventTarget.h>
 #include <mozilla/dom/Element.h>
 #include <nsIContent.h>
@@ -54,15 +56,19 @@
 #include <glib-object.h>
 #include <gdk/gdk.h>
 #include <gdk/gdkkeysyms.h>
+#include <gdk/gdkx.h>
 #include <libdbusmenu-gtk/menuitem.h>
 
 #include "uGlobalMenuService.h"
 #include "uGlobalMenuItem.h"
 #include "uGlobalMenuBar.h"
+#include "uGlobalMenuUtils.h"
 #include "uGlobalMenu.h"
 #include "uWidgetAtoms.h"
 
 #include "uDebug.h"
+
+#include "compat.h"
 
 // XXX: Borrowed from content/xbl/src/nsXBLPrototypeHandler.cpp. This doesn't
 // seem to be publicly available, and we need a way to map key names
@@ -460,6 +466,9 @@ uGlobalMenuItem::SyncAccelFromContent()
 void
 uGlobalMenuItem::SyncTypeAndStateFromContent()
 {
+  MENUOBJECT_REENTRANCY_GUARD(UNITY_MENUITEM_SYNC_TYPE_GUARD);
+  TRACETM();
+
   static nsIContent::AttrValuesArray attrs[] =
     { &uWidgetAtoms::checkbox, &uWidgetAtoms::radio, nsnull };
   PRInt32 type = mContent->FindAttrValueIn(kNameSpaceID_None,
@@ -477,6 +486,19 @@ uGlobalMenuItem::SyncTypeAndStateFromContent()
                                      DBUSMENU_MENUITEM_PROP_TOGGLE_TYPE,
                                      DBUSMENU_MENUITEM_TOGGLE_RADIO);
       SetMenuItemType(eRadio);
+    }
+
+    if (mCommandContent) {
+      nsAutoString commandChecked;
+      mCommandContent->GetAttr(kNameSpaceID_None, uWidgetAtoms::checked,
+                               commandChecked);
+      if (!commandChecked.IsEmpty() && !mContent->AttrValueIs(kNameSpaceID_None,
+                                                              uWidgetAtoms::checked,
+                                                              commandChecked,
+                                                              eCaseMatters)) {
+        mContent->SetAttr(kNameSpaceID_None, uWidgetAtoms::checked,
+                          commandChecked, true);
+      }
     }
 
     SetCheckState(mContent->AttrValueIs(kNameSpaceID_None, uWidgetAtoms::checked,
@@ -497,9 +519,9 @@ uGlobalMenuItem::SyncTypeAndStateFromContent()
 }
 
 void
-uGlobalMenuItem::SyncProperties()
+uGlobalMenuItem::Refresh()
 {
-  TRACE_WITH_THIS_MENUOBJECT();
+  TRACETM();
 
   if (mCommandContent) {
     mListener->UnregisterForContentChanges(mCommandContent, this);
@@ -530,9 +552,8 @@ uGlobalMenuItem::SyncProperties()
   // We need to do this first, as some of the next functions may
   // trigger mutation events, which we want to handle if we our parent
   // is opening
-  ClearInvalid();
+  ClearFlags(UNITY_MENUOBJECT_IS_DIRTY);
 
-  UpdateInfoFromContentClass();
   SyncLabelFromContent(mCommandContent);
   SyncSensitivityFromContent(mCommandContent);
   SyncVisibilityFromContent();
@@ -547,12 +568,14 @@ uGlobalMenuItem::ItemActivatedCallback(DbusmenuMenuitem *menuItem,
                                        void *data)
 {
   uGlobalMenuItem *self = static_cast<uGlobalMenuItem *>(data);
-  self->Activate();
+  self->Activate(timeStamp);
 }
 
 void
-uGlobalMenuItem::Activate()
+uGlobalMenuItem::Activate(PRUint32 timeStamp)
 {
+  gdk_x11_window_set_user_time(gtk_widget_get_window(mMenuBar->TopLevelWindow()),
+                               timeStamp);
   // This first bit seems backwards, but it's not really. If autocheck is
   // not set or autocheck==true, then the checkbox state is usually updated
   // by the input event that clicked on the menu item. In this case, we need
@@ -565,14 +588,10 @@ uGlobalMenuItem::Activate()
   if (!mContent->AttrValueIs(kNameSpaceID_None, uWidgetAtoms::autocheck,
                              uWidgetAtoms::_false, eCaseMatters) &&
       IsCheckboxOrRadioItem()) {
-    if (!IsChecked()) {
-      // We're currently not checked, so check now
-      mContent->SetAttr(kNameSpaceID_None, uWidgetAtoms::checked,
-                        NS_LITERAL_STRING("true"), true);
-    } else if (IsChecked() && (mFlags & UNITY_MENUITEM_IS_CHECKBOX)) {
-      // We're currently checked, so uncheck now. Don't do this for radio buttons
-      mContent->UnsetAttr(kNameSpaceID_None, uWidgetAtoms::checked, true);
-    }
+    mContent->SetAttr(kNameSpaceID_None, uWidgetAtoms::checked,
+                      IsChecked() ?
+                      NS_LITERAL_STRING("false") :  NS_LITERAL_STRING("true"),
+                      true);
   }
 
   nsCOMPtr<nsIDOMDocument> domDoc = do_QueryInterface(mContent->OwnerDoc());
@@ -623,7 +642,7 @@ uGlobalMenuItem::InitializeDbusMenuItem()
   g_signal_connect(G_OBJECT(mDbusMenuItem), DBUSMENU_MENUITEM_SIGNAL_ITEM_ACTIVATED,
                    G_CALLBACK(ItemActivatedCallback), this);
 
-  SyncProperties();
+  Refresh();
 }
 
 nsresult
@@ -706,7 +725,7 @@ uGlobalMenuItem::~uGlobalMenuItem()
 
   if (mDbusMenuItem) {
     g_signal_handlers_disconnect_by_func(mDbusMenuItem,
-                                         reinterpret_cast<gpointer>(ItemActivatedCallback),
+                                         FuncToVoidPtr(ItemActivatedCallback),
                                          this);
     g_object_unref(mDbusMenuItem);
   }
@@ -720,7 +739,7 @@ uGlobalMenuItem::Create(uGlobalMenuObject *aParent,
                         nsIContent *aContent,
                         uGlobalMenuBar *aMenuBar)
 {
-  TRACE_WITH_CONTENT(aContent);
+  TRACEC(aContent);
 
   uGlobalMenuItem *menuitem = new uGlobalMenuItem();
   if (!menuitem) {
@@ -736,24 +755,11 @@ uGlobalMenuItem::Create(uGlobalMenuObject *aParent,
 }
 
 void
-uGlobalMenuItem::AboutToShowNotify()
-{
-  TRACE_WITH_THIS_MENUOBJECT();
-
-  if (IsDirty()) {
-    SyncProperties();
-  } else {
-    UpdateVisibility();
-  }
-}
-
-void
 uGlobalMenuItem::ObserveAttributeChanged(nsIDocument *aDocument,
                                          nsIContent *aContent,
                                          nsIAtom *aAttribute)
 {
-  TRACE_WITH_THIS_MENUOBJECT();
-  UNITY_MENU_ENSURE_EVENTS_UNBLOCKED();
+  TRACETM();
   NS_ASSERTION(aContent == mContent || aContent == mCommandContent ||
                aContent == mKeyContent,
                "Received an event that wasn't meant for us!");
@@ -765,13 +771,13 @@ uGlobalMenuItem::ObserveAttributeChanged(nsIDocument *aDocument,
   }
 
   if (IsDirty()) {
-    DEBUG_WITH_THIS_MENUOBJECT("Previously marked as invalid");
+    LOGTM("Previously marked as invalid");
     return;
   }
 
   if (mParent->GetType() == eMenu &&
       !(static_cast<uGlobalMenu *>(mParent))->IsOpenOrOpening()) {
-    DEBUG_WITH_THIS_MENUOBJECT("Parent isn't open or opening. Marking invalid");
+    LOGTM("Parent isn't open or opening. Marking invalid");
     Invalidate();
     return;
   }
@@ -779,13 +785,10 @@ uGlobalMenuItem::ObserveAttributeChanged(nsIDocument *aDocument,
   if (aContent == mContent) {
     if (aAttribute == uWidgetAtoms::command ||
         aAttribute == uWidgetAtoms::key) {
-      SyncProperties();
+      Refresh();
     } else if (aAttribute == uWidgetAtoms::label ||
                aAttribute == uWidgetAtoms::accesskey) {
       SyncLabelFromContent(mCommandContent);
-    } else if (aAttribute == uWidgetAtoms::hidden ||
-               aAttribute == uWidgetAtoms::collapsed) {
-      SyncVisibilityFromContent();
     } else if (aAttribute == uWidgetAtoms::disabled) {
       SyncSensitivityFromContent(mCommandContent);
     } else if (aAttribute == uWidgetAtoms::checked ||
@@ -793,9 +796,10 @@ uGlobalMenuItem::ObserveAttributeChanged(nsIDocument *aDocument,
       SyncTypeAndStateFromContent();
     } else if (aAttribute == uWidgetAtoms::image) {
       SyncIconFromContent();
-    } else if (aAttribute == uWidgetAtoms::_class) {
-      UpdateInfoFromContentClass();
-      SyncVisibilityFromContent();
+    }
+
+    SyncVisibilityFromContent();
+    if (aAttribute != uWidgetAtoms::image) {
       SyncIconFromContent();
     }
   } else if (aContent == mCommandContent) {
@@ -803,26 +807,10 @@ uGlobalMenuItem::ObserveAttributeChanged(nsIDocument *aDocument,
       SyncLabelFromContent(mCommandContent);
     } else if (aAttribute == uWidgetAtoms::disabled) {
       SyncSensitivityFromContent(mCommandContent);
+    } else if (aAttribute == uWidgetAtoms::checked) {
+      SyncTypeAndStateFromContent();
     }
   } else if (aContent == mKeyContent) {
     SyncAccelFromContent();
   }
-}
-
-void
-uGlobalMenuItem::ObserveContentRemoved(nsIDocument *aDocument,
-                                       nsIContent *aContainer,
-                                       nsIContent *aChild,
-                                       PRInt32 aIndexInContainer)
-{
-  NS_ASSERTION(0, "We can't remove content from a menuitem!");
-}
-
-void
-uGlobalMenuItem::ObserveContentInserted(nsIDocument *aDocument,
-                                        nsIContent *aContainer,
-                                        nsIContent *aChild,
-                                        PRInt32 aIndexInContainer)
-{
-  NS_ASSERTION(0, "We can't insert content in to a menuitem!");
 }

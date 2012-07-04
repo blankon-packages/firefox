@@ -40,24 +40,24 @@
 #define _U_GLOBALMENUSEPARATOR_H
 
 #include "uGlobalMenuObject.h"
-#include "uMenuChangeObserver.h"
 
 class nsIContent;
 class uGlobalMenuDocListener;
 class uGlobalMenuBar;
 
-class uGlobalMenuSeparator: public uGlobalMenuObject,
-                            public uMenuChangeObserver
+class uGlobalMenuSeparator: public uGlobalMenuObject
 {
 public:
-  NS_DECL_UMENUCHANGEOBSERVER
-
   static uGlobalMenuObject* Create(uGlobalMenuObject *aParent,
                                    uGlobalMenuDocListener *aListener,
                                    nsIContent *aContent,
                                    uGlobalMenuBar *aMenuBar);
 
-  void AboutToShowNotify();
+protected:
+  void ObserveAttributeChanged(nsIDocument *aDocument,
+                               nsIContent *aContent,
+                               nsIAtom *aAttribute);
+  void Refresh();
 
 private:
   uGlobalMenuSeparator();

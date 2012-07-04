@@ -37,115 +37,114 @@
  * 
  * ***** END LICENSE BLOCK ***** */
 
-Components.utils.import("resource://gre/modules/XPCOMUtils.jsm");
-Components.utils.import("resource://gre/modules/Services.jsm");
-
-(function unity_overrides() {
+(function unity_init() {
   "use strict";
 
+  const {classes: Cc, interfaces: Ci, utils: Cu} = Components;
+
+  Cu.import("resource://gre/modules/Services.jsm");
+
+  var menuObserver = null;
   var fx13 = Services.vc.compare(Services.appinfo.version, "13.0a1") >= 0;
 
   function enablePlacesNativeViewMenu(name) {
-    // store the original ctor
-    var menuCtor = window[name];
+    try {
+      // store the original ctor
+      var menuCtor = window[name];
 
-    // Override the original ctor, so that nativeView = true gets set
-    // Note that somebody might have had the same stupid idea to override the ctor. ;)
-    // So, try to interfere the least
-    window[name] = function(aEvent) {
-      let rootElt = aEvent.target;
-      if (rootElt.parentNode.parentNode.localName == "menubar") {
-        this._nativeView = true;
-        if (!fx13) {
-          rootElt._startMarker = -1;
-          rootElt._endMarker = -1;
+      // Override the original ctor, so that nativeView = true gets set
+      // Note that somebody might have had the same stupid idea to override the ctor. ;)
+      // So, try to interfere the least
+      window[name] = function(aEvent) {
+        let rootElt = aEvent.target;
+        if (rootElt.parentNode.parentNode.localName == "menubar") {
+          this._nativeView = true;
+          if (!fx13) {
+            rootElt._startMarker = -1;
+            rootElt._endMarker = -1;
+          }
+        }
+        menuCtor.apply(this, arguments);
+      }
+      // rewrite the prototype
+      window[name].prototype = menuCtor.prototype;
+    } catch(e) {
+      Cu.reportError("Failed to override ctor for " + name + ": " + e);
+    }
+  }
+
+  function $(id) document.getElementById(id);
+
+  function uGlobalMenuObserver() {
+    var menuservice = Cc["@canonical.com/globalmenu-service;1"]
+                      .getService(Ci.uIGlobalMenuService);
+    var online = false;
+    var autohideSaved;
+    var toolbarNameSaved;
+
+    this.handleEvent = function uGMO_handleEvent(aEvent) {
+      let target = aEvent.target;
+      if (online && target.getAttribute("autohide") != "false") {
+        autohideSaved = target.getAttribute("autohide");
+        target.setAttribute("autohide", "false");
+      }
+    };
+
+    this.onMenuServiceOnlineChange = function uGMO_observe(aOnline) {
+      if (aOnline) {
+        // XXX: localstore.rdf is re-applied when additional overlays are loaded
+        //      (https://bugzilla.mozilla.org/show_bug.cgi?id=640158), which
+        //      causes this to be undone and the bookmark button to reappear
+        $("toolbar-menubar").addEventListener("DOMAttrModified", this);
+
+        autohideSaved = $("toolbar-menubar").getAttribute("autohide");
+        toolbarNameSaved = $("toolbar-menubar").getAttribute("toolbarname");
+        $("toolbar-menubar").setAttribute("autohide", "false");
+        $("toolbar-menubar").removeAttribute("toolbarname");
+      } else {
+        $("toolbar-menubar").removeEventListener("DOMAttrModified", this);
+
+        if (autohideSaved !== undefined) {
+          $("toolbar-menubar").setAttribute("autohide", autohideSaved);
+        }
+        if (toolbarNameSaved !== undefined) {
+          $("toolbar-menubar").setAttribute("toolbarname", toolbarNameSaved);
         }
       }
-      menuCtor.apply(this, arguments);
-    }
-    // rewrite the prototype
-    window[name].prototype = menuCtor.prototype;
+
+      online = aOnline;
+      updateAppButtonDisplay();
+    };
+
+    this.shutdown = function uGMO_shutdown() {
+      menuservice.unregisterNotification(this);
+      if (online) {
+        $("toolbar-menubar").removeEventListener("DOMAttrModified", this);
+      }
+    };
+
+    menuservice.registerNotification(this);
+    this.onMenuServiceOnlineChange(menuservice.online);
   }
 
   enablePlacesNativeViewMenu("PlacesMenu");
   enablePlacesNativeViewMenu("HistoryMenu");
 
-})();
-
-(function unity_init() {
-  "use strict";
-
-  function $(id) document.getElementById(id);
-
-  function uGlobalMenuObserver() {
-    this.init();
-  }
-
-  uGlobalMenuObserver.prototype = {
-    init: function() {
-      this._menuService = Cc["@canonical.com/globalmenu-service;1"].
-        getService(Ci.uIGlobalMenuService);
-      this._menuService.registerNotification(this);
-      if (this._menuService.online) {
-        this.fixupUI(true);
-      }
-    },
-
-    observe: function(subject, topic, data) {
-      if (topic == "native-menu-service:online") {
-        this.fixupUI(true);
-      } else if (topic == "native-menu-service:offline") {
-        this.fixupUI(false);
-      }
-    },
-
-    handleEvent: function(aEvent) {
-      let target = aEvent.target;
-      let id = target.id;
-      if ((aEvent.type == "DOMAttrModified") && (id == "toolbar-menubar") &&
-          (target.getAttribute("autohide") != "false")) {
-        this.autohideSaved = target.getAttribute("autohide");
-        target.setAttribute("autohide", "false");
-      }
-    },
-
-    fixupUI: function(online) {
-      if (online == true) {
-        // XXX: localstore.rdf is re-applied when additional overlays are loaded
-        //      (https://bugzilla.mozilla.org/show_bug.cgi?id=640158), which
-        //      causes this to be undone and the bookmark button to reappear
-        $("toolbar-menubar").addEventListener("DOMAttrModified", this);
-        this.autohideSaved = $("toolbar-menubar").getAttribute("autohide");
-        $("toolbar-menubar").setAttribute("autohide", "false");
-        $("toolbar-menubar").removeAttribute("toolbarname");
-      } else {
-        $("toolbar-menubar").removeEventListener("DOMAttrModified", this);
-        $("toolbar-menubar").setAttribute("autohide", this.autohideSaved);
-        $("toolbar-menubar").setAttribute("toolbarname", "&menubarCmd.label;");
-      }
-
-      updateAppButtonDisplay();
-    },
-
-    shutdown: function() {
-      this._menuService.unregisterNotification(this);
-    }
-  }
-
-  var menuObserver = null;
-
-  addEventListener("load", function onLoad()
-  {
+  addEventListener("load", function onLoad() {
     removeEventListener("load", onLoad, false);
 
-    if (!menuObserver) {
-      menuObserver = new uGlobalMenuObserver();
+    try {
+      if (!menuObserver) {
+        menuObserver = new uGlobalMenuObserver();
+      }
+    } catch(e) {
+      Cu.reportError("Failed to set up observer on menu service: " + e);
     }
   }, false);
 
-  addEventListener("unload", function onUnload()
-  {
+  addEventListener("unload", function onUnload() {
     removeEventListener("unload", onUnload, false);
+
     if (menuObserver) {
       menuObserver.shutdown();
       menuObserver = null;

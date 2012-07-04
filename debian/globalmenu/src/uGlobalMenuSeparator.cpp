@@ -66,7 +66,13 @@ uGlobalMenuSeparator::InitializeDbusMenuItem()
                                  DBUSMENU_MENUITEM_PROP_TYPE,
                                  "separator");
 
-  UpdateInfoFromContentClass();
+  Refresh();
+}
+
+void
+uGlobalMenuSeparator::Refresh()
+{
+  ClearFlags(UNITY_MENUOBJECT_IS_DIRTY);
   SyncVisibilityFromContent();
 }
 
@@ -118,7 +124,7 @@ uGlobalMenuSeparator::Create(uGlobalMenuObject *aParent,
                              nsIContent *aContent,
                              uGlobalMenuBar *aMenuBar)
 {
-  TRACE_WITH_CONTENT(aContent);
+  TRACEC(aContent);
 
   uGlobalMenuSeparator *menuitem = new uGlobalMenuSeparator();
   if (!menuitem) {
@@ -134,19 +140,6 @@ uGlobalMenuSeparator::Create(uGlobalMenuObject *aParent,
 }
 
 void
-uGlobalMenuSeparator::AboutToShowNotify()
-{
-  if (IsDirty()) {
-    UpdateInfoFromContentClass();
-    SyncVisibilityFromContent();
-
-    ClearInvalid();
-  } else {
-    UpdateVisibility();
-  }
-}
-
-void
 uGlobalMenuSeparator::ObserveAttributeChanged(nsIDocument *aDocument,
                                               nsIContent *aContent,
                                               nsIAtom *aAttribute)
@@ -157,35 +150,10 @@ uGlobalMenuSeparator::ObserveAttributeChanged(nsIDocument *aDocument,
     return;
   }
 
-  if (mParent->GetType() == eMenu &&
-      !(static_cast<uGlobalMenu *>(mParent))->IsOpenOrOpening()) {
+  if (!IsContainerOnScreen()) {
     Invalidate();
     return;
   }
 
-  if (aAttribute == uWidgetAtoms::hidden ||
-      aAttribute == uWidgetAtoms::collapsed) {
-    SyncVisibilityFromContent();
-  } else if (aAttribute == uWidgetAtoms::_class) {
-    UpdateInfoFromContentClass();
-    SyncVisibilityFromContent();
-  }
-}
-
-void
-uGlobalMenuSeparator::ObserveContentRemoved(nsIDocument *aDocument,
-                                            nsIContent *aContainer,
-                                            nsIContent *aChild,
-                                            PRInt32 aIndexInContainer)
-{
-  NS_ASSERTION(0, "We can't remove content from a menuseparator!");
-}
-
-void
-uGlobalMenuSeparator::ObserveContentInserted(nsIDocument *aDocument,
-                                             nsIContent *aContainer,
-                                             nsIContent *aChild,
-                                             PRInt32 aIndexInContainer)
-{
-  NS_ASSERTION(0, "We can't insert content in to a menuseparator!");
+  SyncVisibilityFromContent();
 }

@@ -47,6 +47,12 @@ class nsIWidget;
 class nsIContent;
 %}
 
+[scriptable, uuid(d3848056-5c58-43ac-a35a-0a773bf39239)]
+interface uIGlobalMenuServiceObserver : nsISupports
+{
+  void onMenuServiceOnlineChange (in boolean online);
+};
+
 [scriptable, uuid(92e2d4d4-84d6-400b-99ce-bb3b63639b5b)]
 interface uIGlobalMenuService : nsISupports
 {
@@ -56,8 +62,8 @@ interface uIGlobalMenuService : nsISupports
 
   /* Functions to register to receive notification of the menu 
    * service online status changing */
-  void  registerNotification (in nsIObserver observer);
-  void  unregisterNotification (in nsIObserver observer);
+  void  registerNotification (in uIGlobalMenuServiceObserver observer);
+  void  unregisterNotification (in uIGlobalMenuServiceObserver observer);
 
   /* Menu service online status */
   readonly attribute boolean online;

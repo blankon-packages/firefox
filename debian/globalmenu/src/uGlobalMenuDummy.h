@@ -41,17 +41,13 @@
 #define _U_GLOBALMENUDUMMY_H
 
 #include "uGlobalMenuObject.h"
-#include "uMenuChangeObserver.h"
 
 class nsIContent;
 class uGlobalMenuDocListener;
 
-class uGlobalMenuDummy: public uGlobalMenuObject,
-                        public uMenuChangeObserver
+class uGlobalMenuDummy: public uGlobalMenuObject
 {
 public:
-  NS_DECL_UMENUCHANGEOBSERVER
-
   static uGlobalMenuObject* Create();
 
 private:

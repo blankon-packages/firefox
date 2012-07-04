@@ -39,66 +39,25 @@
 #ifndef _U_GLOBALMENUFACTORY_H
 #define _U_GLOBALMENUFACTORY_H
 
-#include <gio/gio.h>
+#include <gtk/gtk.h>
 
 class uGlobalMenuObject;
 class uGlobalMenuDocListener;
 class nsIContent;
 class uGlobalMenuBar;
-class nsIAtom;
-
-class uGlobalMenuRequestAutoCanceller
-{
-public:
-  static uGlobalMenuRequestAutoCanceller* Create()
-  {
-    uGlobalMenuRequestAutoCanceller *canceller =
-      new uGlobalMenuRequestAutoCanceller();
-    if (!canceller) {
-      return nsnull;
-    }
-
-    if (!canceller->Init()) {
-      delete canceller;
-      canceller = nsnull;
-    }
-
-    return canceller;
-  }
-
-  GCancellable* GetCancellable()
-  {
-    return mCancellable;
-  }
-
-  void Destroy()
-  {
-    if (mCancellable) {
-      g_object_unref(mCancellable);
-      mCancellable = nsnull;
-    }
-  }
-
-  ~uGlobalMenuRequestAutoCanceller()
-  {
-    if (mCancellable) {
-      g_cancellable_cancel(mCancellable);
-      g_object_unref(mCancellable);
-    }
-  }
-private:
-  uGlobalMenuRequestAutoCanceller() { };
-  bool Init()
-  {
-    mCancellable = g_cancellable_new();
-    return mCancellable ? true : false;
-  }
-
-  GCancellable *mCancellable;
-};
+class nsIWidget;
 
 uGlobalMenuObject* NewGlobalMenuItem(uGlobalMenuObject *aParent,
                                      uGlobalMenuDocListener *aListener,
                                      nsIContent *aContent,
                                      uGlobalMenuBar *aMenuBar);
+
+GtkWidget* WidgetToGTKWindow(nsIWidget *aWidget);
+
+template <class T>
+inline void*
+FuncToVoidPtr(T a)
+{
+  return reinterpret_cast<void *>(reinterpret_cast<unsigned long>(reinterpret_cast<void (*)()>(a)));
+}
 #endif

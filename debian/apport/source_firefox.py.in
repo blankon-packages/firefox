@@ -19,7 +19,10 @@ import fcntl
 import subprocess
 import struct
 from subprocess import Popen
-from ConfigParser import ConfigParser
+try:
+    from configparser import ConfigParser
+except ImportError:
+    from ConfigParser import ConfigParser
 import sqlite3
 import tempfile
 import re
@@ -28,22 +31,33 @@ from apport.hookutils import *
 from glob import glob
 import zipfile
 import stat
+import functools
+if sys.version_info[0] < 3:
+    import codecs
+
+DISTRO_ADDONS = [
+    '@MOZ_APP_NAME@',
+    'xul-ext-ubufox'
+]
 
 class PrefParseError(Exception):
-    def __init__(self, msg):
+    def __init__(self, msg, filename, linenum):
         super(PrefParseError, self).__init__(msg)
         self.msg = msg
+        self.filename = filename
+        self.linenum = linenum
 
     def __str__(self):
-        return self.msg
+        return self.msg + ' @ ' + self.filename + ':' + str(self.linenum)
 
 class PluginRegParseError(Exception):
-    def __init__(self, msg):
+    def __init__(self, msg, linenum):
         super(PluginRegParseError, self).__init__(msg)
         self.msg = msg
+        self.linenum = linenum
 
     def __str__(self):
-        return self.msg
+        return self.msg + ' @ line ' + str(self.linenum)
 
 
 class ExtensionTypeNotRecognised(Exception):
@@ -71,11 +85,16 @@ class VersionCompareFailed(Exception):
         return "Failed to compare versions A = %s, B = %s (%s)" % (self.a, self.b, str(self.e))
 
 
+def _open(filename, mode):
+    if sys.version_info[0] < 3:
+        return codecs.open(filename, mode, 'utf-8')
+    return open(filename, mode)
+
 def mkstemp_copy(path):
     '''Make a copy of a file to a temporary file, and return the path'''
     (outfd, outpath) = tempfile.mkstemp()
-    outfile = os.fdopen(outfd, 'w')
-    infile = open(path, 'r')
+    outfile = os.fdopen(outfd, 'wb')
+    infile = open(path, 'rb')
 
     total = 0
     while True:
@@ -87,6 +106,19 @@ def mkstemp_copy(path):
         if len(data) < 4096: break
 
     return outpath
+
+
+def anonymize_path(path, profiledir = None):
+    if profiledir != None and path == os.path.join(profiledir, 'prefs.js'):
+        return 'prefs.js'
+    elif profiledir != None and path == os.path.join(profiledir, 'user.js'):
+        return 'user.js'
+    elif profiledir != None and path.startswith(profiledir):
+        return os.path.join('[Profile]', os.path.relpath(path, profiledir))
+    elif path.startswith(os.environ['HOME']):
+        return os.path.join('[HomeDir]', os.path.relpath(path, os.environ['HOME']))
+    else:
+        return path
 
 
 class CompatINIParser(ConfigParser):
@@ -149,12 +181,15 @@ class ExtensionINIParser(ConfigParser):
                 self.parser = parser
                 self.index = 0
 
-            def next(self):
+            def __next__(self):
                 if self.index == len(self.parser):
                     raise StopIteration
                 res = self.parser[self.index]
                 self.index += 1
                 return res
+
+            def next(self):
+                return self.__next__()
 
         return ExtensionINIParserIter(self)
 
@@ -204,7 +239,9 @@ def compare_versions(a, b):
         return (re.sub(r'([^\.]*)\.*(.*)', r'\2', part), res)
 
     def strcmp(stra, strb):
-        if stra == None and strb != None:
+        if stra == None and strb == None:
+            return 0
+        elif stra == None and strb != None:
             return 1
         elif stra != None and strb == None:
             return -1
@@ -268,9 +305,7 @@ class Plugin(object):
     @property
     def package(self):
         if self._checked_package == False:
-            package = apport.packaging.get_file_package(self.path)
-            if package != None:
-                self._package = package.encode()
+            self._package = apport.packaging.get_file_package(self.path)
             self._checked_package = True
         return self._package
 
@@ -283,29 +318,41 @@ class PluginRegistry:
     STATE_PROCESSING_3 = 4
     STATE_FINISHED = 5
 
-    def __init__(self, filename):
+    def __init__(self, path):
         self.plugins = []
         self._state = PluginRegistry.STATE_PENDING
         self._current_plugin = None
-        self.available = False
-        try:
-            fd = open(filename, 'r')
-            skip = 0
-            for line in fd.readlines():
-                if skip == 0:
-                    skip = self._parseline(line)
-                    if skip == -1:
-                        break
-                else:
-                    skip -= 1
-            self.available = True
-        except Exception as e:
-            self.parse_error = str(e)
+        self._profile_path = path
+        self.error = None
 
-    def _parseline(self, line):
+        fd = None
+        try:
+            fd = _open(os.path.join(path, 'pluginreg.dat'), 'r')
+            try:
+                skip = 0
+                linenum = 1
+                for line in fd.readlines():
+                    if skip == 0:
+                        skip = self._parseline(line, linenum)
+                        if skip == -1:
+                            break
+                    else:
+                        skip -= 1
+                    linenum += 1
+                if skip > 0:
+                    raise PluginRegParseError("Unexpected EOF", linenum)
+            except Exception as e:
+                self.error = str(e)
+        except:
+            pass
+        finally:
+            if fd != None:
+                fd.close()
+
+    def _parseline(self, line, linenum):
         line = line.strip()
         if line != '' and line[0] == '[' and self._state != PluginRegistry.STATE_START and self._state != PluginRegistry.STATE_PENDING:
-            raise PluginRegParseError('Unexpected section header')
+            raise PluginRegParseError('Unexpected section header', linenum)
 
         if self._state == PluginRegistry.STATE_PENDING:
             if line == '[PLUGINS]':
@@ -322,9 +369,10 @@ class PluginRegistry:
             self._state += 1
             return 0
         elif self._state == PluginRegistry.STATE_PROCESSING_1:
-            self._current_plugin.path = line.split(':')[0]
-            if self._current_plugin.path[0] != '/':
-                raise PluginRegParseError("Invalid path %s" % self._current_plugin.path)
+            path = line.split(':')[0]
+            if path[0] != '/':
+                raise PluginRegParseError("Invalid path", linenum)
+            self._current_plugin.path = anonymize_path(path, self._profile_path)
             self._state += 1
             return 3
         elif self._state == PluginRegistry.STATE_PROCESSING_2:
@@ -350,12 +398,15 @@ class PluginRegistry:
                 self.registry = registry
                 self.index = 0
 
-            def next(self):
+            def __next__(self):
                 if self.index == len(self.registry):
                     raise StopIteration
                 ret = self.registry[self.index]
                 self.index += 1
                 return ret
+
+            def next(self):
+                return self.__next__()
 
         return PluginRegistryIter(self)
 
@@ -412,27 +463,72 @@ class Prefs:
         r'printer_*'
     ]
 
+    STATE_READY = 0
+    STATE_COMMENT_MAYBE_START = 1
+    STATE_COMMENT_BLOCK = 2
+    STATE_COMMENT_BLOCK_MAYBE_END = 3
+    STATE_PARSE_UNTIL_OPEN_PAREN = 4
+    STATE_PARSE_UNTIL_NAME = 5
+    STATE_PARSE_UNTIL_COMMA = 6
+    STATE_PARSE_UNTIL_VALUE = 7
+    STATE_PARSE_UNTIL_CLOSE_PAREN = 8
+    STATE_PARSE_UNTIL_SEMICOLON = 9
+    STATE_PARSE_STRING = 10
+    STATE_PARSE_ESC_SEQ = 11
+    STATE_PARSE_INT = 12
+    STATE_SKIP = 13
+    STATE_PARSE_UNTIL_EOL = 14
+
     def __init__(self, profile_path, extra_paths=None, whitelist=None, blacklist=None):
         self.whitelist = whitelist if whitelist != None else Prefs.PREF_WHITELIST
         self.blacklist = blacklist if blacklist != None else Prefs.PREF_BLACKLIST
         self.prefs = {}
-        self._pref_files = []
-        self._errors = {}
+        self.pref_sources = []
+        self.errors = {}
 
-        # Report non-default preferences = ie, those from syspref.js, prefs.js,
-        # user.js and extension prefs. The load order is important
+        self._profile_path = profile_path
+
+        # Read all preferences. Note that we hide preferences that are considered
+        # default (ie, all of those set by the Firefox package or bundled addons,
+        # unless any of the pref files have been modified by the user).
+        # The load order is *very important*
         if profile_path != None:
             locations = [
-                "/etc/@MOZ_APP_NAME@/syspref.js",
-                os.path.join(profile_path, "prefs.js"),
-                os.path.join(profile_path, "user.js")
+                "/@MOZ_LIBDIR@/omni.ja:greprefs.js",
+                "/@MOZ_LIBDIR@/omni.ja:defaults/pref/*.js",
+                "/@MOZ_LIBDIR@/defaults/pref/*.js",
+                "/@MOZ_LIBDIR@/defaults/pref/unix.js",
+                "/@MOZ_LIBDIR@/omni.ja:defaults/preferences/*.js"
+                "/@MOZ_LIBDIR@/defaults/preferences/*.js"
             ]
+
+            append_dirs = [ 'defaults/preferences/*.js' ]
+%%ifndef MOZ_NEW_SYSPREF
+            locations.append('/@MOZ_LIBDIR@/defaults/syspref/*.js')
+            append_dirs.append('defaults/syspref/*.js')
+%%endif
+            if os.path.isdir('/@MOZ_LIBDIR@/distribution/bundles'):
+                bundles = os.listdir('/@MOZ_LIBDIR@/distribution/bundles')
+                bundles.sort(reverse=True)
+                for d in append_dirs:
+                    for bundle in bundles:
+                        path = os.path.join('/@MOZ_LIBDIR@/distribution/bundles', bundle)
+                        if path.endswith('.xpi'):
+                            locations.append(path + ':' + d)
+                        elif os.path.isdir(path):
+                            locations.append(os.path.join(path, d))
+
+            locations.append(os.path.join(profile_path, "prefs.js"))
+            locations.append(os.path.join(profile_path, "user.js"))
 
             extensions = ExtensionINIParser(profile_path)
             for extension in extensions:
-                if not extension.endswith('.xpi'):
-                    extension = os.path.join(extension, "defaults", "preferences")
-                locations.append(extension)
+                if extension.endswith('.xpi'):
+                    locations.append(extension + ':defaults/preferences/*.(J|j)(S|s)')
+                elif os.path.isdir(extension):
+                    locations.append(os.path.join(extension, 'defaults/preferences/*.js'))
+
+            locations.append(os.path.join(profile_path, 'preferences/*.js'))
         else: locations = []
 
         if extra_paths != None:
@@ -440,72 +536,90 @@ class Prefs:
                 locations.append(extra)
 
         for location in locations:
-            if location.endswith('.js'):
-                self._parse_file(location)
-            elif location.endswith('.xpi'):
-                self._parse_xpi(location)
+            m = re.match(r'^([^:]*):?(.*)', location)
+            if m.group(2) == '':
+                files = glob(location)
+                files.sort(reverse=True)
+                for f in files:
+                    self._parse_file(f)
             else:
-                self._parse_dir(location)
+                self._parse_jar(m.group(1), m.group(2))
+
+    def _should_ignore_file(self, filename):
+        realpath = os.path.realpath(filename)
+        package = apport.packaging.get_file_package(realpath)
+        if package and apport.packaging.is_distro_package(package) and \
+           package in DISTRO_ADDONS and \
+           realpath[1:] not in apport.packaging.get_modified_files(package):
+            return True
+
+        return False
 
     def _parse_file(self, filename):
         f = None
-        self._in_comment = False
+        self._state = Prefs.STATE_READY
         try:
-            f = open(filename)
+            f = _open(filename, 'r')
             try:
+                linenum = 1
+                state = None
                 for line in f.readlines():
-                    self._parseline(line, filename)
+                    state = self._parseline(line, filename, linenum, state)
+                    linenum += 1
             except Exception as e:
-                self._errors[filename] = str(e)
+                self.errors[filename] = str(e)
         except:
             pass
         finally:
             if f != None:
                 f.close()
-            if filename not in self._errors:
-                self._pref_files.append(filename)
+            if filename not in self.errors \
+               and not self._should_ignore_file(filename):
+                self.pref_sources.append(filename)
 
-    def _parse_dir(self, dirname):
-        for filename in glob(os.path.join(dirname, '*.js')):
-            self._parse_file(filename)
-
-    def _parse_xpi(self, xpi):
-        xpifile = None
+    def _parse_jar(self, jar, match):
+        jarfile = None
         try:
-            xpifile = zipfile.ZipFile(xpi)
-            entries = xpifile.namelist()
+            jarfile = zipfile.ZipFile(jar)
+            entries = jarfile.namelist()
+            entries.sort(reverse=True)
             for entry in entries:
-                if re.match(r'^defaults/preferences/*.js$', entry):
-                    self._in_comment = False
-                    source = '%s:%s' % (xpi, entry)
+                if re.match(r'^' + match + '$', entry):
+                    source = '%s:%s' % (jar, entry)
                     try:
-                        f = xpifile.open(entry, 'r')
+                        f = jarfile.open(entry, 'r')
+                        linenum = 1
+                        state = None
                         for line in f.readlines():
-                            self._parseline(line, source)
+                            state = self._parseline(line.decode('utf-8'),
+                                                    source, linenum, state)
+                            linenum += 1
                     except Exception as e:
-                        self._errors[source] = str(e)
+                        self.errors[source] = str(e)
                     finally:
-                        if source not in self._errors:
-                            self._pref_files.append(source)
+                        if source not in self.errors \
+                           and not self._should_ignore_file(jar):
+                            self.pref_sources.append(source)
         except:
             pass
         finally:
-            if xpifile != None:
-                xpifile.close()
+            if jarfile != None:
+                jarfile.close()
 
     def _maybe_add_pref(self, key, value, source, default, locked):
 
         class Pref(object):
-            def __init__(self):
+            def __init__(self, profile_path):
                 self._default = None
                 self._value = None
                 self._default_source = None
                 self._value_source = None
                 self.locked = False
+                self._profile_path = profile_path
 
             @property
             def value(self):
-                if self._value:
+                if self._value != None:
                     return self._value
                 return self._default
 
@@ -514,6 +628,12 @@ class Prefs:
                 if self._value != None: 
                     return self._value_source
                 return self._default_source
+
+            @property
+            def anon_source(self):
+                if self._value != None:
+                    return anonymize_path(self._value_source, self._profile_path)
+                return anonymize_path(self._default_source, self._profile_path)
 
             def set_value(self, value, source, default, locked):
                 if self.locked == True:
@@ -534,130 +654,270 @@ class Prefs:
         for match in self.whitelist:
             if re.match(match, key):
                 if key not in self.prefs:
-                    self.prefs[key] = Pref()
+                    self.prefs[key] = Pref(self._profile_path)
 
                 self.prefs[key].set_value(value, source, default, locked)
 
-    def _do_parse(self, line, start, source, default, locked):
+    def _parseline(self, line, source, linenum, old_state):
         # XXX: I pity the poor soul who ever needs to change anything inside this function
-        in_escape = False
-        in_name = True
-        in_value = False
-        in_quote = False
-        has_name = False
-        has_value = False
-        done = False
-        name = ""
-        value = ""
-        for i in range(start, len(line)):
-            if in_escape == True:
-                in_escape = False
-                if in_name == True:
-                    name += line[i]
-                elif in_value == True:
-                    value += line[i]
-                else:
-                    raise PrefParseError("Unexpected character")
-            elif line[i] == '"':
-                if in_name == False and in_value == False:
-                    raise PrefParseError("Unexpected double quote")
-                in_quote = not in_quote
-                if in_quote == False:
-                    if in_name == True:
-                        in_name = False
-                        has_name = True
-                    elif in_value == True:
-                        in_value = False
-                        has_value = True
-            elif line[i] == '\\':
-                if in_quote == True:
-                    in_escape = True
-                else:
-                    raise PrefParseError("Unexpected escape character")
-            elif line[i] == ' ' and in_quote == False:
-                if in_name == True and len(name) > 0:
-                    in_name = False
-                    has_name = True
-                elif in_value == True and len(value) > 0:
-                    in_value = False
-                    has_value = True
-            elif line[i] == ',' and in_quote == False:
-                if (in_name == True or has_name == True) and in_value == False and has_value == False:
-                    in_name = False
-                    in_value = True
-                    has_name = True
-                else:
-                    raise PrefParseError("Unexpected comma")
-            elif line[i] == ')' and in_quote == False:
-                if (in_value == True or has_value == True) and has_name == True and done == False:
-                    in_value = False
-                    has_value = True
-                    done = True
-                else:
-                    raise PrefParseError("Unexpected close braces character for " + line)
-            elif line[i] == ';' and in_quote == False:
-                if done == False:
-                    raise PrefParseError("Unexpected line terminator")
-            else:
-                if in_name == True:
-                    name += line[i]
-                elif in_value == True:
-                    value += line[i]
-                else:
-                    raise PrefParseError("Unexpected character")
 
-        if done == True and in_name == False and in_value == False:
-            self._maybe_add_pref(name, value, source, default, locked)
-        else:
-            raise PrefParseError("Failed to parse line")
+        class PrefParseState(object):
+            def __init__(self):
+                self.state = Prefs.STATE_READY
 
-    def _parseline(self, line, source):
-        line = line.strip()
-        if line == '' or line[0] == '#' or line.startswith('//'):
-            return
+            def _reset(self):
+                self.next_state = Prefs.STATE_READY
+                self.default = False
+                self.locked = False
+                self.name = None
+                self.value = None
+                self.tmp = None
+                self.skip = None
 
-        if line.startswith('/*'):
-            self._in_comment = True
+            def _get_state(self):
+                return self._state
 
-        if self._in_comment == True:
-            for i in range(len(line)):
-                if i < len(line) - 1 and line[i]+line[i+1] == '*/':
-                    self._in_comment = False
-                    break
-            return
+            def _set_state(self, state):
+                self._state = state
+                if state == Prefs.STATE_READY:
+                    self._reset()
 
-        if line.startswith("user_pref("):
-            self._do_parse(line, 10, source, False, False)
-        elif line.startswith("pref("):
-            self._do_parse(line, 5, source, True, False)
-        elif line.startswith("lockPref("):
-            self._do_parse(line, 9, source, True, True)
-        else:
-            raise PrefParseError("Unexpected line start")
+            state = property(_get_state, _set_state)
+
+        state = old_state
+
+        if state == None:
+            state = PrefParseState()
+
+        index = 0
+        for c in line:
+            if state.state == Prefs.STATE_READY:
+                if c == '/':
+                    state.state = Prefs.STATE_COMMENT_MAYBE_START
+                elif c == '#':
+                    state.state = Prefs.STATE_PARSE_UNTIL_EOL
+                elif line.startswith('pref', index):
+                    state.default == True
+                    state.next_state = Prefs.STATE_PARSE_UNTIL_OPEN_PAREN
+                    state.state = Prefs.STATE_SKIP
+                    state.skip = 3
+                elif line.startswith('user_pref', index):
+                    state.next_state = Prefs.STATE_PARSE_UNTIL_OPEN_PAREN
+                    state.state = Prefs.STATE_SKIP
+                    state.skip = 8
+                elif line.startswith('lockPref', index):
+                    state.default = True
+                    state.locked = True
+                    state.next_state = Prefs.STATE_PARSE_UNTIL_OPEN_PAREN
+                    state.state = Prefs.STATE_SKIP
+                    state.skip = 7
+                elif not c.isspace():
+                    raise PrefParseError("Unexpected character '%s' before pref" % c,
+                                         anonymize_path(source, self._profile_path),
+                                         linenum)
+
+            elif state.state == Prefs.STATE_SKIP:
+                state.skip -= 1
+                if state.skip == 0:
+                    state.state = state.next_state
+                    state.next_state = Prefs.STATE_READY
+
+            elif state.state == Prefs.STATE_COMMENT_MAYBE_START:
+                if c == '*':
+                    state.state = Prefs.STATE_COMMENT_BLOCK
+                elif c == '/':
+                    state.state = Prefs.STATE_PARSE_UNTIL_EOL
+                else:
+                    raise PrefParseError("Unexpected '/'",
+                                         anonymize_path(source, self._profile_path),
+                                         linenum)
+
+            elif state.state == Prefs.STATE_PARSE_UNTIL_EOL:
+                pass
+
+            elif state.state == Prefs.STATE_COMMENT_BLOCK:
+                if c == '*':
+                    state.state = Prefs.STATE_COMMENT_BLOCK_MAYBE_END
+
+            elif state.state == Prefs.STATE_COMMENT_BLOCK_MAYBE_END:
+                if c == '/':
+                    state.state = state.next_state
+                    state.next_state = Prefs.STATE_READY
+                else:
+                    state.state = Prefs.STATE_COMMENT_BLOCK
+
+            elif state.state == Prefs.STATE_PARSE_UNTIL_OPEN_PAREN:
+                if c == '(':
+                    state.state = Prefs.STATE_PARSE_UNTIL_NAME
+                elif c == '/':
+                    state.next_state = state.state
+                    state.state = Prefs.STATE_COMMENT_MAYBE_START
+                elif not c.isspace():
+                    raise PrefParseError("Unexpected character '%s' before open parenthesis" % c,
+                                         anonymize_path(source, self._profile_path),
+                                         linenum)
+
+            elif state.state == Prefs.STATE_PARSE_UNTIL_NAME:
+                if c == '"' or c == '\'':
+                    state.tmp = ''
+                    state.state = Prefs.STATE_PARSE_STRING
+                    state.next_state = Prefs.STATE_PARSE_UNTIL_COMMA
+                elif c == '/':
+                    state.next_state = state.state
+                    state.state = Prefs.STATE_COMMENT_MAYBE_START
+                elif not c.isspace():
+                    raise PrefParseError("Unexpected character '%s' before pref name" % c,
+                                         anonymize_path(source, self._profile_path),
+                                         linenum)
+
+            elif state.state == Prefs.STATE_PARSE_STRING:
+                if c == '\\':
+                    state.state = Prefs.STATE_PARSE_ESC_SEQ
+                elif c == '"':
+                    state.state = state.next_state
+                    state.next_state = Prefs.STATE_READY
+                else:
+                    state.tmp += c
+
+            elif state.state == Prefs.STATE_PARSE_ESC_SEQ:
+                # XXX: We don't handle UTF16 / hex here
+                if c == 'n':
+                    c = '\n'
+                elif c == 'r':
+                    c = '\r' 
+                state.tmp += c
+                state.state = Prefs.STATE_PARSE_STRING
+
+            elif state.state == Prefs.STATE_PARSE_UNTIL_COMMA:
+                if state.tmp != None:
+                    state.name = state.tmp
+                    state.tmp = None
+                if c == ',':
+                    state.state = Prefs.STATE_PARSE_UNTIL_VALUE
+                elif c == '/':
+                    state.next_state = state.state
+                    state.state = Prefs.STATE_COMMENT_MAYBE_START
+                elif not c.isspace():
+                    raise PrefParseError("Unexpected character '%s' before comma" % c,
+                                         anonymize_path(source, self._profile_path),
+                                         linenum)
+
+            elif state.state == Prefs.STATE_PARSE_UNTIL_VALUE:
+                if c == '"' or c == '\'':
+                    state.tmp = ''
+                    state.state = Prefs.STATE_PARSE_STRING
+                    state.next_state = Prefs.STATE_PARSE_UNTIL_CLOSE_PAREN
+                elif line.startswith('true', index):
+                    state.tmp = True
+                    state.next_state = Prefs.STATE_PARSE_UNTIL_CLOSE_PAREN
+                    state.state = Prefs.STATE_SKIP
+                    state.skip = 3
+                elif line.startswith('false', index):
+                    state.tmp = False
+                    state.next_state = Prefs.STATE_PARSE_UNTIL_CLOSE_PAREN
+                    state.state = Prefs.STATE_SKIP
+                    state.skip = 4
+                elif (c >= '0' and c <= '9') or c == '+' or c == '-':
+                    state.tmp = c
+                    state.state = Prefs.STATE_PARSE_INT
+                elif c == '/':
+                    state.next_state = state
+                    state.state = Prefs.STATE_COMMENT_MAYBE_START
+                elif not c.isspace():
+                    raise PrefParseError("Unexpected character '%s' before value" % c,
+                                         anonymize_path(source, self._profile_path),
+                                         linenum)
+
+            elif state.state == Prefs.STATE_PARSE_INT:
+                if c >= '0' and c <= '9':
+                    state.tmp += c
+                elif c == ')':
+                    state.value = int(state.tmp)
+                    state.tmp = None
+                    state.state = Prefs.STATE_PARSE_UNTIL_SEMICOLON
+                elif c.isspace():
+                    state.tmp = int(state.tmp)
+                    state.state = Prefs.STATE_PARSE_UNTIL_CLOSE_PAREN
+                elif c == '/':
+                    state.tmp = int(state.tmp)
+                    state.next_state = Prefs.STATE_PARSE_UNTIL_CLOSE_PAREN
+                    state.state = Prefs.STATE_COMMENT_MAYBE_START
+                else:
+                    raise PrefParseError("Unexpected character '%s' whilst parsing int" % c,
+                                         anonymize_path(source, self._profile_path),
+                                         linenum)
+
+            elif state.state == Prefs.STATE_PARSE_UNTIL_CLOSE_PAREN:
+                if state.tmp != None:
+                    state.value = state.tmp
+                    state.tmp = None
+                if c == ')':
+                    state.state = Prefs.STATE_PARSE_UNTIL_SEMICOLON
+                elif c == '/':
+                    state.next_state = state.state
+                    state.state = Prefs.STATE_COMMENT_MAYBE_START
+                elif not c.isspace():
+                    raise PrefParseError("Unexpected character '%s' before close parenthesis" % c,
+                                         anonymize_path(source, self._profile_path),
+                                         linenum)
+
+            elif state.state == Prefs.STATE_PARSE_UNTIL_SEMICOLON:
+                if c == ';':
+                    self._maybe_add_pref(state.name, state.value, source,
+                                         state.default, state.locked)
+                    state.state = Prefs.STATE_READY
+                elif c == '/':
+                    state.next_state = state.state
+                    state.state = Prefs.STATE_COMMENT_MAYBE_START
+                elif not c.isspace():
+                    raise PrefParseError("Unexpected character '%s' before semicolon" % c,
+                                         anonymize_path(source, self._profile_path),
+                                         linenum)
+
+            index += 1
+
+        if state.state == Prefs.STATE_PARSE_UNTIL_EOL:
+            state.state = Prefs.STATE_READY
+
+        return state
 
     def __getitem__(self, key):
-        if not key in self.prefs:
-            raise IndexError
-        return self.prefs[key]
+        res = self.prefs[key]
+        if res.source in self.pref_sources:
+            return res
+        raise KeyError
 
     def __iter__(self):
 
         class PrefsIter:
             def __init__(self, prefs):
                 self.index = 0
-                self.keys = prefs.prefs.keys()
+                self.keys = []
+                for k in prefs.prefs.keys():
+                    try:
+                        test = prefs[k]
+                        self.keys.append(k)
+                    except:
+                        pass
+                self.keys.sort()
 
-            def next(self):
+            def __next__(self):
                 if self.index == len(self.keys):
                     raise StopIteration
                 res = self.keys[self.index]
                 self.index += 1
                 return res
 
+            def next(self):
+                return self.__next__()
+
         return PrefsIter(self)
 
     def __len__(self):
-        return len(self.prefs)
+        i = 0
+        for k in self:
+            i += 1
+        return i
 
 
 class Extension:
@@ -728,13 +988,12 @@ class Profile:
         self.appini = appini
 
         self.prefs = Prefs(path)
+        self.plugins = PluginRegistry(path)
 
         try:
             self._populate_extensions()
         except:
             self.extensions = None
-
-        self.plugins = PluginRegistry(os.path.join(path, "pluginreg.dat"))
 
     def _populate_extensions(self):
         # We copy the db as it's locked whilst Firefox is open. This is still racy
@@ -814,7 +1073,7 @@ class Profile:
         if not hasattr(self, '_running'):
             # We detect if this profile is running or not by trying to lock the lockfile
             # If we can't lock it, then Firefox is running
-            fd = os.open(os.path.join(self.path, ".parentlock"), os.O_WRONLY|os.O_CREAT|os.O_TRUNC, 0666)
+            fd = os.open(os.path.join(self.path, ".parentlock"), os.O_WRONLY|os.O_CREAT|os.O_TRUNC, 0o666)
             lock = struct.pack("hhqqi", 1, 0, 0, 0, 0)
             try:
                 fcntl.fcntl(fd, fcntl.F_SETLK, lock)
@@ -826,14 +1085,6 @@ class Profile:
                 self._running = True
 
         return self._running
-
-    def _anonymize_path(self, path):
-        if path == os.path.join(self.path, 'prefs.js'):
-            return 'prefs.js'
-        elif path == os.path.join(self.path, 'user.js'):
-            return 'user.js'
-
-        return os.path.join('[Profile]', os.path.relpath(path, self.path))
 
     def dump_extensions(self):
         return self._do_dump(self.extensions)
@@ -847,15 +1098,30 @@ class Profile:
     def dump_prefs(self):
         ret = ''
         for pref in self.prefs:
-            ret += pref + ' - ' + self.prefs[pref].value + ' (' + self._anonymize_path(self.prefs[pref].source) + ')\n'
+            if type(self.prefs[pref].value) == int:
+                value = str(self.prefs[pref].value)
+            elif type(self.prefs[pref].value) == bool:
+                value = 'true' if self.prefs[pref].value == True else 'false'
+            else:
+                value = "\"%s\"" % self.prefs[pref].value
+            ret += pref + ': ' + value + ' (' + self.prefs[pref].anon_source + ')\n'
+        return ret
+
+    def dump_pref_sources(self):
+        ret = ''
+        for source in self.prefs.pref_sources:
+            ret += anonymize_path(source, self.path) + '\n'
+        return ret
+
+    def dump_pref_errors(self):
+        ret = ''
+        for source in self.prefs.errors:
+            ret += self.prefs.errors[source] + '\n'
         return ret
 
     def dump_plugins(self):
-        if self.plugins.available == False:
-            if os.path.exists(os.path.join(self.path, "pluginreg.dat")):
-                return "pluginreg.dat exists but isn't parseable = %s" % self.plugins.parse_error
-            else:
-                return "pluginreg.dat isn't available"
+        if self.plugins.error != None:
+            return "pluginreg.dat exists but isn't parseable. %s" % self.plugins.error
 
         ret = ''
         for plugin in self.plugins:
@@ -863,7 +1129,7 @@ class Profile:
         return ret
 
     def get_plugin_packages(self, pkglist):
-        if self.plugins.available == False:
+        if self.plugins.error != None:
             return None
 
         for plugin in self.plugins:
@@ -997,12 +1263,15 @@ class Profiles:
                 self.profiles = profiles
                 self.index = 0
 
-            def next(self):
+            def __next__(self):
                 if self.index == len(self.profiles):
                     raise StopIteration
                 res = self.profiles[self.index]
                 self.index += 1
                 return res
+
+            def next(self):
+                return self.__next__()
 
         return ProfilesIter(self)
 
@@ -1064,10 +1333,10 @@ def add_info(report, ui):
             tags += ' '
         report['Tags'] = tags + tag
 
-    ddproc = Popen(['dpkg-divert', '--truename', '/usr/bin/@MOZ_APP_NAME@'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    ddproc = Popen(['dpkg-divert', '--truename', '/usr/bin/@MOZ_APP_NAME@'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
     truename = ddproc.communicate()
     if ddproc.returncode == 0 and truename[0].strip() != '/usr/bin/@MOZ_APP_NAME@':
-        ddproc = Popen(['dpkg-divert', '--listpackage', '/usr/bin/@MOZ_APP_NAME@'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        ddproc = Popen(['dpkg-divert', '--listpackage', '/usr/bin/@MOZ_APP_NAME@'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
         diverter = ddproc.communicate()
         report['UnreportableReason'] = "/usr/bin/@MOZ_APP_NAME@ has been diverted by a third party package (%s)" % diverter[0].strip()
         return
@@ -1075,14 +1344,10 @@ def add_info(report, ui):
     conf_dir = os.path.join(os.environ["HOME"], ".mozilla", "@MOZ_APP_NAME@")
     appini = AppINIParser('/@MOZ_LIBDIR@')
     populate_item("BuildID", appini.buildid)
-    profiles = None
-    try:
-        profiles = Profiles(os.path.join(conf_dir, "profiles.ini"), appini)
-        populate_item("Profiles", profiles.dump_profile_summaries())
-    except:
-        pass
-    finally:
-        if profiles == None or len(profiles) == 0: report["NoProfiles"] = 'True'
+
+    profiles = Profiles(os.path.join(conf_dir, "profiles.ini"), appini)
+    populate_item("Profiles", profiles.dump_profile_summaries())
+    if len(profiles) == 0: report["NoProfiles"] = 'True'
 
     for profile in profiles:
         if profile.running and not profile.current:
@@ -1108,6 +1373,8 @@ def add_info(report, ui):
         populate_item(prefix + "Plugins", profile.dump_plugins())
         populate_item(prefix + "IncompatibleExtensions", profile.dump_active_but_incompatible_extensions())
         populate_item(prefix + "Prefs", profile.dump_prefs())
+        populate_item(prefix + "PrefSources", profile.dump_pref_sources())
+        populate_item(prefix + "PrefErrors", profile.dump_pref_errors())
         populate_item(prefix + "BrokenPermissions", profile.dump_files_with_broken_permissions())
 
         if (profile.current or profile.default) and profile.has_active_but_incompatible_extensions:
@@ -1138,7 +1405,7 @@ def add_info(report, ui):
             return 0
 
     # Put the most recent first
-    crash_reports.sort(crashes_sort)
+    crash_reports.sort(key=functools.cmp_to_key(crashes_sort))
 
     crash_reports_str = ''
     i = 0
@@ -1206,7 +1473,8 @@ if __name__ == "__main__":
     import apport
     from apport import packaging
     D = {}
-    D['Package'] = 'firefox'
+    D['Package'] = '@MOZ_APP_NAME@'
+    D['SourcePackage'] = '@MOZ_APP_NAME@'
     add_info(D, None)
-    for KEY in D.keys(): 
-        print '''-------------------%s: ------------------\n''' % KEY, D[KEY]
+    for KEY in D.keys():
+        print('''-------------------%s: ------------------\n%s''' % (KEY, D[KEY]))

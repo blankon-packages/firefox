@@ -37,7 +37,6 @@
  * ***** END LICENSE BLOCK ***** */
 
 #include <nsDebug.h>
-#include <nsIXBLService.h>
 #include <nsIAtom.h>
 #include <nsIDOMEvent.h>
 #include <nsIDOMMouseEvent.h>
@@ -45,7 +44,9 @@
 #include <nsIDOMDocument.h>
 #include <nsStringAPI.h>
 #include <nsIDOMEventTarget.h>
-#include <nsIPrivateDOMEvent.h>
+#if MOZILLA_BRANCH_MAJOR_VERSION < 16
+# include <nsIPrivateDOMEvent.h>
+#endif
 #include <nsPIDOMWindow.h>
 #include <nsIDOMXULCommandEvent.h>
 #include <nsIXPConnect.h>
@@ -53,6 +54,9 @@
 #include <nsIScriptContext.h>
 #include <jsapi.h>
 #include <mozilla/dom/Element.h>
+#if MOZILLA_BRANCH_MAJOR_VERSION < 15
+# include <nsIXBLService.h>
+#endif
 
 #include <glib-object.h>
 
@@ -64,8 +68,11 @@
 
 #include "uDebug.h"
 
-uGlobalMenu::RecycleList::RecycleList(uGlobalMenu *aMenu):
-  mMarker(0), mMenu(aMenu)
+#include "compat.h"
+
+uGlobalMenu::RecycleList::RecycleList(uGlobalMenu *aMenu,
+                                      PRUint32 aMarker):
+  mMarker(aMarker), mMenu(aMenu)
 {
   mFreeEvent = NS_NewNonOwningRunnableMethod(mMenu,
                                              &uGlobalMenu::FreeRecycleList);
@@ -74,47 +81,44 @@ uGlobalMenu::RecycleList::RecycleList(uGlobalMenu *aMenu):
 
 uGlobalMenu::RecycleList::~RecycleList()
 {
-  for (PRUint32 i = 0; i < mList.Length(); i++) {
-    dbusmenu_menuitem_child_delete(mMenu->GetDbusMenuItem(), mList[i]);
-  }
-
+  Empty();
   mFreeEvent->Revoke();
 }
 
 void
 uGlobalMenu::RecycleList::Empty()
 {
-  for (PRUint32 i = 0; i < mList.Length(); i++) {
-    dbusmenu_menuitem_child_delete(mMenu->GetDbusMenuItem(), mList[i]);
+  while(mList.Length() > 0) {
+    dbusmenu_menuitem_child_delete(mMenu->GetDbusMenuItem(), Shift());
   }
-
-  mList.SetLength(0);
 }
 
 DbusmenuMenuitem*
-uGlobalMenu::RecycleList::PopRecyclableItem()
+uGlobalMenu::RecycleList::Shift()
 {
-  NS_ASSERTION(mList.Length() > 0, "No more recyclable menuitems");
+  if (mList.Length() == 0) {
+    return nsnull;
+  }
 
   ++mMarker;
   DbusmenuMenuitem *recycled = mList[0];
   mList.RemoveElementAt(0);
 
-  if (mList.Length() == 0) {
-    mMenu->FreeRecycleList();
-  }
-
   return recycled;
 }
 
 void
-uGlobalMenu::RecycleList::PrependRecyclableItem(DbusmenuMenuitem *aItem)
+uGlobalMenu::RecycleList::Unshift(DbusmenuMenuitem *aItem)
 {
+  if (mList.Length() == 0) {
+    --mMarker;
+  }
+
   mList.InsertElementAt(0, aItem);
 }
 
 void
-uGlobalMenu::RecycleList::AppendRecyclableItem(DbusmenuMenuitem *aItem)
+uGlobalMenu::RecycleList::Push(DbusmenuMenuitem *aItem)
 {
   mList.AppendElement(aItem);
 }
@@ -154,22 +158,18 @@ uGlobalMenu::MenuAboutToOpenCallback(DbusmenuMenuitem *menu,
   return false;
 }
 
-void
-uGlobalMenu::Activate()
+static void
+DispatchEvent(nsIContent *aContent, const nsAString& aType)
 {
-  mContent->SetAttr(kNameSpaceID_None, uWidgetAtoms::menuactive,
-                    NS_LITERAL_STRING("true"), true);
-
-  nsCOMPtr<nsIDOMEventTarget> target = do_QueryInterface(mContent);
+  nsCOMPtr<nsIDOMEventTarget> target = do_QueryInterface(aContent);
   if (target) {
-    nsCOMPtr<nsIDOMDocument> domDoc = do_QueryInterface(mContent->OwnerDoc());
+    nsCOMPtr<nsIDOMDocument> domDoc = do_QueryInterface(aContent->OwnerDoc());
     if (domDoc) {
       nsCOMPtr<nsIDOMEvent> event;
       domDoc->CreateEvent(NS_LITERAL_STRING("Events"),
                           getter_AddRefs(event));
       if (event) {
-        event->InitEvent(NS_LITERAL_STRING("DOMMenuItemActive"),
-                         true, true);
+        event->InitEvent(aType, true, true);
         nsCOMPtr<nsIPrivateDOMEvent> priv = do_QueryInterface(event);
         if (priv) {
           priv->SetTrusted(true);
@@ -182,29 +182,20 @@ uGlobalMenu::Activate()
 }
 
 void
+uGlobalMenu::Activate()
+{
+  mContent->SetAttr(kNameSpaceID_None, uWidgetAtoms::menuactive,
+                    NS_LITERAL_STRING("true"), true);
+
+  DispatchEvent(mContent, NS_LITERAL_STRING("DOMMenuItemActive"));
+}
+
+void
 uGlobalMenu::Deactivate()
 {
   mContent->UnsetAttr(kNameSpaceID_None, uWidgetAtoms::menuactive, true);
 
-  nsCOMPtr<nsIDOMDocument> domDoc = do_QueryInterface(mContent->OwnerDoc());
-  if (domDoc) {
-    nsCOMPtr<nsIDOMEvent> event;
-    domDoc->CreateEvent(NS_LITERAL_STRING("Events"),
-                        getter_AddRefs(event));
-    if (event) {
-      event->InitEvent(NS_LITERAL_STRING("DOMMenuItemInactive"),
-                       true, true);
-      nsCOMPtr<nsIDOMEventTarget> target = do_QueryInterface(mContent);
-      if (target) {
-        nsCOMPtr<nsIPrivateDOMEvent> priv = do_QueryInterface(event);
-        if (priv) {
-          priv->SetTrusted(true);
-        }
-        bool dummy;
-        target->DispatchEvent(event, &dummy);
-      }
-    }
-  }
+  DispatchEvent(mContent, NS_LITERAL_STRING("DOMMenuItemInactive"));
 }
 
 bool
@@ -219,46 +210,10 @@ uGlobalMenu::CanOpen()
     return (!isHidden && !isDisabled);
 }
 
-void
-uGlobalMenu::AboutToOpen()
+static void
+DispatchMouseEvent(nsIContent *aPopup, const nsAString& aType)
 {
-  TRACE_WITH_THIS_MENUOBJECT();
-
-  // XXX: We ignore the first AboutToOpen on top-level menus, because Unity
-  //      sends this signal on all top-levels when the window opens.
-  //      This isn't useful for us and it doesn't finish the job by sending
-  //      open/close events, so we end up in a state where we resent the
-  //      entire menu structure over dbus on every page navigation
-  if (!(mFlags & UNITY_MENU_READY)) {
-    DEBUG_WITH_THIS_MENUOBJECT("Ignoring first AboutToOpen");
-    SetFlags(UNITY_MENU_READY);
-    return;
-  }
-
-  if (DoesNeedRebuild()) {
-    Build();
-  }
-
-  SetFlags(UNITY_MENU_IS_OPEN_OR_OPENING);
-
-  // If there is no popup content, then there is nothing to do, and it's
-  // unsafe to proceed anyway
-  if (!mPopupContent) {
-    DEBUG_WITH_THIS_MENUOBJECT("Menu has no popup content");
-    return;
-  }
-
-  PRUint32 count = mMenuObjects.Length();
-  for (PRUint32 i = 0; i < count; i++) {
-    mMenuObjects[i]->AboutToShowNotify();
-  }
-
-  // XXX: This should happen when the pointer hovers over the menu entry,
-  //      but we don't have that information right now. We synthesize it for
-  //      menus, but this doesn't work for menuitems at all
-  Activate();
-
-  nsCOMPtr<nsIDOMDocument> domDoc = do_QueryInterface(mPopupContent->OwnerDoc());
+  nsCOMPtr<nsIDOMDocument> domDoc = do_QueryInterface(aPopup->OwnerDoc());
   if (domDoc) {
     nsCOMPtr<nsIDOMEvent> event;
     domDoc->CreateEvent(NS_LITERAL_STRING("mouseevent"),
@@ -269,11 +224,10 @@ uGlobalMenu::AboutToOpen()
         nsCOMPtr<nsIDOMWindow> window;
         domDoc->GetDefaultView(getter_AddRefs(window));
         if (window) {
-          mouseEvent->InitMouseEvent(NS_LITERAL_STRING("popupshowing"),
-                                     true, true, window, nsnull,
-                                     0, 0, 0, 0, false, false,
-                                     false, false, 0, nsnull);
-          nsCOMPtr<nsIDOMEventTarget> target = do_QueryInterface(mPopupContent);
+          mouseEvent->InitMouseEvent(aType, true, true, window, nsnull,
+                                     0, 0, 0, 0, false, false, false, false,
+                                     0, nsnull);
+          nsCOMPtr<nsIDOMEventTarget> target = do_QueryInterface(aPopup);
           if (target) {
             nsCOMPtr<nsIPrivateDOMEvent> priv = do_QueryInterface(event);
             if (priv) {
@@ -288,6 +242,50 @@ uGlobalMenu::AboutToOpen()
       }
     }
   }
+}
+
+void
+uGlobalMenu::AboutToOpen()
+{
+  TRACETM();
+
+  // XXX: We ignore the first AboutToOpen on top-level menus, because Unity
+  //      sends this signal on all top-levels when the window opens.
+  //      This isn't useful for us and it doesn't finish the job by sending
+  //      open/close events, so we end up in a state where we resend the
+  //      entire menu structure over dbus on every page navigation
+  if (!(mFlags & UNITY_MENU_READY)) {
+    LOGTM("Ignoring first AboutToOpen");
+    SetFlags(UNITY_MENU_READY);
+    return;
+  }
+
+  if (DoesNeedRebuild()) {
+    Build();
+  }
+
+  SetFlags(UNITY_MENU_IS_OPEN_OR_OPENING);
+
+  // If there is no popup content, then there is nothing to do, and it's
+  // unsafe to proceed anyway
+  if (!mPopupContent) {
+    LOGTM("Menu has no popup content");
+    return;
+  }
+
+  // Tell children we are opening. This will cause invalidated children
+  // to refresh
+  PRUint32 count = mMenuObjects.Length();
+  for (PRUint32 i = 0; i < count; i++) {
+    mMenuObjects[i]->ContainerIsOpening();
+  }
+
+  // XXX: This should happen when the pointer hovers over the menu entry,
+  //      but we don't have that information right now. We synthesize it for
+  //      menus, but this doesn't work for menuitems at all
+  Activate();
+
+  DispatchMouseEvent(mPopupContent, NS_LITERAL_STRING("popupshowing"));
 }
 
 void
@@ -306,34 +304,7 @@ uGlobalMenu::OnOpen()
     return;
   }
 
-  nsCOMPtr<nsIDOMDocument> domDoc = do_QueryInterface(mPopupContent->OwnerDoc());
-  if (domDoc) {
-    nsCOMPtr<nsIDOMEvent> event;
-    domDoc->CreateEvent(NS_LITERAL_STRING("mouseevent"),
-                        getter_AddRefs(event));
-    if (event) {
-      nsCOMPtr<nsIDOMMouseEvent> mouseEvent = do_QueryInterface(event);
-      if (mouseEvent) {
-        nsCOMPtr<nsIDOMWindow> window;
-        domDoc->GetDefaultView(getter_AddRefs(window));
-        if (window) {
-          mouseEvent->InitMouseEvent(NS_LITERAL_STRING("popupshown"),
-                                     true, true, window, nsnull,
-                                     0, 0, 0, 0, false, false,
-                                     false, false, 0, nsnull);
-          nsCOMPtr<nsIDOMEventTarget> target = do_QueryInterface(mPopupContent);
-          if (target) {
-            nsCOMPtr<nsIPrivateDOMEvent> priv = do_QueryInterface(event);
-            if (priv) {
-              priv->SetTrusted(true);
-            }
-            bool dummy;
-            target->DispatchEvent(event, &dummy);
-          }
-        }
-      }
-    }
-  }
+  DispatchMouseEvent(mPopupContent, NS_LITERAL_STRING("popupshown"));
 }
 
 void
@@ -341,64 +312,36 @@ uGlobalMenu::OnClose()
 {
   mContent->UnsetAttr(kNameSpaceID_None, uWidgetAtoms::open, true);
 
-  // If there is no popup content, then there is nothing to do, and it's
-  // unsafe to proceed anyway
-  if (!mPopupContent) {
-    ClearFlags(UNITY_MENU_IS_OPEN_OR_OPENING);
-    return;
-  }
-
-  nsCOMPtr<nsIDOMDocument> domDoc = do_QueryInterface(mPopupContent->OwnerDoc());
-  if (domDoc) {
-    nsCOMPtr<nsIDOMEvent> event;
-    domDoc->CreateEvent(NS_LITERAL_STRING("mouseevent"),
-                        getter_AddRefs(event));
-    if (event) {
-      nsCOMPtr<nsIDOMMouseEvent> mouseEvent = do_QueryInterface(event);
-      if (mouseEvent) {
-        nsCOMPtr<nsIDOMWindow> window;
-        domDoc->GetDefaultView(getter_AddRefs(window));
-        if (window) {
-          mouseEvent->InitMouseEvent(NS_LITERAL_STRING("popuphiding"),
-                                     true, true, window, nsnull,
-                                     0, 0, 0, 0, false, false,
-                                     false, false, 0, nsnull);
-          nsCOMPtr<nsIDOMEventTarget> target = do_QueryInterface(mPopupContent);
-          if (target) {
-            nsCOMPtr<nsIPrivateDOMEvent> priv = do_QueryInterface(event);
-            if (priv) {
-              priv->SetTrusted(true);
-            }
-            bool dummy;
-            target->DispatchEvent(event, &dummy);
-            mouseEvent->InitMouseEvent(NS_LITERAL_STRING("popuphidden"),
-                                       true, true, window, nsnull,
-                                       0, 0, 0, 0, false, false,
-                                       false, false, 0, nsnull);
-            target->DispatchEvent(event, &dummy);
-          }
-        }
-      }
-    }
+  PRUint32 count = mMenuObjects.Length();
+  for (PRUint32 i = 0; i < count; i++) {
+    mMenuObjects[i]->ContainerIsClosing();
   }
 
   ClearFlags(UNITY_MENU_IS_OPEN_OR_OPENING);
+
+  // If there is no popup content, then there is nothing to do, and it's
+  // unsafe to proceed anyway
+  if (!mPopupContent) {
+    return;
+  }
+
+  DispatchMouseEvent(mPopupContent, NS_LITERAL_STRING("popuphiding"));
+  DispatchMouseEvent(mPopupContent, NS_LITERAL_STRING("popuphidden"));
 
   Deactivate();
 }
 
 void
-uGlobalMenu::SyncProperties()
+uGlobalMenu::Refresh()
 {
-  TRACE_WITH_THIS_MENUOBJECT();
+  TRACETM();
 
-  UpdateInfoFromContentClass();
+  ClearFlags(UNITY_MENUOBJECT_IS_DIRTY);
+
   SyncLabelFromContent();
   SyncSensitivityFromContent();
   SyncVisibilityFromContent();
   SyncIconFromContent();
-
-  ClearInvalid();
 }
 
 void
@@ -427,7 +370,7 @@ uGlobalMenu::InitializeDbusMenuItem()
   g_signal_connect(G_OBJECT(mDbusMenuItem), "event",
                    G_CALLBACK(MenuEventCallback), this);
 
-  SyncProperties();
+  Refresh();
 }
 
 void
@@ -438,6 +381,7 @@ uGlobalMenu::GetMenuPopupFromMenu(nsIContent **aResult)
 
   *aResult = nsnull;
 
+#if MOZILLA_BRANCH_MAJOR_VERSION < 15
   // Taken from widget/src/cocoa/nsMenuX.mm. Not sure if we need this
   nsIXBLService *xblService = uGlobalMenuService::GetXBLService();
   if (!xblService)
@@ -446,20 +390,32 @@ uGlobalMenu::GetMenuPopupFromMenu(nsIContent **aResult)
   PRInt32 dummy;
   nsCOMPtr<nsIAtom> tag;
   xblService->ResolveTag(mContent, &dummy, getter_AddRefs(tag));
+
   if (tag == uWidgetAtoms::menupopup) {
     *aResult = mContent;
     NS_ADDREF(*aResult);
     return;
   }
+#else
+  // FIXME: What are we meant to do here? Are there any scenario's where this
+  //        is actually broken? (I guess a menu could have a binding that
+  //        extends a menupopup, but that doesn't seem to happen anywhere
+  //        by default)
+#endif
 
   PRUint32 count = mContent->GetChildCount();
 
   for (PRUint32 i = 0; i < count; i++) {
     PRInt32 dummy;
     nsIContent *child = mContent->GetChildAt(i);
+#if MOZILLA_BRANCH_MAJOR_VERSION < 15
     nsCOMPtr<nsIAtom> tag;
     xblService->ResolveTag(child, &dummy, getter_AddRefs(tag));
     if (tag == uWidgetAtoms::menupopup) {
+#else
+    // XXX: See comment above
+    if (child->Tag() == uWidgetAtoms::menupopup) {
+#endif
       *aResult = child;
       NS_ADDREF(*aResult);
       return;
@@ -487,10 +443,15 @@ bool
 uGlobalMenu::InsertMenuObjectAt(uGlobalMenuObject *menuObj,
                                 PRUint32 index)
 {
+  NS_ASSERTION(index <= mMenuObjects.Length(), "Invalid index");
+  if (index > mMenuObjects.Length()) {
+    return false;
+  }
+
   PRUint32 correctedIndex = index;
 
   DbusmenuMenuitem *recycled = nsnull;
-  if (mRecycleList) {
+  if (mRecycleList && mRecycleList->mList.Length() > 0) {
     if (index < mRecycleList->mMarker) {
       ++mRecycleList->mMarker;
     } else if (index > mRecycleList->mMarker) {
@@ -498,7 +459,7 @@ uGlobalMenu::InsertMenuObjectAt(uGlobalMenuObject *menuObj,
     } else {
       // If this node is being inserted in to a gap left by previously
       // removed nodes, then recycle one that we just removed
-      recycled = mRecycleList->PopRecyclableItem();
+      recycled = mRecycleList->Shift();
       if (!IsRecycledItemCompatible(recycled, menuObj)) {
         recycled = nsnull;
         mRecycleList = nsnull;
@@ -522,10 +483,11 @@ bool
 uGlobalMenu::AppendMenuObject(uGlobalMenuObject *menuObj)
 {
   DbusmenuMenuitem *recycled = nsnull;
-  if (mRecycleList && mRecycleList->mMarker > mMenuObjects.Length()) {
+  if (mRecycleList && mRecycleList->mList.Length() > 0 &&
+      mRecycleList->mMarker == mMenuObjects.Length()) {
     // If any nodes were just removed from the end of the menu, then recycle
     // one now
-    recycled = mRecycleList->PopRecyclableItem();
+    recycled = mRecycleList->Shift();
     if (!IsRecycledItemCompatible(recycled, menuObj)) {
       recycled = nsnull;
       mRecycleList = nsnull;
@@ -560,21 +522,21 @@ uGlobalMenu::RemoveMenuObjectAt(PRUint32 index)
   // and inserting new ones, without altering the overall structure. It is used
   // by the history menu in Firefox
   if (!mRecycleList) {
-    mRecycleList = new RecycleList(this);
+    mRecycleList = new RecycleList(this, index);
   } else if (mRecycleList->mList.Length() > 0 &&
              (index < mRecycleList->mMarker - 1 ||
               index > mRecycleList->mMarker)) {
     // If this node is not adjacent to any previously removed nodes, then
     // free the existing nodes already and restart the process
     mRecycleList->Empty();
+    mRecycleList->mMarker = index;
   }
 
-  if (mRecycleList->mList.Length() == 0 || index == mRecycleList->mMarker) {
-    mRecycleList->AppendRecyclableItem(mMenuObjects[index]->GetDbusMenuItem());
+  if (index == mRecycleList->mMarker) {
+    mRecycleList->Push(mMenuObjects[index]->GetDbusMenuItem());
   } else {
-    mRecycleList->PrependRecyclableItem(mMenuObjects[index]->GetDbusMenuItem());
+    mRecycleList->Unshift(mMenuObjects[index]->GetDbusMenuItem());
   }
-  mRecycleList->mMarker = index;
 
   mMenuObjects.RemoveElementAt(index);
 
@@ -584,7 +546,7 @@ uGlobalMenu::RemoveMenuObjectAt(PRUint32 index)
 nsresult
 uGlobalMenu::Build()
 {
-  TRACE_WITH_THIS_MENUOBJECT();
+  TRACETM();
 
   PRUint32 count = mMenuObjects.Length();
   for (PRUint32 i = 0; i < count; i++) {
@@ -610,7 +572,9 @@ uGlobalMenu::Build()
     return NS_OK;
   }
 
-  // Manually wrap the menupopup node to make sure it's bounded
+  // Wrap the native menupopup node, as this results in style resolution
+  // and attachment of XBL bindings, which normally doesn't happen because
+  // we are a child of an element with "display: none"
   // Borrowed from widget/src/cocoa/nsMenuX.mm, we need this to make
   // some menus in Thunderbird work
   nsIDocument *doc = mPopupContent->GetCurrentDoc();
@@ -713,12 +677,20 @@ uGlobalMenu::~uGlobalMenu()
 
   if (mDbusMenuItem) {
     g_signal_handlers_disconnect_by_func(mDbusMenuItem,
-                                         reinterpret_cast<gpointer>(MenuAboutToOpenCallback),
+                                         FuncToVoidPtr(MenuAboutToOpenCallback),
                                          this);
     g_signal_handlers_disconnect_by_func(mDbusMenuItem,
-                                         reinterpret_cast<gpointer>(MenuEventCallback),
+                                         FuncToVoidPtr(MenuEventCallback),
                                          this);
     g_object_unref(mDbusMenuItem);
+  }
+
+  if (mRecycleList) {
+    // The recycle list doesn't hold a strong ref to our dbusmenuitem or
+    // any of it's children. As we've just dropped our ref, if there are
+    // any items on the recycle list, forget them now. If we don't forget
+    // them, we will crash when calling the recycle list destructor
+    mRecycleList->mList.Clear();
   }
 
   MOZ_COUNT_DTOR(uGlobalMenu);
@@ -730,7 +702,7 @@ uGlobalMenu::Create(uGlobalMenuObject *aParent,
                     nsIContent *aContent,
                     uGlobalMenuBar *aMenuBar)
 {
-  TRACE_WITH_CONTENT(aContent);
+  TRACEC(aContent);
 
   uGlobalMenu *menu = new uGlobalMenu();
   if (!menu) {
@@ -746,25 +718,73 @@ uGlobalMenu::Create(uGlobalMenuObject *aParent,
 }
 
 void
-uGlobalMenu::AboutToShowNotify()
+uGlobalMenu::Invalidate()
 {
-  TRACE_WITH_THIS_MENUOBJECT();
+  uGlobalMenuObject::Invalidate();
 
-  if (IsDirty()) {
-    SyncProperties();
-  } else {
-    UpdateVisibility();
+  // If we are visible on screen, now we go and invalidate children. If not,
+  // then we invalidate them when we appear on screen in ContainerIsOpening().
+  // If we need a rebuild, we just skip this (unless we are a direct descendant
+  // of the menubar, when we rebuild to avoid the issue mentioned in the
+  // comment below....)
+  if (IsContainerOnScreen()) {
+    if (mParent->GetType() == eMenuBar && DoesNeedRebuild()) {
+      Build();
+    } else if (!DoesNeedRebuild()) {
+      for (PRUint32 i = 0; i < mMenuObjects.Length(); i++) {
+        if (mParent->GetType() == eMenuBar) {
+          // This is a bit of a hack. When a menu is opened with the keyboard,
+          // some of our children unhide themselves. If we just invalidate here,
+          // then these items won't really appear until this menu gets the
+          // about-to-show signal, when we tell our children to refresh themselves,
+          // which is after we ask the menu to open. This causes a strange issue
+          // in the Firefox History menu, where these additional items appear at
+          // the top of the menu after it has appeared on screen, causing
+          // keyboard focus to be on the wrong menu item
+          mMenuObjects[i]->Invalidate();
+          mMenuObjects[i]->ContainerIsOpening();
+          mMenuObjects[i]->ContainerIsClosing();
+        } else {
+          mMenuObjects[i]->Invalidate();
+        }
+      }
+    }
   }
+} 
+
+void
+uGlobalMenu::ContainerIsOpening()
+{
+  if (IsDirty() && !DoesNeedRebuild()) {
+    for (PRUint32 i = 0; i < mMenuObjects.Length(); i++) {
+      mMenuObjects[i]->Invalidate();
+    }
+  }
+
+  uGlobalMenuObject::ContainerIsOpening();
+}
+
+/*static*/ gboolean
+uGlobalMenu::DoOpen(gpointer user_data)
+{
+  DbusmenuMenuitem *menuitem = static_cast<DbusmenuMenuitem *>(user_data);
+  dbusmenu_menuitem_show_to_user(menuitem, 0);
+  g_object_unref(menuitem);
+  return FALSE;
 }
 
 void
-uGlobalMenu::OpenMenu()
+uGlobalMenu::OpenMenuDelayed()
 {
   if (!CanOpen()) {
     return;
   }
 
-  dbusmenu_menuitem_show_to_user(mDbusMenuItem, 0);
+  // Here, we open the menu after a short delay. This avoids an issue
+  // where opening the History menu in Firefox with the keyboard causes
+  // extra items to appear at the top of the menu, but keyboard focus is
+  // not on the first item
+  g_timeout_add(100, DoOpen, g_object_ref(mDbusMenuItem));
 }
 
 void
@@ -772,40 +792,45 @@ uGlobalMenu::ObserveAttributeChanged(nsIDocument *aDocument,
                                      nsIContent *aContent,
                                      nsIAtom *aAttribute)
 {
-  TRACE_WITH_THIS_MENUOBJECT();
+  TRACETM();
   NS_ASSERTION(aContent == mContent || aContent == mPopupContent,
                "Received an event that wasn't meant for us!");
-
-  if (IsDirty()) {
-    DEBUG_WITH_THIS_MENUOBJECT("Previously marked as invalid");
-    return;
-  }
-
-  if (mParent->GetType() == eMenu &&
-      !(static_cast<uGlobalMenu *>(mParent))->IsOpenOrOpening()) {
-    DEBUG_WITH_THIS_MENUOBJECT("Parent isn't open or opening. Marking invalid");
-    Invalidate();
-    return;
-  }
 
   if (aAttribute == uWidgetAtoms::open) {
     return;
   }
 
-  if (aAttribute == uWidgetAtoms::disabled) {
-    SyncSensitivityFromContent();
-  } else if (aAttribute == uWidgetAtoms::hidden ||
-             aAttribute == uWidgetAtoms::collapsed) {
+  if (IsDirty()) {
+    LOGTM("Previously marked as invalid");
+    return;
+  }
+
+  if (!IsContainerOnScreen()) {
+    LOGTM("Parent isn't open or opening. Marking invalid");
+    Invalidate();
+    return;
+  }
+
+  if (aContent == mContent) {
+    if (aAttribute == uWidgetAtoms::disabled) {
+      SyncSensitivityFromContent();
+    } else if (aAttribute == uWidgetAtoms::label || 
+               aAttribute == uWidgetAtoms::accesskey) {
+      SyncLabelFromContent();
+    } else if (aAttribute == uWidgetAtoms::image) {
+      SyncIconFromContent();
+    }
+
     SyncVisibilityFromContent();
-  } else if (aAttribute == uWidgetAtoms::label || 
-             aAttribute == uWidgetAtoms::accesskey) {
-    SyncLabelFromContent();
-  } else if (aAttribute == uWidgetAtoms::image) {
-    SyncIconFromContent();
-  } else if (aAttribute == uWidgetAtoms::_class) {
-    UpdateInfoFromContentClass();
-    SyncVisibilityFromContent();
-    SyncIconFromContent();
+    if (aAttribute != uWidgetAtoms::image) {
+      SyncIconFromContent();
+    }
+  }
+
+  // Attribute changes can change the style of children, so
+  // we invalidate them
+  for (PRUint32 i = 0; i < mMenuObjects.Length(); i++) {
+    mMenuObjects[i]->Invalidate();
   }
 }
 
@@ -815,24 +840,24 @@ uGlobalMenu::ObserveContentRemoved(nsIDocument *aDocument,
                                    nsIContent *aChild,
                                    PRInt32 aIndexInContainer)
 {
-  TRACE_WITH_THIS_MENUOBJECT();
+  TRACETM();
   NS_ASSERTION(aContainer == mContent || aContainer == mPopupContent,
                "Received an event that wasn't meant for us!");
 
   if (DoesNeedRebuild()) {
-    DEBUG_WITH_THIS_MENUOBJECT("Previously marked as needing a rebuild");
+    LOGTM("Previously marked as needing a rebuild");
     return;
   }
 
   if (!IsOpenOrOpening()) {
-    DEBUG_WITH_THIS_MENUOBJECT("Not open or opening - Marking as needing a rebuild");
+    LOGTM("Not open or opening - Marking as needing a rebuild");
     SetNeedsRebuild();
     return;
   }
 
   if (aContainer == mPopupContent) {
     bool res = RemoveMenuObjectAt(aIndexInContainer);
-    NS_WARN_IF_FALSE(res, "Failed to remove menuitem. Marking menu invalid");
+    NS_WARN_IF_FALSE(res, "Failed to remove menuitem - marking menu as needing a rebuild");
     if (!res) {
       SetNeedsRebuild();
     }
@@ -847,17 +872,17 @@ uGlobalMenu::ObserveContentInserted(nsIDocument *aDocument,
                                     nsIContent *aChild,
                                     PRInt32 aIndexInContainer)
 {
-  TRACE_WITH_THIS_MENUOBJECT();
+  TRACETM();
   NS_ASSERTION(aContainer == mContent || aContainer == mPopupContent,
                "Received an event that wasn't meant for us!");
 
   if (DoesNeedRebuild()) {
-    DEBUG_WITH_THIS_MENUOBJECT("Previously marked as needing a rebuild");
+    LOGTM("Previously marked as needing a rebuild");
     return;
   }
 
   if (!IsOpenOrOpening()) {
-    DEBUG_WITH_THIS_MENUOBJECT("Not open or opening - Marking as needing a rebuild");
+    LOGTM("Not open or opening - Marking as needing a rebuild");
     SetNeedsRebuild();
     return;
   }
@@ -870,10 +895,10 @@ uGlobalMenu::ObserveContentInserted(nsIDocument *aDocument,
     if (newItem) {
       res = InsertMenuObjectAt(newItem, aIndexInContainer);
     }
-    NS_WARN_IF_FALSE(res, "Failed to insert menuitem. Marking menu invalid");
+    NS_WARN_IF_FALSE(res, "Failed to insert menuitem - marking menu as needing a rebuild");
     if (!res) {
       SetNeedsRebuild();
-    }    
+    } 
   } else {
     Build();
   }

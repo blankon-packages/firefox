@@ -108,32 +108,3 @@ uGlobalMenuDummy::Create()
 
   return static_cast<uGlobalMenuObject *>(menuitem);
 }
-
-// GlobalMenuDummy is inert, and does not observe/react to content
-// changes.  The following methods are included simply to fill out
-// the interface.
-void
-uGlobalMenuDummy::ObserveAttributeChanged(nsIDocument *aDocument,
-                                          nsIContent *aContent,
-                                          nsIAtom *aAttribute)
-{
-
-}
-
-void
-uGlobalMenuDummy::ObserveContentRemoved(nsIDocument *aDocument,
-                                        nsIContent *aContainer,
-                                        nsIContent *aChild,
-                                        PRInt32 aIndexInContainer)
-{
-
-}
-
-void
-uGlobalMenuDummy::ObserveContentInserted(nsIDocument *aDocument,
-                                         nsIContent *aContainer,
-                                         nsIContent *aChild,
-                                         PRInt32 aIndexInContainer)
-{
-
-}

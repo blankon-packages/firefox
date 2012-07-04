@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<overlay id="globalmenu-extension-firefox-browser-overlay" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul">
+  <script type="application/x-javascript" src="chrome://globalmenu/content/firefoxBrowserOverlay.js" />
+  <menubar id="main-menubar" onpopupshowing=""/>
+  <menupopup id="menu_EditPopup"
+             onpopupshowing="gEditUIVisible = true; goUpdateGlobalEditMenuItems()">
+  </menupopup>
+  <menuitem id="menu_showAllTabs" key=""/>
+</overlay>

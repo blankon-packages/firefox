@@ -47,6 +47,7 @@
 #include <nsIDocument.h>
 
 #include "uGlobalMenuDocListener.h"
+#include "uGlobalMenuObject.h"
 
 #include "uDebug.h"
 
@@ -81,8 +82,7 @@ uGlobalMenuDocListener::uGlobalMenuDocListener() :
 
 uGlobalMenuDocListener::~uGlobalMenuDocListener()
 {
-  NS_ASSERTION(mContentToObserverTable.Count() == 0 &&
-               mFallbackObservers.Length() == 0,
+  NS_ASSERTION(mContentToObserverTable.Count() == 0,
                "Some nodes forgot to unregister listeners");
 }
 
@@ -122,20 +122,13 @@ uGlobalMenuDocListener::AttributeChanged(nsIDocument *aDocument,
   if (!aElement)
     return;
 
-  nsTArray<uMenuChangeObserver *> *listeners =
+  nsTArray<uGlobalMenuObject *> *listeners =
     GetListenersForContent(aElement, false);
 
   if (listeners) {
     for (PRUint32 i = 0; i < listeners->Length(); i++) {
       listeners->ElementAt(i)->ObserveAttributeChanged(aDocument, aElement,
                                                        aAttribute);
-    }
-  }
-
-  if (!listeners || listeners->Length() == 0) {
-    for (PRUint32 i = 0; i < mFallbackObservers.Length(); i++) {
-      mFallbackObservers[i]->ObserveAttributeChanged(aDocument, aElement,
-                                                     aAttribute);
     }
   }
 }
@@ -161,20 +154,13 @@ uGlobalMenuDocListener::ContentInserted(nsIDocument *aDocument,
   if (!aContainer)
     return;
 
-  nsTArray<uMenuChangeObserver *> *listeners =
+  nsTArray<uGlobalMenuObject *> *listeners =
     GetListenersForContent(aContainer, false);
 
   if (listeners) {
     for (PRUint32 i = 0; i < listeners->Length(); i++) {
       listeners->ElementAt(i)->ObserveContentInserted(aDocument, aContainer,
                                                       aChild, aIndexInContainer);
-    }
-  }
-
-  if (!listeners || listeners->Length() == 0) {
-    for (PRUint32 i = 0; i < mFallbackObservers.Length(); i++) {
-      mFallbackObservers[i]->ObserveContentInserted(aDocument, aContainer,
-                                                    aChild, aIndexInContainer);
     }
   }
 }
@@ -189,20 +175,13 @@ uGlobalMenuDocListener::ContentRemoved(nsIDocument *aDocument,
   if (!aContainer)
     return;
 
-  nsTArray<uMenuChangeObserver *> *listeners =
+  nsTArray<uGlobalMenuObject *> *listeners =
     GetListenersForContent(aContainer, false);
 
   if (listeners) {
     for (PRUint32 i = 0; i < listeners->Length(); i++) {
       listeners->ElementAt(i)->ObserveContentRemoved(aDocument, aContainer,
                                                      aChild, aIndexInContainer);
-    }
-  }
-
-  if (!listeners || listeners->Length() == 0) {
-    for (PRUint32 i = 0; i < mFallbackObservers.Length(); i++) {
-      mFallbackObservers[i]->ObserveContentRemoved(aDocument, aContainer, aChild,
-                                                   aIndexInContainer);
     }
   }
 }
@@ -221,12 +200,12 @@ uGlobalMenuDocListener::ParentChainChanged(nsIContent *aContent)
 
 nsresult
 uGlobalMenuDocListener::RegisterForContentChanges(nsIContent *aContent,
-                                                  uMenuChangeObserver *aMenuObject)
+                                                  uGlobalMenuObject *aMenuObject)
 {
   NS_ENSURE_ARG(aContent);
   NS_ENSURE_ARG(aMenuObject);
 
-  nsTArray<uMenuChangeObserver *> *listeners =
+  nsTArray<uGlobalMenuObject *> *listeners =
     GetListenersForContent(aContent, true);
 
   listeners->AppendElement(aMenuObject);
@@ -235,12 +214,12 @@ uGlobalMenuDocListener::RegisterForContentChanges(nsIContent *aContent,
 
 nsresult
 uGlobalMenuDocListener::UnregisterForContentChanges(nsIContent *aContent,
-                                                    uMenuChangeObserver *aMenuObject)
+                                                    uGlobalMenuObject *aMenuObject)
 {
   NS_ENSURE_ARG(aContent);
   NS_ENSURE_ARG(aMenuObject);
 
-  nsTArray<uMenuChangeObserver *> *listeners =
+  nsTArray<uGlobalMenuObject *> *listeners =
     GetListenersForContent(aContent, false);
   if (!listeners) {
     return NS_ERROR_FAILURE;
@@ -257,33 +236,13 @@ uGlobalMenuDocListener::UnregisterForContentChanges(nsIContent *aContent,
   return NS_ERROR_FAILURE;
 }
 
-nsresult
-uGlobalMenuDocListener::RegisterFallbackListener(uMenuChangeObserver *aMenuObject)
-{
-  NS_ENSURE_ARG(aMenuObject);
-  mFallbackObservers.AppendElement(aMenuObject);
-  return NS_OK;
-}
-
-nsresult
-uGlobalMenuDocListener::UnregisterFallbackListener(uMenuChangeObserver *aMenuObject)
-{
-  NS_ENSURE_ARG(aMenuObject);
-
-  if (mFallbackObservers.RemoveElement(aMenuObject)) {
-    return NS_OK;
-  }
-
-  return NS_ERROR_FAILURE;
-}
-
-nsTArray<uMenuChangeObserver *>*
+nsTArray<uGlobalMenuObject *>*
 uGlobalMenuDocListener::GetListenersForContent(nsIContent *aContent,
                                                bool aCreate)
 {
-  nsTArray<uMenuChangeObserver *> *listeners;
+  nsTArray<uGlobalMenuObject *> *listeners;
   if (!mContentToObserverTable.Get(aContent, &listeners) && aCreate) {
-    listeners = new nsTArray<uMenuChangeObserver *>();
+    listeners = new nsTArray<uGlobalMenuObject *>();
     mContentToObserverTable.Put(aContent, listeners);
   }
 

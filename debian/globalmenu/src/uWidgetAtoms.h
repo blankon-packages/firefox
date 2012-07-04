@@ -49,9 +49,11 @@ public:
 
   static nsresult RegisterAtoms();
 
-#define WIDGET_ATOM(_name, _value) static nsIAtom* _name;
+#define WIDGET_ATOM(_name) static nsIAtom* _name;
+#define WIDGET_ATOM2(_name, _value) static nsIAtom* _name;
 #include "uWidgetAtomList.h"
 #undef WIDGET_ATOM
+#undef WIDGET_ATOM2
 
 };
 

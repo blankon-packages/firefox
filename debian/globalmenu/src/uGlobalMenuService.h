@@ -85,7 +85,7 @@ public:
   static void Shutdown();
 
   static bool RegisterGlobalMenuBar(uGlobalMenuBar *aMenuBar,
-                                    uGlobalMenuRequestAutoCanceller *aCanceller,
+                                    GCancellable *aCancellable,
                                     PRUint32 aXID, nsACString& aPath);
 
   static bool InitService();
@@ -121,7 +121,7 @@ private:
   GDBusProxy *mDbusProxy;
   GCancellable *mCancellable;
   nsTArray<nsAutoPtr<uGlobalMenuBar> > mMenus;
-  nsTArray<nsCOMPtr<nsIObserver> > mListeners;
+  nsTArray<nsCOMPtr<uIGlobalMenuServiceObserver> > mListeners;
   nsCOMPtr<nsIWindowMediator> mWindowMediator;
 };
 
