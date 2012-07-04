@@ -3,7 +3,6 @@ normalize-distribution-searchplugins.patch
 allow-lockPref-everywhere.patch
 #@DIST=lucid,maverick,natty,oneiric@mozilla-kde.patch
 #@DIST=lucid,maverick,natty,oneiric@firefox-kde.patch
-ubuntu-codes-baidu.patch
 #@DIST=!lucid,maverick@unity-globalmenu-build-support.patch
 #@DIST=lucid,maverick@add-syspref-dir.patch
 #@DIST=lucid@use-new-yasm-in-lucid.patch
