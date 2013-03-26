@@ -2,8 +2,11 @@
 
 set -e
 
+UPDATENOTIFIERDIR=/var/lib/update-notifier/user.d
 MOZ_LIBDIR=/@MOZ_LIBDIR@
 MOZ_APP_NAME=@MOZ_APP_NAME@
+MOZ_PKG_NAME=@MOZ_PKG_NAME@
+MOZ_ADDONDIR=/@MOZ_ADDONDIR@
 
 # Move a conffile without triggering a dpkg question
 finish_mv_conffile() {
@@ -43,18 +46,17 @@ if [ "$1" = "configure" ] ; then
     #
     # AppArmor
     #
-    APP_PROFILE="/etc/apparmor.d/usr.bin.$MOZ_APP_NAME"
+    APP_PROFILE="/etc/apparmor.d/usr.bin.$MOZ_PKG_NAME"
     if [ -f "$APP_PROFILE" ]; then
-	 if [ -e /etc/lsb-release ] ; then
+        if [ -e /etc/lsb-release ] ; then
             ubuntu_version=`grep ^DISTRIB_RELEASE /etc/lsb-release | cut -d= -f2 | cut -d '.' -f-2 | tr -d '.'`
         else
             ubuntu_version=`lsb_release -rs | cut -d '.' -f-2 | tr -d '.'`
         fi
-
         # Setup the extra include files for Ubuntu 10.10 and higher
         if [ "$ubuntu_version" -ge '1010' ]; then
             # Add the local/ include
-            LOCAL_APP_PROFILE="/etc/apparmor.d/local/usr.bin.$MOZ_APP_NAME"
+            LOCAL_APP_PROFILE="/etc/apparmor.d/local/usr.bin.$MOZ_PKG_NAME"
             test -e "$LOCAL_APP_PROFILE" || {
                 tmp=`mktemp`
                 cat <<EOM > "$tmp"
@@ -67,7 +69,7 @@ EOM
             }
 
             # Add the addons include
-            ADDONS_APP_PROFILE="/etc/apparmor.d/abstractions/ubuntu-browsers.d/$MOZ_APP_NAME"
+            ADDONS_APP_PROFILE="/etc/apparmor.d/abstractions/ubuntu-browsers.d/$MOZ_PKG_NAME"
             test -e "$ADDONS_APP_PROFILE" || {
                 tmp=`mktemp`
                 cat <<EOM > "$tmp"
@@ -93,39 +95,43 @@ EOM
         fi
 
         # Reload AppArmor profile
-        DISABLE_APP_PROFILE="/etc/apparmor.d/disable/usr.bin.$MOZ_APP_NAME"
+        DISABLE_APP_PROFILE="/etc/apparmor.d/disable/usr.bin.$MOZ_PKG_NAME"
         if [ ! -f "$DISABLE_APP_PROFILE" ] && aa-status --enabled 2>/dev/null; then
-            apparmor_parser -r -T -W "$APP_PROFILE" || true
+            if [ "$ubuntu_version" -ge '1010' ]; then
+                apparmor_parser -r -T -W "$APP_PROFILE" || true
+            else
+                apparmor_parser -r "$APP_PROFILE" || true
+            fi
         fi
     fi
     #
     # End AppArmor
     #
 
-    finish_rm_conffile "/etc/${APP_NAME}/profile/bookmarks.html"
-    finish_rm_conffile "/etc/${APP_NAME}/profile/localstore.rdf"
-    finish_rm_conffile "/etc/${APP_NAME}/profile/mimeTypes.rdf"
-    finish_rm_conffile "/etc/${APP_NAME}/profile/prefs.js"
-    finish_rm_conffile "/etc/${APP_NAME}/profile/chrome/userChrome-example.css"
-    finish_rm_conffile "/etc/${APP_NAME}/profile/chrome/userContent-example.css"
+    finish_rm_conffile "/etc/${MOZ_PKG_NAME}/profile/bookmarks.html"
+    finish_rm_conffile "/etc/${MOZ_PKG_NAME}/profile/localstore.rdf"
+    finish_rm_conffile "/etc/${MOZ_PKG_NAME}/profile/mimeTypes.rdf"
+    finish_rm_conffile "/etc/${MOZ_PKG_NAME}/profile/prefs.js"
+    finish_rm_conffile "/etc/${MOZ_PKG_NAME}/profile/chrome/userChrome-example.css"
+    finish_rm_conffile "/etc/${MOZ_PKG_NAME}/profile/chrome/userContent-example.css"
 
-%%ifdef MOZ_NEW_SYSPREF
-    finish_mv_conffile "/etc/${MOZ_APP_NAME}/pref/firefox.js" "/etc/${MOZ_APP_NAME}/syspref.js"
+%%if DISTRIB_VERSION >= 1104
+    finish_mv_conffile "/etc/${MOZ_PKG_NAME}/pref/firefox.js" "/etc/${MOZ_PKG_NAME}/syspref.js"
 %%endif
 
-%%ifdef MOZ_SYMLINKED_DIST
+%%if DISTRIB_VERSION == 1110
     if [ -d $MOZ_LIBDIR/distribution ] && [ ! -h $MOZ_LIBDIR/distribution ]; then \
         rmdir --ignore-fail-on-non-empty $MOZ_LIBDIR/distribution
     fi
     if [ ! -e $MOZ_LIBDIR/distribution ]; then
-        ln -s /usr/lib/$MOZ_APP_NAME-addons/distribution $MOZ_LIBDIR/distribution
+        ln -s ${MOZ_ADDONDIR}/distribution $MOZ_LIBDIR/distribution
     fi
 %%else
     if [ -d $MOZ_LIBDIR/distribution/extensions ] && [ ! -h $MOZ_LIBDIR/distribution/extensions ]; then \
         rmdir --ignore-fail-on-non-empty $MOZ_LIBDIR/distribution/extensions
     fi
     if [ ! -e $MOZ_LIBDIR/distribution/extensions ]; then
-        ln -s /usr/lib/$MOZ_APP_NAME-addons/distribution/extensions $MOZ_LIBDIR/distribution/extensions
+        ln -s ${MOZ_ADDONDIR}/distribution/extensions $MOZ_LIBDIR/distribution/extensions
     fi
 %%endif
 
@@ -133,14 +139,28 @@ EOM
         rmdir --ignore-fail-on-non-empty $MOZ_LIBDIR/plugins
     fi
     if [ ! -e $MOZ_LIBDIR/plugins ]; then
-        ln -s /usr/lib/$MOZ_APP_NAME-addons/plugins $MOZ_LIBDIR/plugins
+        ln -s ${MOZ_ADDONDIR}/plugins $MOZ_LIBDIR/plugins
     fi
 fi
 
 echo "Please restart all running instances of $MOZ_APP_NAME, or you will experience problems."
 
+%%if DISTRIB_VERSION <= 1004
+if [ -d $UPDATENOTIFIERDIR ] ; then
+  # pgrep matches application names from /proc/<pid>/status which is
+  # truncated according to sys/procfs.h definition. Problem is it's
+  # platform dependent. Either 15 or 16 chars.
+  if [ `/usr/bin/pgrep -x -c firefox` -ne 0 ] ||
+     [ `/usr/bin/pgrep -x -c $MOZ_APP_NAME` -ne 0 ] ;  then
+    cp -f $MOZ_LIBDIR/$MOZ_APP_NAME-restart-required.update-notifier \
+        $UPDATENOTIFIERDIR/$MOZ_APP_NAME-restart-required
+  else
+    rm -f $UPDATENOTIFIERDIR/$MOZ_APP_NAME-restart-required
+  fi
+%%else
 if [ -d /var/run ] ; then
     touch /var/run/$MOZ_APP_NAME-restart-required
+%%endif
 fi
 
 #DEBHELPER#

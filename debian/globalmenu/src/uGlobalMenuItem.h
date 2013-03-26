@@ -41,30 +41,25 @@
 
 #include <prtypes.h>
 #include <nsCOMPtr.h>
-#include <nsStringAPI.h>
+#include <nsStringGlue.h>
 
 #include <libdbusmenu-glib/server.h>
 
 #include "uGlobalMenuObject.h"
+#include "uWidgetAtoms.h"
+
+#define UNITY_MENUITEM_TYPE_0             FLAG(8)
+#define UNITY_MENUITEM_TYPE_1             FLAG(9)
+#define UNITY_MENUITEM_TYPE_MASK          (UNITY_MENUITEM_TYPE_1 | UNITY_MENUITEM_TYPE_0)
 
 // This menuitem is a checkbox or radioitem which is active
-#define UNITY_MENUITEM_TOGGLE_IS_ACTIVE   (1 << 10)
-
-// This menuitem is a checkbox
-#define UNITY_MENUITEM_IS_CHECKBOX        (1 << 11)
-
-// This menuitem is a radio item
-#define UNITY_MENUITEM_IS_RADIO           (1 << 12)
-
-// Used by the reentrancy guard for SyncTypeAndStateFromContent()
-#define UNITY_MENUITEM_SYNC_TYPE_GUARD    (1 << 13)
+#define UNITY_MENUITEM_TOGGLE_IS_ACTIVE   FLAG(10)
 
 class nsIContent;
 class uGlobalMenuDocListener;
-class uGlobalMenuBar;
 
 enum uMenuItemType {
-  eNormal,
+  eNormal = 0,
   eCheckBox,
   eRadio
 };
@@ -74,66 +69,61 @@ class uGlobalMenuItem: public uGlobalMenuObject
 public:
   static uGlobalMenuObject* Create(uGlobalMenuObject *aParent,
                                    uGlobalMenuDocListener *aListener,
-                                   nsIContent *aContent,
-                                   uGlobalMenuBar *aMenuBar);
+                                   nsIContent *aContent);
+  virtual void Destroy();
+  virtual ~uGlobalMenuItem();
+
+  virtual uMenuObjectType GetType() { return eMenuItem; }
 
 protected:
-  void ObserveAttributeChanged(nsIDocument *aDocument,
-                               nsIContent *aContent,
-                               nsIAtom *aAttribute);
-  void Refresh();
+  virtual void ObserveAttributeChanged(nsIContent *aContent,
+                                       nsIAtom *aAttribute);
 
 private:
   uGlobalMenuItem();
 
   nsresult Init(uGlobalMenuObject *aParent,
                 uGlobalMenuDocListener *aListener,
-                nsIContent *aContent,
-                uGlobalMenuBar *aMenuBar);
-  ~uGlobalMenuItem();
+                nsIContent *aContent);
 
   PRUint32 GetKeyCode(nsAString &aKeyName);
   PRUint32 MozKeyCodeToGdkKeyCode(PRUint32 aMozKeyCode);
+  void SyncStateFromCommand();
+  void SyncLabelFromCommand();
+  void SyncSensitivityFromCommand();
   void SyncAccelFromContent();
   void SyncTypeAndStateFromContent();
-  void InitializeDbusMenuItem();
+  void SyncStateFromContent();
+  virtual void InitializeDbusMenuItem();
+  virtual void Refresh(uMenuObjectRefreshMode aMode);
+  virtual uMenuObjectProperties GetValidProperties()
+  {
+    return static_cast<uMenuObjectProperties>(eLabel | eEnabled | eVisible |
+                                              eIconData | eShortcut |
+                                              eToggleType | eToggleState);
+  }
   static void ItemActivatedCallback(DbusmenuMenuitem *menuItem,
                                     PRUint32 timeStamp,
                                     void *data);
   void Activate(PRUint32 timeStamp);
   void UncheckSiblings();
-  void SetMenuItemType(uMenuItemType aType)
+
+  void SetMenuItemType(uMenuItemType aType);
+  uMenuItemType GetMenuItemType()
   {
-    switch(aType) {
-      case eNormal:
-        ClearFlags(UNITY_MENUITEM_IS_CHECKBOX | UNITY_MENUITEM_IS_RADIO);
-        break;
-
-      case eCheckBox:
-        ClearFlags(UNITY_MENUITEM_IS_RADIO);
-        SetFlags(UNITY_MENUITEM_IS_CHECKBOX);
-        break;
-
-      case eRadio:
-        ClearFlags(UNITY_MENUITEM_IS_CHECKBOX);
-        SetFlags(UNITY_MENUITEM_IS_RADIO);
-        break;
-
-      default:
-        NS_NOTREACHED("Invalid menuitem type");
-    }
+    return static_cast<uMenuItemType>((mFlags & UNITY_MENUITEM_TYPE_MASK) >> 8);
   }
 
   bool IsCheckboxOrRadioItem()
   {
-    return (mFlags & UNITY_MENUITEM_IS_CHECKBOX) ||
-           (mFlags & UNITY_MENUITEM_IS_RADIO);
+    return GetMenuItemType() > eNormal;
   }
 
   void SetCheckState(bool aChecked)
   {
     NS_ASSERTION(IsCheckboxOrRadioItem(), "Not a checkbox or radio item");
     SetOrClearFlags(aChecked, UNITY_MENUITEM_TOGGLE_IS_ACTIVE);
+    LOGTM("Setting check state to %s", aChecked ? "true" : "false");
   }
 
   bool IsChecked()

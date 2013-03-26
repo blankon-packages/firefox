@@ -158,6 +158,7 @@ GenericName[uk]=Веб-браузер
 GenericName[vi]=Trình duyệt Web
 GenericName[zh_CN]=网络浏览器
 GenericName[zh_TW]=網路瀏覽器
+%%if DISTRIB_VERSION >= 1204
 Keywords=Internet;WWW;Browser;Web;Explorer
 Keywords[ast]=Internet;WWW;Restolador;Web;Esplorador
 Keywords[ca]=Internet;WWW;Navegador;Web;Explorador;Explorer
@@ -184,6 +185,7 @@ Keywords[sl]=Internet;WWW;Browser;Web;Explorer;Brskalnik;Splet
 Keywords[uk]=Internet;WWW;Browser;Web;Explorer;Інтернет;мережа;переглядач;оглядач;браузер;веб;файрфокс;вогнелис;перегляд
 Keywords[vi]=Internet;WWW;Browser;Web;Explorer;Trình duyệt;Trang web
 Keywords[zh_CN]=Internet;WWW;Browser;Web;Explorer;网页;浏览;上网;火狐;Firefox;ff;互联网;网站;
+%%endif
 Exec=@MOZ_APP_NAME@ %u
 Terminal=false
 X-MultipleArgs=false
@@ -191,9 +193,9 @@ Type=Application
 Icon=@MOZ_APP_NAME@
 Categories=GNOME;GTK;Network;WebBrowser;
 MimeType=text/html;text/xml;application/xhtml+xml;application/xml;application/rss+xml;application/rdf+xml;image/gif;image/jpeg;image/png;x-scheme-handler/http;x-scheme-handler/https;x-scheme-handler/ftp;x-scheme-handler/chrome;video/webm;application/x-xpinstall;
-StartupWMClass=@MOZ_WM_CLASS@
 StartupNotify=true
-%%ifdef MOZ_FREEDESKTOP_ACTIONS
+%%if DISTRIB_VERSION >= 1104
+%%if DISTRIB_VERSION >= 1204
 Actions=NewWindow;
 %%define TARGET_ENV OnlyShowIn=Unity;
 %%define NEW_WINDOW_SECTION [Desktop Action NewWindow]
@@ -239,3 +241,4 @@ Name[zh_CN]=新建窗口
 Name[zh_TW]=開啟新視窗
 Exec=@MOZ_APP_NAME@ -new-window
 %%expand __TARGET_ENV__
+%%endif

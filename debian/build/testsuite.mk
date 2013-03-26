@@ -3,9 +3,12 @@
 LOCALE		:= en_US.UTF-8
 LOCDIR		= $(CURDIR)/$(MOZ_DISTDIR)/.locales
 
-TESTS	:= $(NULL)
 ifeq (1,$(MOZ_WANT_UNIT_TESTS))
-	TESTS += check xpcshell-tests jstestbrowser reftest crashtest mochitest
+ifeq (,$(MOZ_TESTS))
+TESTS = check xpcshell-tests jstestbrowser reftest crashtest mochitest
+else
+TESTS = $(MOZ_TESTS)
+endif
 endif
 
 run-tests: $(addprefix debian/stamp-,$(TESTS))
@@ -36,7 +39,7 @@ $(addprefix debian/stamp-,$(TESTS)):
 	$(WRAPPER) $(MAKE) -C $(CURDIR)/$(MOZ_OBJDIR) $(subst debian/stamp-,,$@) || true
 	touch $@
 
-debian/stamp-xpcshell-tests-disable: debian/stamp-makefile-build
+debian/stamp-xpcshell-tests-disable:: debian/stamp-makefile-build
 	# Hangs without network access
 	rm -f $(CURDIR)/$(MOZ_OBJDIR)$(MOZ_MOZDIR)/_tests/xpcshell/toolkit/components/places/tests/unit/test_404630.js
 

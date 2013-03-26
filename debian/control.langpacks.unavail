@@ -1,5 +1,5 @@
 
-Package: @MOZ_APP_NAME@-locale-@LANGCODE@
+Package: @MOZ_PKG_NAME@-locale-@LANGCODE@
 Architecture: any
 Depends: ${misc:Depends}
 Description: Transitional package for unavailable language

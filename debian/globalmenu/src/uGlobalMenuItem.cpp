@@ -46,11 +46,9 @@
 #include <nsPIDOMWindow.h>
 #include <nsIDOMWindow.h>
 #include <nsIDOMDocument.h>
-#if MOZILLA_BRANCH_MAJOR_VERSION < 16
-# include <nsIPrivateDOMEvent.h>
-#endif
+#include <nsIDOMElement.h>
+#include <nsIPrivateDOMEvent.h>
 #include <nsIDOMEventTarget.h>
-#include <mozilla/dom/Element.h>
 #include <nsIContent.h>
 
 #include <glib-object.h>
@@ -67,8 +65,6 @@
 #include "uWidgetAtoms.h"
 
 #include "uDebug.h"
-
-#include "compat.h"
 
 // XXX: Borrowed from content/xbl/src/nsXBLPrototypeHandler.cpp. This doesn't
 // seem to be publicly available, and we need a way to map key names
@@ -209,7 +205,7 @@ static struct keyCodeData gKeyCodes[] = {
 PRUint32
 uGlobalMenuItem::GetKeyCode(nsAString &aKeyName)
 {
-  nsCAutoString keyName;
+  nsAutoCString keyName;
   CopyUTF16toUTF8(aKeyName, keyName);
   ToUpperCase(keyName); // We want case-insensitive comparison with data
                         // stored as uppercase.
@@ -407,23 +403,18 @@ uGlobalMenuItem::SyncAccelFromContent()
         modifier |= GDK_CONTROL_MASK;
       } else if (strcmp(token, "accel") == 0) {
         nsIPrefBranch *prefs = uGlobalMenuService::GetPrefService();
-        if (prefs) {
-          PRInt32 accel;
-          prefs->GetIntPref("ui.key.accelKey", &accel);
-          if (accel == nsIDOMKeyEvent::DOM_VK_META) {
-            modifier |= GDK_META_MASK;
-          } else if (accel == nsIDOMKeyEvent::DOM_VK_ALT) {
-            modifier |= GDK_MOD1_MASK;
-          } else {
-            modifier |= GDK_CONTROL_MASK;
-          }
+        PRInt32 accel;
+        prefs->GetIntPref("ui.key.accelKey", &accel);
+        if (accel == nsIDOMKeyEvent::DOM_VK_META) {
+          modifier |= GDK_META_MASK;
+        } else if (accel == nsIDOMKeyEvent::DOM_VK_ALT) {
+          modifier |= GDK_MOD1_MASK;
         } else {
-          // This is the default, see layout/xul/base/src/nsMenuFrame.cpp
           modifier |= GDK_CONTROL_MASK;
         }
       }
 
-      token = strtok(nsnull, ", \t");
+      token = strtok(nullptr, ", \t");
     }
 
     nsMemory::Free(str);
@@ -433,7 +424,7 @@ uGlobalMenuItem::SyncAccelFromContent()
   guint key = 0;
   mKeyContent->GetAttr(kNameSpaceID_None, uWidgetAtoms::key, keyStr);
 
-  nsCAutoString cKeyStr;
+  nsAutoCString cKeyStr;
   CopyUTF16toUTF8(keyStr, cKeyStr);
 
   if (!cKeyStr.IsEmpty()) {
@@ -464,13 +455,76 @@ uGlobalMenuItem::SyncAccelFromContent()
 }
 
 void
+uGlobalMenuItem::SyncStateFromCommand()
+{
+  TRACETM()
+
+  nsAutoString checked;
+  if (mCommandContent && mCommandContent->GetAttr(kNameSpaceID_None,
+                                                  uWidgetAtoms::checked,
+                                                  checked)) {
+    LOGTM("Copying checked state from command node");
+    mContent->SetAttr(kNameSpaceID_None, uWidgetAtoms::checked, checked,
+                      true);
+  }
+}
+
+void
+uGlobalMenuItem::SyncLabelFromCommand()
+{
+  TRACETM()
+
+  nsAutoString label;
+  if (mCommandContent && mCommandContent->GetAttr(kNameSpaceID_None,
+                                                  uWidgetAtoms::label,
+                                                  label)) {
+    LOGTM("Copying label from command node");
+    mContent->SetAttr(kNameSpaceID_None, uWidgetAtoms::label, label,
+                      true);
+  }
+}
+
+void
+uGlobalMenuItem::SyncSensitivityFromCommand()
+{
+  TRACETM()
+
+  if (mCommandContent) {
+    if (mCommandContent->AttrValueIs(kNameSpaceID_None, uWidgetAtoms::disabled,
+                                     uWidgetAtoms::_true, eCaseMatters)) {
+      mContent->SetAttr(kNameSpaceID_None, uWidgetAtoms::disabled,
+                        NS_LITERAL_STRING("true"), true);
+    } else {
+      mContent->UnsetAttr(kNameSpaceID_None, uWidgetAtoms::disabled, true);
+    }
+  }
+}
+
+void
+uGlobalMenuItem::SyncStateFromContent()
+{
+  TRACETM()
+
+  if (!IsCheckboxOrRadioItem()) {
+    return;
+  }
+
+  SetCheckState(mContent->AttrValueIs(kNameSpaceID_None, uWidgetAtoms::checked,
+                                      uWidgetAtoms::_true, eCaseMatters));
+  dbusmenu_menuitem_property_set_int(mDbusMenuItem,
+                                     DBUSMENU_MENUITEM_PROP_TOGGLE_STATE,
+                                     IsChecked() ?
+                                     DBUSMENU_MENUITEM_TOGGLE_STATE_CHECKED : 
+                                      DBUSMENU_MENUITEM_TOGGLE_STATE_UNCHECKED);
+}
+
+void
 uGlobalMenuItem::SyncTypeAndStateFromContent()
 {
-  MENUOBJECT_REENTRANCY_GUARD(UNITY_MENUITEM_SYNC_TYPE_GUARD);
-  TRACETM();
+  TRACETM()
 
   static nsIContent::AttrValuesArray attrs[] =
-    { &uWidgetAtoms::checkbox, &uWidgetAtoms::radio, nsnull };
+    { &uWidgetAtoms::checkbox, &uWidgetAtoms::radio, nullptr };
   PRInt32 type = mContent->FindAttrValueIn(kNameSpaceID_None,
                                            uWidgetAtoms::type,
                                            attrs, eCaseMatters);
@@ -488,26 +542,7 @@ uGlobalMenuItem::SyncTypeAndStateFromContent()
       SetMenuItemType(eRadio);
     }
 
-    if (mCommandContent) {
-      nsAutoString commandChecked;
-      mCommandContent->GetAttr(kNameSpaceID_None, uWidgetAtoms::checked,
-                               commandChecked);
-      if (!commandChecked.IsEmpty() && !mContent->AttrValueIs(kNameSpaceID_None,
-                                                              uWidgetAtoms::checked,
-                                                              commandChecked,
-                                                              eCaseMatters)) {
-        mContent->SetAttr(kNameSpaceID_None, uWidgetAtoms::checked,
-                          commandChecked, true);
-      }
-    }
-
-    SetCheckState(mContent->AttrValueIs(kNameSpaceID_None, uWidgetAtoms::checked,
-                                       uWidgetAtoms::_true, eCaseMatters));
-    dbusmenu_menuitem_property_set_int(mDbusMenuItem,
-                                       DBUSMENU_MENUITEM_PROP_TOGGLE_STATE,
-                                       IsChecked() ?
-                                       DBUSMENU_MENUITEM_TOGGLE_STATE_CHECKED : 
-                                        DBUSMENU_MENUITEM_TOGGLE_STATE_UNCHECKED);
+    SyncStateFromContent();
 
   } else {
     dbusmenu_menuitem_property_remove(mDbusMenuItem,
@@ -518,47 +553,81 @@ uGlobalMenuItem::SyncTypeAndStateFromContent()
   }
 }
 
+const char *types[] = {
+  "Normal",
+  "Checkbox",
+  "Radio",
+  NULL
+};
+
 void
-uGlobalMenuItem::Refresh()
+uGlobalMenuItem::SetMenuItemType(uMenuItemType aType)
 {
-  TRACETM();
+  ClearFlags(UNITY_MENUITEM_TYPE_MASK);
+  SetFlags(aType << 8);
 
-  if (mCommandContent) {
-    mListener->UnregisterForContentChanges(mCommandContent, this);
-    mCommandContent = nsnull;
-  }
-  if (mKeyContent) {
-    mListener->UnregisterForContentChanges(mKeyContent, this);
-    mKeyContent = nsnull;
-  }
+  LOGTM("Setting menuitem to type %s", types[aType]);
+}
 
-  nsIDocument *doc = mContent->GetCurrentDoc();
-  nsAutoString value;
-  mContent->GetAttr(kNameSpaceID_None, uWidgetAtoms::command, value);
-  if (!value.IsEmpty()) {
-    mCommandContent = doc->GetElementById(value);
+void
+uGlobalMenuItem::Refresh(uMenuObjectRefreshMode aMode)
+{
+  TRACETM()
+
+  if (aMode == eRefreshFull) {
     if (mCommandContent) {
-      mListener->RegisterForContentChanges(mCommandContent, this);
+      mListener->UnregisterForContentChanges(mCommandContent, this);
+      mCommandContent = nullptr;
     }
-  }
-  mContent->GetAttr(kNameSpaceID_None, uWidgetAtoms::key, value);
-  if (!value.IsEmpty()) {
-    mKeyContent = doc->GetElementById(value);
     if (mKeyContent) {
-      mListener->RegisterForContentChanges(mKeyContent, this);
+      mListener->UnregisterForContentChanges(mKeyContent, this);
+      mKeyContent = nullptr;
+    }
+
+    nsIDocument *doc = mContent->GetCurrentDoc();
+    if (doc) {
+      nsCOMPtr<nsIDOMDocument> domDoc = do_QueryInterface(doc);
+      NS_ASSERTION(domDoc, "nsIDocument failed QI to nsIDOMDocument");
+      if (domDoc) {
+        nsAutoString value;
+        mContent->GetAttr(kNameSpaceID_None, uWidgetAtoms::command, value);
+        if (!value.IsEmpty()) {
+          nsCOMPtr<nsIDOMElement> elem;
+          domDoc->GetElementById(value, getter_AddRefs(elem));
+          if (elem) {
+            mCommandContent = do_QueryInterface(elem);
+            if (mCommandContent) {
+              mListener->RegisterForContentChanges(mCommandContent, this);
+            }
+          }
+        }
+        mContent->GetAttr(kNameSpaceID_None, uWidgetAtoms::key, value);
+        if (!value.IsEmpty()) {
+          nsCOMPtr<nsIDOMElement> elem;
+          domDoc->GetElementById(value, getter_AddRefs(elem));
+          if (elem) {
+            mKeyContent = do_QueryInterface(elem);
+            if (mKeyContent) {
+              mListener->RegisterForContentChanges(mKeyContent, this);
+            }
+          }
+        }
+      }
     }
   }
 
-  // We need to do this first, as some of the next functions may
-  // trigger mutation events, which we want to handle if we our parent
-  // is opening
-  ClearFlags(UNITY_MENUOBJECT_IS_DIRTY);
+  SyncStateFromCommand();
+  SyncLabelFromCommand();
+  SyncSensitivityFromCommand();
 
-  SyncLabelFromContent(mCommandContent);
-  SyncSensitivityFromContent(mCommandContent);
+  if (aMode == eRefreshFull) {
+    SyncTypeAndStateFromContent();
+    SyncAccelFromContent();
+    SyncLabelFromContent();
+    SyncSensitivityFromContent();
+  }
+
   SyncVisibilityFromContent();
-  SyncTypeAndStateFromContent();
-  SyncAccelFromContent();
   SyncIconFromContent();
 }
 
@@ -567,6 +636,8 @@ uGlobalMenuItem::ItemActivatedCallback(DbusmenuMenuitem *menuItem,
                                        PRUint32 timeStamp,
                                        void *data)
 {
+  uMenuAutoSuspendMutationEvents as;
+
   uGlobalMenuItem *self = static_cast<uGlobalMenuItem *>(data);
   self->Activate(timeStamp);
 }
@@ -574,7 +645,9 @@ uGlobalMenuItem::ItemActivatedCallback(DbusmenuMenuitem *menuItem,
 void
 uGlobalMenuItem::Activate(PRUint32 timeStamp)
 {
-  gdk_x11_window_set_user_time(gtk_widget_get_window(mMenuBar->TopLevelWindow()),
+  TRACETM()
+
+  gdk_x11_window_set_user_time(gtk_widget_get_window(GetMenuBar()->TopLevelWindow()),
                                timeStamp);
   // This first bit seems backwards, but it's not really. If autocheck is
   // not set or autocheck==true, then the checkbox state is usually updated
@@ -587,86 +660,84 @@ uGlobalMenuItem::Activate(PRUint32 timeStamp)
   //      the event, as the handler might check the new state
   if (!mContent->AttrValueIs(kNameSpaceID_None, uWidgetAtoms::autocheck,
                              uWidgetAtoms::_false, eCaseMatters) &&
-      IsCheckboxOrRadioItem()) {
+      (GetMenuItemType() == eCheckBox ||
+       (GetMenuItemType() == eRadio && !IsChecked()))) {
     mContent->SetAttr(kNameSpaceID_None, uWidgetAtoms::checked,
                       IsChecked() ?
                       NS_LITERAL_STRING("false") :  NS_LITERAL_STRING("true"),
                       true);
   }
 
-  nsCOMPtr<nsIDOMDocument> domDoc = do_QueryInterface(mContent->OwnerDoc());
-  if (domDoc) {
-    nsCOMPtr<nsIDOMEvent> event;
-    domDoc->CreateEvent(NS_LITERAL_STRING("xulcommandevent"),
-                        getter_AddRefs(event));
-    if (event) {
-      nsCOMPtr<nsIDOMXULCommandEvent> cmdEvent = do_QueryInterface(event);
-      if (cmdEvent) {
-        nsCOMPtr<nsIDOMWindow> window;
-        domDoc->GetDefaultView(getter_AddRefs(window));
-        if (window) {
-          cmdEvent->InitCommandEvent(NS_LITERAL_STRING("command"),
-                                     true, true, window, 0,
-                                     false, false, false,
-                                     false, nsnull);
-          nsCOMPtr<nsIDOMEventTarget> target = do_QueryInterface(mContent);
-          if (target) {
-            nsCOMPtr<nsIPrivateDOMEvent> priv = do_QueryInterface(event);
-            if (priv) {
-              priv->SetTrusted(true);
-            }
-            bool dummy;
-            target->DispatchEvent(event, &dummy);
-          }
-        }
-      }
-    }
+  nsCOMPtr<nsIDOMEventTarget> target = do_QueryInterface(mContent);
+  NS_ASSERTION(target, "Content failed QI to nsIDOMEventTarget");
+  if (!target) {
+    return;
   }
+
+  nsCOMPtr<nsIDOMDocument> domDoc = do_QueryInterface(mContent->OwnerDoc());
+  NS_ASSERTION(domDoc, "Document failed QI to nsIDOMDocument");
+  if (!domDoc) {
+    return;
+  }
+
+  nsCOMPtr<nsIDOMEvent> event;
+  domDoc->CreateEvent(NS_LITERAL_STRING("xulcommandevent"),
+                      getter_AddRefs(event));
+  NS_ASSERTION(event, "Failed to create xulcommandevent");
+  if (!event) {
+    return;
+  }
+
+  nsCOMPtr<nsIDOMXULCommandEvent> cmdEvent = do_QueryInterface(event);
+  NS_ASSERTION(cmdEvent, "Event failed QI to nsIDOMXULCommandEvent");
+  if (!cmdEvent) {
+    return;
+  }
+
+  nsCOMPtr<nsIDOMWindow> window;
+  domDoc->GetDefaultView(getter_AddRefs(window));
+  if (!window) {
+    return;
+  }
+
+  cmdEvent->InitCommandEvent(NS_LITERAL_STRING("command"),
+                             true, true, window, 0,
+                             false, false, false,
+                             false, nullptr);
+
+  nsCOMPtr<nsIPrivateDOMEvent> priv = do_QueryInterface(event);
+  NS_ASSERTION(priv, "Event failed QI to nsIPrivateDOMEvent");
+  if (!priv) {
+    return;
+  }
+
+  priv->SetTrusted(true);
+
+  bool dummy;
+  target->DispatchEvent(event, &dummy);
 }
 
 void
 uGlobalMenuItem::InitializeDbusMenuItem()
 {
-  if (!mDbusMenuItem) {
-    mDbusMenuItem = dbusmenu_menuitem_new();
-    if (!mDbusMenuItem) {
-      return;
-    }
-  } else {
-    OnlyKeepProperties(static_cast<uMenuObjectProperties>(eLabel | eEnabled |
-                                                          eVisible | eIconData |
-                                                          eShortcut | eToggleType |
-                                                          eToggleState));
-  }
-
   g_signal_connect(G_OBJECT(mDbusMenuItem), DBUSMENU_MENUITEM_SIGNAL_ITEM_ACTIVATED,
                    G_CALLBACK(ItemActivatedCallback), this);
-
-  Refresh();
 }
 
 nsresult
 uGlobalMenuItem::Init(uGlobalMenuObject *aParent,
                       uGlobalMenuDocListener *aListener,
-                      nsIContent *aContent,
-                      uGlobalMenuBar *aMenuBar)
+                      nsIContent *aContent)
 {
   NS_ENSURE_ARG(aParent);
   NS_ENSURE_ARG(aListener);
   NS_ENSURE_ARG(aContent);
-  NS_ENSURE_ARG(aMenuBar);
 
   mParent = aParent;
   mListener = aListener;
   mContent = aContent;
-  mMenuBar = aMenuBar;
 
-  nsresult rv;
-  rv = mListener->RegisterForContentChanges(mContent, this);
-  if (NS_FAILED(rv)) {
-    NS_WARNING("Failed to register for content changes");
-    return rv;
-  }
+  mListener->RegisterForContentChanges(mContent, this);
 
   return NS_OK;
 }
@@ -674,17 +745,15 @@ uGlobalMenuItem::Init(uGlobalMenuObject *aParent,
 void
 uGlobalMenuItem::UncheckSiblings()
 {
-  if (!(mFlags & UNITY_MENUITEM_IS_RADIO)) {
+  TRACETM()
+
+  if (GetMenuItemType() != eRadio) {
     // If we're not a radio button, we don't care
     return;
   }
 
   nsAutoString name;
   mContent->GetAttr(kNameSpaceID_None, uWidgetAtoms::name, name);
-  if (name.IsEmpty()) {
-    // If we don't have a name, then we can't find our siblings
-    return;
-  }
 
   nsIContent *parent = mContent->GetParent();
   if (!parent) {
@@ -694,8 +763,11 @@ uGlobalMenuItem::UncheckSiblings()
   PRUint32 count = parent->GetChildCount();
   for (PRUint32 i = 0; i < count; i++) {
     nsIContent *sibling = parent->GetChildAt(i);
-    if (sibling->AttrValueIs(kNameSpaceID_None, uWidgetAtoms::name,
-        name, eCaseMatters) && sibling != mContent &&
+
+    nsAutoString otherName;
+    sibling->GetAttr(kNameSpaceID_None, uWidgetAtoms::name, otherName);
+
+    if (sibling != mContent && otherName == name && 
         sibling->AttrValueIs(kNameSpaceID_None, uWidgetAtoms::type,
                              uWidgetAtoms::radio, eCaseMatters)) {
       sibling->UnsetAttr(kNameSpaceID_None, uWidgetAtoms::checked, true);
@@ -704,30 +776,17 @@ uGlobalMenuItem::UncheckSiblings()
 }
 
 uGlobalMenuItem::uGlobalMenuItem():
-  uGlobalMenuObject(eMenuItem)
+  uGlobalMenuObject()
 {
   MOZ_COUNT_CTOR(uGlobalMenuItem);
 }
 
 uGlobalMenuItem::~uGlobalMenuItem()
 {
-  if (mListener) {
-    mListener->UnregisterForContentChanges(mContent, this);
-    if (mCommandContent) {
-      mListener->UnregisterForContentChanges(mCommandContent, this);
-    }
-    if (mKeyContent) {
-      mListener->UnregisterForContentChanges(mKeyContent, this);
-    }
-  }
+  TRACETM();
 
-  DestroyIconLoader();
-
-  if (mDbusMenuItem) {
-    g_signal_handlers_disconnect_by_func(mDbusMenuItem,
-                                         FuncToVoidPtr(ItemActivatedCallback),
-                                         this);
-    g_object_unref(mDbusMenuItem);
+  if (!IsDestroyed()) {
+    Destroy();
   }
 
   MOZ_COUNT_DTOR(uGlobalMenuItem);
@@ -736,27 +795,52 @@ uGlobalMenuItem::~uGlobalMenuItem()
 /*static*/ uGlobalMenuObject*
 uGlobalMenuItem::Create(uGlobalMenuObject *aParent,
                         uGlobalMenuDocListener *aListener,
-                        nsIContent *aContent,
-                        uGlobalMenuBar *aMenuBar)
+                        nsIContent *aContent)
 {
   TRACEC(aContent);
 
   uGlobalMenuItem *menuitem = new uGlobalMenuItem();
   if (!menuitem) {
-    return nsnull;
+    return nullptr;
   }
 
-  if (NS_FAILED(menuitem->Init(aParent, aListener, aContent, aMenuBar))) {
+  if (NS_FAILED(menuitem->Init(aParent, aListener, aContent))) {
     delete menuitem;
-    return nsnull;
+    return nullptr;
   }
 
   return static_cast<uGlobalMenuObject *>(menuitem);
 }
 
 void
-uGlobalMenuItem::ObserveAttributeChanged(nsIDocument *aDocument,
-                                         nsIContent *aContent,
+uGlobalMenuItem::Destroy()
+{
+  NS_ASSERTION(!IsDestroyed(), "Menuitem is already destroyed");
+  if (IsDestroyed()) {
+    return;
+  }
+
+  if (mListener) {
+    if (mCommandContent) {
+      mListener->UnregisterForContentChanges(mCommandContent, this);
+    }
+    if (mKeyContent) {
+      mListener->UnregisterForContentChanges(mKeyContent, this);
+    }
+  }
+
+  if (mDbusMenuItem) {
+    guint found = g_signal_handlers_disconnect_by_func(mDbusMenuItem,
+                                                       uGlobalMenuUtils::FuncToVoidPtr(ItemActivatedCallback),
+                                                       this);
+    NS_ASSERTION(found == 1, "Failed to disconnect \"activated\" handler");
+  }
+
+  uGlobalMenuObject::Destroy();
+}
+
+void
+uGlobalMenuItem::ObserveAttributeChanged(nsIContent *aContent,
                                          nsIAtom *aAttribute)
 {
   TRACETM();
@@ -770,45 +854,33 @@ uGlobalMenuItem::ObserveAttributeChanged(nsIDocument *aDocument,
     UncheckSiblings();
   }
 
-  if (IsDirty()) {
-    LOGTM("Previously marked as invalid");
-    return;
-  }
-
-  if (mParent->GetType() == eMenu &&
-      !(static_cast<uGlobalMenu *>(mParent))->IsOpenOrOpening()) {
-    LOGTM("Parent isn't open or opening. Marking invalid");
-    Invalidate();
-    return;
-  }
-
   if (aContent == mContent) {
     if (aAttribute == uWidgetAtoms::command ||
         aAttribute == uWidgetAtoms::key) {
-      Refresh();
-    } else if (aAttribute == uWidgetAtoms::label ||
-               aAttribute == uWidgetAtoms::accesskey) {
-      SyncLabelFromContent(mCommandContent);
+      Refresh(eRefreshFull);
+    } else if (aAttribute == uWidgetAtoms::label) {
+      SyncLabelFromContent();
+    } else if (aAttribute == uWidgetAtoms::accesskey) {
+      SyncLabelFromContent();
     } else if (aAttribute == uWidgetAtoms::disabled) {
-      SyncSensitivityFromContent(mCommandContent);
-    } else if (aAttribute == uWidgetAtoms::checked ||
-               aAttribute == uWidgetAtoms::type) {
+      SyncSensitivityFromContent();
+    } else if (aAttribute == uWidgetAtoms::type) {
       SyncTypeAndStateFromContent();
+    } else if (aAttribute == uWidgetAtoms::checked) {
+      SyncStateFromContent();
     } else if (aAttribute == uWidgetAtoms::image) {
       SyncIconFromContent();
-    }
-
-    SyncVisibilityFromContent();
-    if (aAttribute != uWidgetAtoms::image) {
-      SyncIconFromContent();
+    } else if (aAttribute == uWidgetAtoms::hidden ||
+               aAttribute == uWidgetAtoms::collapsed) {
+      SyncVisibilityFromContent();
     }
   } else if (aContent == mCommandContent) {
     if (aAttribute == uWidgetAtoms::label) {
-      SyncLabelFromContent(mCommandContent);
+      SyncLabelFromCommand();
     } else if (aAttribute == uWidgetAtoms::disabled) {
-      SyncSensitivityFromContent(mCommandContent);
+      SyncSensitivityFromCommand();
     } else if (aAttribute == uWidgetAtoms::checked) {
-      SyncTypeAndStateFromContent();
+      SyncStateFromCommand();
     }
   } else if (aContent == mKeyContent) {
     SyncAccelFromContent();

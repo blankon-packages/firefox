@@ -2,23 +2,11 @@ Description: Support building globalmenu-extension from the Firefox source
 Author: Chris Coulson <chris.coulson@canonical.com>
 Forwarded: not-needed
 
---- a/config/autoconf.mk.in
-+++ b/config/autoconf.mk.in
-@@ -546,6 +546,11 @@ MOZ_ENABLE_D3D10_LAYER  = @MOZ_ENABLE_D3
- MOZ_GTK2_CFLAGS		= @MOZ_GTK2_CFLAGS@
- MOZ_GTK2_LIBS		= @MOZ_GTK2_LIBS@
- 
-+DBUSMENU_CFLAGS		= @DBUSMENU_CFLAGS@
-+DBUSMENU_LIBS		= @DBUSMENU_LIBS@
-+
-+UNITY_GLOBALMENU	= @UNITY_GLOBALMENU@
-+
- MOZ_QT_CFLAGS		= @MOZ_QT_CFLAGS@
- MOZ_QT_LIBS		= @MOZ_QT_LIBS@
- MOZ_ENABLE_QTNETWORK    = @MOZ_ENABLE_QTNETWORK@
---- a/config/system-headers
-+++ b/config/system-headers
-@@ -391,6 +391,10 @@ LFocusBox.h
+Index: firefox-trunk-17.0~a1~hg20120809r101850/config/system-headers
+===================================================================
+--- firefox-trunk-17.0~a1~hg20120809r101850.orig/config/system-headers	2012-08-09 03:05:56.000000000 +0100
++++ firefox-trunk-17.0~a1~hg20120809r101850/config/system-headers	2012-08-11 00:44:01.138753202 +0100
+@@ -387,6 +387,10 @@
  LGrafPortView.h
  LHandleStream.h
  libc_r.h
@@ -29,7 +17,7 @@ Forwarded: not-needed
  libelf.h
  libelf/libelf.h
  libgen.h
-@@ -1016,6 +1020,11 @@ osso-mem.h
+@@ -1011,6 +1015,11 @@
  #ifdef MOZ_ENABLE_GIO
  gio/gio.h
  #endif
@@ -41,9 +29,11 @@ Forwarded: not-needed
  #ifdef MOZ_ENABLE_LIBCONIC
  conic/conicconnection.h
  conic/conicconnectionevent.h
---- a/configure.in
-+++ b/configure.in
-@@ -8600,6 +8600,20 @@ AC_SUBST(MOZ_CAIRO_LIBS)
+Index: firefox-trunk-17.0~a1~hg20120809r101850/configure.in
+===================================================================
+--- firefox-trunk-17.0~a1~hg20120809r101850.orig/configure.in	2012-08-09 03:05:56.000000000 +0100
++++ firefox-trunk-17.0~a1~hg20120809r101850/configure.in	2012-08-11 00:44:01.142753203 +0100
+@@ -8016,6 +8016,20 @@
  AC_SUBST(MOZ_TREE_PIXMAN)
  
  dnl ========================================================
@@ -64,9 +54,11 @@ Forwarded: not-needed
  dnl qcms
  dnl ========================================================
  
---- a/js/src/config/system-headers
-+++ b/js/src/config/system-headers
-@@ -391,6 +391,10 @@ LFocusBox.h
+Index: firefox-trunk-17.0~a1~hg20120809r101850/js/src/config/system-headers
+===================================================================
+--- firefox-trunk-17.0~a1~hg20120809r101850.orig/js/src/config/system-headers	2012-08-09 03:08:26.000000000 +0100
++++ firefox-trunk-17.0~a1~hg20120809r101850/js/src/config/system-headers	2012-08-11 00:44:01.142753203 +0100
+@@ -387,6 +387,10 @@
  LGrafPortView.h
  LHandleStream.h
  libc_r.h
@@ -77,7 +69,7 @@ Forwarded: not-needed
  libelf.h
  libelf/libelf.h
  libgen.h
-@@ -1016,6 +1020,11 @@ osso-mem.h
+@@ -1011,6 +1015,11 @@
  #ifdef MOZ_ENABLE_GIO
  gio/gio.h
  #endif

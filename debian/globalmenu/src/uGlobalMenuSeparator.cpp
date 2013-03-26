@@ -44,7 +44,6 @@
 #include <libdbusmenu-glib/server.h>
 
 #include "uGlobalMenuSeparator.h"
-#include "uGlobalMenuBar.h"
 #include "uGlobalMenu.h"
 #include "uWidgetAtoms.h"
 
@@ -53,67 +52,43 @@
 void
 uGlobalMenuSeparator::InitializeDbusMenuItem()
 {
-  if (!mDbusMenuItem) {
-    mDbusMenuItem = dbusmenu_menuitem_new();
-    if (!mDbusMenuItem) {
-      return;
-    }
-  } else {
-    OnlyKeepProperties(static_cast<uMenuObjectProperties>(eVisible | eType));
-  }
-
   dbusmenu_menuitem_property_set(mDbusMenuItem,
                                  DBUSMENU_MENUITEM_PROP_TYPE,
                                  "separator");
-
-  Refresh();
 }
 
 void
-uGlobalMenuSeparator::Refresh()
+uGlobalMenuSeparator::Refresh(uMenuObjectRefreshMode aMode)
 {
-  ClearFlags(UNITY_MENUOBJECT_IS_DIRTY);
   SyncVisibilityFromContent();
 }
 
 nsresult
 uGlobalMenuSeparator::Init(uGlobalMenuObject *aParent,
                            uGlobalMenuDocListener *aListener,
-                           nsIContent *aContent,
-                           uGlobalMenuBar *aMenuBar)
+                           nsIContent *aContent)
 {
   NS_ENSURE_ARG(aParent);
   NS_ENSURE_ARG(aListener);
   NS_ENSURE_ARG(aContent);
-  NS_ENSURE_ARG(aMenuBar);
 
   mParent = aParent;
   mListener = aListener;
   mContent = aContent;
-  mMenuBar = aMenuBar;
 
-  nsresult rv = mListener->RegisterForContentChanges(mContent, this);
-  if (NS_FAILED(rv)) {
-    NS_WARNING("Failed to register for content changes");
-    return rv;
-  }
+  mListener->RegisterForContentChanges(mContent, this);
 
   return NS_OK;
 }
 
-uGlobalMenuSeparator::uGlobalMenuSeparator(): uGlobalMenuObject(eMenuSeparator)
+uGlobalMenuSeparator::uGlobalMenuSeparator(): uGlobalMenuObject()
 {
   MOZ_COUNT_CTOR(uGlobalMenuSeparator);
 }
 
 uGlobalMenuSeparator::~uGlobalMenuSeparator()
 {
-  if (mListener) {
-    mListener->UnregisterForContentChanges(mContent, this);
-  }
-
-  if (mDbusMenuItem)
-    g_object_unref(mDbusMenuItem);
+  TRACETM();
 
   MOZ_COUNT_DTOR(uGlobalMenuSeparator);
 }
@@ -121,39 +96,28 @@ uGlobalMenuSeparator::~uGlobalMenuSeparator()
 /*static*/ uGlobalMenuObject*
 uGlobalMenuSeparator::Create(uGlobalMenuObject *aParent,
                              uGlobalMenuDocListener *aListener,
-                             nsIContent *aContent,
-                             uGlobalMenuBar *aMenuBar)
+                             nsIContent *aContent)
 {
   TRACEC(aContent);
 
   uGlobalMenuSeparator *menuitem = new uGlobalMenuSeparator();
   if (!menuitem) {
-    return nsnull;
+    return nullptr;
   }
 
-  if (NS_FAILED(menuitem->Init(aParent, aListener, aContent, aMenuBar))) {
+  if (NS_FAILED(menuitem->Init(aParent, aListener, aContent))) {
     delete menuitem;
-    return nsnull;
+    return nullptr;
   }
 
   return static_cast<uGlobalMenuObject *>(menuitem);
 }
 
 void
-uGlobalMenuSeparator::ObserveAttributeChanged(nsIDocument *aDocument,
-                                              nsIContent *aContent,
+uGlobalMenuSeparator::ObserveAttributeChanged(nsIContent *aContent,
                                               nsIAtom *aAttribute)
 {
   NS_ASSERTION(aContent == mContent, "Received an event that wasn't meant for us!");
-
-  if (IsDirty()) {
-    return;
-  }
-
-  if (!IsContainerOnScreen()) {
-    Invalidate();
-    return;
-  }
 
   SyncVisibilityFromContent();
 }

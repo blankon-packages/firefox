@@ -4,9 +4,10 @@ set -e
 
 MOZ_APP_NAME=@MOZ_APP_NAME@
 MOZ_LIBDIR=/@MOZ_LIBDIR@
+MOZ_ADDONDIR=/@MOZ_ADDONDIR@
 
 if [ "$1" = "install" ] || [ "$1" = "upgrade" ] ; then
-%%ifdef MOZ_NO_MORE_SYMLINKED_DIST
+%%if DISTRIB_VERSION >= 1204
 # ${LIBDIR}/distribution was a symlink in 11.10
     if [ -h ${MOZ_LIBDIR}/distribution ] ; then
         rm -f ${MOZ_LIBDIR}/distribution
@@ -14,9 +15,9 @@ if [ "$1" = "install" ] || [ "$1" = "upgrade" ] ; then
 %%endif
 
 # This used to be a symlink
-%%ifdef MOZ_SYMLINKED_DIST
-    if [ -h /usr/lib/${MOZ_APP_NAME}-addons/distribution/searchplugins ]; then
-        rm -f /usr/lib/${MOZ_APP_NAME}-addons/distribution/searchplugins
+%%if DISTRIB_VERSION == 1110
+    if [ -h ${MOZ_ADDONDIR}/distribution/searchplugins ]; then
+        rm -f ${MOZ_ADDONDIR}/distribution/searchplugins
 %%else
     if [ -h ${MOZ_LIBDIR}/distribution/searchplugins ]; then
         rm -f ${MOZ_LIBDIR}/distribution/searchplugins

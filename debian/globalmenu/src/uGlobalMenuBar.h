@@ -42,7 +42,7 @@
 #include <prtypes.h>
 #include <nsTArray.h>
 #include <nsAutoPtr.h>
-#include <nsStringAPI.h>
+#include <nsStringGlue.h>
 #include <nsIDOMEventListener.h>
 #include <nsIDocument.h>
 
@@ -54,7 +54,7 @@
 #include "uGlobalMenuObject.h"
 
 // The menubar has been registered with the shell
-#define UNITY_MENUBAR_IS_REGISTERED           (1 << 14)
+#define UNITY_MENUBAR_IS_REGISTERED           FLAG(8)
 
 // Meh. X.h defines this
 #ifdef KeyPress
@@ -75,40 +75,39 @@ class uGlobalMenuBar: public uGlobalMenuObject
 public:
   static uGlobalMenuBar* Create(nsIWidget *aWindow,
                                 nsIContent *aMenuBar);
-  ~uGlobalMenuBar();
+  virtual void Destroy();
+  virtual ~uGlobalMenuBar();
+
+  virtual uMenuObjectType GetType() { return eMenuBar; }
 
   bool IsRegistered() { return !!(mFlags & UNITY_MENUBAR_IS_REGISTERED); }
 
   GtkWidget* TopLevelWindow() { return mTopLevel; }
 
 protected:
-  void ObserveAttributeChanged(nsIDocument *aDocument,
-                               nsIContent *aContent,
-                               nsIAtom *aAttribute);
-  void ObserveContentRemoved(nsIDocument *aDocument,
-                             nsIContent *aContainer,
-                             nsIContent *aChild,
-                             PRInt32 aIndexInContainer);
-  void ObserveContentInserted(nsIDocument *aDocument,
-                              nsIContent *aContainer,
-                              nsIContent *aChild,
-                              PRInt32 aIndexInContainer);
+  virtual void ObserveAttributeChanged(nsIContent *aContent,
+                                       nsIAtom *aAttribute);
+  virtual void ObserveContentRemoved(nsIContent *aContainer,
+                                     nsIContent *aChild);
+  virtual void ObserveContentInserted(nsIContent *aContainer,
+                                      nsIContent *aChild,
+                                      nsIContent *aPrevSibling);
 
-private:
+protected:
   friend class uGlobalMenuService;
 
   void NotifyMenuBarRegistered();
 
 private:
 
-  class Listener: public nsIDOMEventListener
+  class EventListener: public nsIDOMEventListener
   {
   public:
     NS_DECL_ISUPPORTS
     NS_DECL_NSIDOMEVENTLISTENER
 
-    Listener(uGlobalMenuBar *aMenuBar): mMenuBar(aMenuBar) { };
-    ~Listener() { };
+    EventListener(uGlobalMenuBar *aMenuBar): mMenuBar(aMenuBar) { };
+    virtual ~EventListener() { };
 
   private:
     uGlobalMenuBar *mMenuBar;
@@ -119,14 +118,14 @@ private:
   nsresult Init(nsIWidget *aWindow,
                 nsIContent *aMenuBar);
 
-  void InitializeDbusMenuItem();
   nsresult Build();
   PRUint32 GetModifiersFromEvent(nsIDOMKeyEvent *aKeyEvent);
   bool ShouldHandleKeyEvent(nsIDOMEvent *aKeyEvent);
 
-  bool RemoveMenuObjectAt(PRUint32 index);
-  bool InsertMenuObjectAt(uGlobalMenuObject *menu,
-                          PRUint32 index);
+  uint32_t IndexOf(nsIContent *aContent);
+  bool RemoveMenuObjectForContent(nsIContent *aContent);
+  bool InsertMenuObjectAfterContent(uGlobalMenuObject *menu,
+                                    nsIContent *aPrevSibling);
   bool AppendMenuObject(uGlobalMenuObject *menu);
   void Focus();
   void Blur();
@@ -143,14 +142,14 @@ private:
 
   nsCOMPtr<nsIDocument> mDocument;
   bool mXULMenuHidden;
-  nsRefPtr<Listener> mEventListener;
+  nsRefPtr<EventListener> mEventListener;
   PRInt32 mAccessKey;
   PRUint32 mAccessKeyMask;
   GCancellable *mCancellable;
   nsCString mPath;
 
   // Should probably have a container class and subclass that
-  nsTArray< nsAutoPtr<uGlobalMenuObject> > mMenuObjects;
+  nsTArray< nsRefPtr<uGlobalMenuObject> > mMenuObjects;
 };
 
 #endif

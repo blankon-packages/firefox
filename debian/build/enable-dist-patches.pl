@@ -36,33 +36,33 @@ my $cleanup = ($tmp eq "--clean") ? 1 : 0;
 
 my $dist = "";
 my $arch = "";
-my $file = "";
+my $series = "debian/patches/series";
 
-$cleanup && do {
-  $file = shift;
-  1;
-} || do {
+$cleanup || do {
   $dist = $tmp;
   $arch = shift;
-  $file = shift;
 };
 
-open(I, $file) || do {
-  print "Usage: $0 dist series_file\n";
+$cleanup && do {
+  (-e "$series.in") && do unlink($series);
+  exit(0);
+};
+
+open(I, "$series.in") || do {
+  print STDERR "Can't open $series.in: $!\n";
   exit(1);
 };
-open(O, "> $file.new") || do {
-  print STDERR "Can't open $file.new: $!\n";
+open(O, "> $series.new") || do {
+  print STDERR "Can't open $series.new: $!\n";
   exit(1);
 };
 my $line;
 while (defined ($line = <I>)) {
   $line =~ m/^#\@(.*)\@\s*(.*)/ && do {
     my ($c, $p) = ($1, $2);
-    print O $line;
     my @cs = split(':', $c);
-    my $matches = not $cleanup;
-    $matches && do {
+    my $matches = 1;
+    do {
       foreach my $condition (@cs) {
         $condition =~ m/^DIST\=(.*)/ && do {
           my $v = $1;
@@ -87,15 +87,14 @@ while (defined ($line = <I>)) {
     last unless defined $line;
     redo unless $line eq "$p\n";
     1;
-  } ||
-  do {
-    print O $line;
+  } || do {
+    $line =~ m/^#(.*)/ || do print O $line;
   };
 }
 close I;
 close O;
-rename "$file.new", $file or do {
-  print "Can't rename $file.new to $file: $!\n";
+rename "$series.new", $series or do {
+  print "Can't rename $series.new to $series: $!\n";
   exit(1);
 };
 exit(0);

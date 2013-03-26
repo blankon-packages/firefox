@@ -42,10 +42,13 @@
 #include <nsIContent.h>
 #include <nsCOMPtr.h>
 #include <nsAutoPtr.h>
-#include <imgIDecoderObserver.h>
 #include <imgIRequest.h>
-#include <imgIContainerObserver.h>
-#include <nsThreadUtils.h>
+#if MOZILLA_BRANCH_VERSION >= 19
+# include <imgINotificationObserver.h>
+#else
+# include <imgIDecoderObserver.h>
+# include <imgIContainerObserver.h>
+#endif
 
 #include <libdbusmenu-glib/server.h>
 
@@ -53,20 +56,9 @@
 
 #include "uDebug.h"
 
-// The menuitem attributes need updating
-#define UNITY_MENUOBJECT_IS_DIRTY               (1 << 0)
+#define FLAG(val) (1 << val)
 
-// The content node says that this menuitem should be visible
-#define UNITY_MENUOBJECT_CONTENT_IS_VISIBLE     (1 << 1)
-
-// The menuobject is visible on screen
-#define UNITY_MENUOBJECT_CONTAINER_ON_SCREEN    (1 << 2)
-
-// Used ny the reentrancy guard for SyncSensitivityFromContent()
-#define UNITY_MENUOBJECT_SYNC_SENSITIVITY_GUARD (1 << 5)
-
-// Used by the reentrancy guard for SyncLabelFromContent()
-#define UNITY_MENUOBJECT_SYNC_LABEL_GUARD       (1 << 6)
+#define UNITY_MENUOBJECT_DESTROYED              FLAG(0)
 
 enum uMenuObjectType {
   eMenuBar,
@@ -88,50 +80,37 @@ enum uMenuObjectProperties {
   eChildDisplay = (1 << 8)
 };
 
+enum uMenuObjectRefreshMode {
+  eRefreshFull,
+  eContainerOpeningRefresh
+};
+
 class uGlobalMenuObject;
 class uGlobalMenuBar;
 class nsIDOMCSSStyleDeclaration;
 
-#define MENUOBJECT_REENTRANCY_GUARD(flag)         \
-  ReentrancyGuard _reentrancy_guard(this, flag);  \
-  if (_reentrancy_guard.AlreadyEntered()) {       \
-    LOGTM("Already entered");                     \
-    return;                                       \
-  }
-
 class uGlobalMenuObject
 {
 public:
-  uGlobalMenuObject (uMenuObjectType aType): mDbusMenuItem(nsnull),
-                                             mListener(nsnull),
-                                             mParent(nsnull),
-                                             mType(aType),
-                                             mFlags(0) { };
+  NS_INLINE_DECL_REFCOUNTING(uGlobalMenuObject)
+
+  uGlobalMenuObject (): mDbusMenuItem(nullptr), mListener(nullptr),
+                        mParent(nullptr), mFlags(0) { };
 
   DbusmenuMenuitem* GetDbusMenuItem();
   void SetDbusMenuItem(DbusmenuMenuitem *aDbusMenuItem);
   uGlobalMenuObject* GetParent() { return mParent; }
-  uMenuObjectType GetType() { return mType; }
+  virtual uMenuObjectType GetType()=0;
   nsIContent* GetContent() { return mContent; }
-  virtual void Invalidate();
-  virtual void ContainerIsOpening();
-  void ContainerIsClosing() { ClearFlags(UNITY_MENUOBJECT_CONTAINER_ON_SCREEN); }
-  virtual ~uGlobalMenuObject() { };
+  void ContainerIsOpening();
+  virtual void Destroy();
+  virtual ~uGlobalMenuObject();
 
 protected:
-  virtual void InitializeDbusMenuItem()=0;
-  virtual void Refresh() { };
-  void SyncLabelFromContent(nsIContent *aContent);
   void SyncLabelFromContent();
   void SyncVisibilityFromContent();
-  void SyncSensitivityFromContent(nsIContent *aContent);
   void SyncSensitivityFromContent();
   void SyncIconFromContent();
-  void DestroyIconLoader();
-  bool IsHidden() { return !(mFlags & UNITY_MENUOBJECT_CONTENT_IS_VISIBLE); }
-  bool IsDirty() { return !!(mFlags & UNITY_MENUOBJECT_IS_DIRTY); }
-  bool IsContainerOnScreen() { return !!(mFlags & UNITY_MENUOBJECT_CONTAINER_ON_SCREEN); }
-  void OnlyKeepProperties(uMenuObjectProperties aKeep);
 
   void SetFlags(PRUint16 aFlags) { mFlags = mFlags | aFlags; }
   void ClearFlags(PRUint16 aFlags) { mFlags = mFlags & ~aFlags; }
@@ -145,81 +124,63 @@ protected:
     }
   }
 
+  bool IsDestroyed() { return !!(mFlags & UNITY_MENUOBJECT_DESTROYED); }
+
+  uGlobalMenuBar* GetMenuBar();
+
   nsCOMPtr<nsIContent> mContent;
   DbusmenuMenuitem *mDbusMenuItem;
   nsRefPtr<uGlobalMenuDocListener> mListener;
   uGlobalMenuObject *mParent;
-  uMenuObjectType mType;
-  uGlobalMenuBar *mMenuBar;
 
 protected:
   friend class uGlobalMenuDocListener;
 
-  class ReentrancyGuard
-  {
-  public:
-    ReentrancyGuard(uGlobalMenuObject *aMenuObject, PRUint16 aFlags):
-                    mMenuObject(aMenuObject), mFlags(aFlags),
-                    mAlreadyEntered(false)
-    {
-      if (mMenuObject->mFlags & mFlags) {
-        mAlreadyEntered = true;
-      } else {
-        mMenuObject->SetFlags(mFlags);
-      }
-    }
-
-    ~ReentrancyGuard()
-    {
-      if (!mAlreadyEntered) {
-        mMenuObject->ClearFlags(mFlags);
-      }
-    }
-
-    bool AlreadyEntered() { return mAlreadyEntered; }
-
-  private:
-    uGlobalMenuObject *mMenuObject;
-    PRUint16 mFlags;
-    bool mAlreadyEntered;
-  };
-
-  virtual void ObserveAttributeChanged(nsIDocument *aDocument,
-                                       nsIContent *aContent,
+  virtual void ObserveAttributeChanged(nsIContent *aContent,
                                        nsIAtom *aAttribute)
   {
     NS_ERROR("Unhandled AttributeChanged notification");
   };
 
-  virtual void ObserveContentRemoved(nsIDocument *aDocument,
-                                     nsIContent *aContainer,
-                                     nsIContent *aChild,
-                                     PRInt32 aIndexInContainer)
+  virtual void ObserveContentRemoved(nsIContent *aContainer,
+                                     nsIContent *aChild)
   {
     NS_ERROR("Unhandled ContentRemoved notification");
   };
 
-  virtual void ObserveContentInserted(nsIDocument *aDocument,
-                                      nsIContent *aContainer,
+  virtual void ObserveContentInserted(nsIContent *aContainer,
                                       nsIContent *aChild,
-                                      PRInt32 aIndexInContainer)
+                                      nsIContent *aPrevSibling)
   {
     NS_ERROR("Unhandled ContentInserted notification");
   };
 
   PRUint16 mFlags;
 
+protected:
+  friend class IconLoader;
+
+  void ClearIcon();
+
 private:
 
-  class IconLoader: public imgIDecoderObserver,
-                    public nsRunnable
+  class IconLoader:
+#if MOZILLA_BRANCH_VERSION >= 19
+    public imgINotificationObserver
+#else
+    public imgIDecoderObserver
+#endif
   {
   public:
     NS_DECL_ISUPPORTS
+#if MOZILLA_BRANCH_VERSION >= 19
+    NS_DECL_IMGINOTIFICATIONOBSERVER
+#else
     NS_DECL_IMGIDECODEROBSERVER
     NS_DECL_IMGICONTAINEROBSERVER
-    NS_DECL_NSIRUNNABLE
+#endif
 
+    void ScheduleIconLoad();
     void LoadIcon();
     void Destroy();
 
@@ -227,19 +188,28 @@ private:
     ~IconLoader() { };
 
   private:
-    void ClearIcon();
-    bool ShouldShowIcon();
+    nsresult OnStopFrame(imgIRequest *aRequest);
+    void OnStopRequest();
 
     bool mIconLoaded;
     uGlobalMenuObject *mMenuItem;
     nsCOMPtr<imgIRequest> mIconRequest;
     nsIntRect mImageRect;
-    static PRPackedBool sImagesInMenus;
+    nsString mUriString;
   };
 
+  virtual void InitializeDbusMenuItem() { };
+  virtual void Refresh(uMenuObjectRefreshMode aMode) { };
+  virtual uMenuObjectProperties GetValidProperties()
+  {
+    return static_cast<uMenuObjectProperties>(0);
+  }
   void GetComputedStyle(nsIDOMCSSStyleDeclaration **aResult);
+  bool ShouldShowIcon();
+  void OnlyKeepProperties(uMenuObjectProperties aKeep);
 
   nsRefPtr<IconLoader> mIconLoader;
+  static unsigned char sImagesInMenus;
 };
 
 #endif

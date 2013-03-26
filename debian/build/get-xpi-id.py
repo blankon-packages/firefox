@@ -7,7 +7,7 @@ import zipfile
 
 if __name__ == '__main__':
     if not len(sys.argv) == 2:
-        print "Must specify an xpi"
+        print >> sys.stderr, "Must specify an xpi"
         exit(1)
 
     dom_doc = xml.dom.minidom.parseString(zipfile.ZipFile(sys.argv[1]).open('install.rdf').read().strip())

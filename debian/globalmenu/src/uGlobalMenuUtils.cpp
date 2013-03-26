@@ -42,60 +42,103 @@
 
 #include <gdk/gdk.h>
 
+#include "uGlobalMenuUtils.h"
 #include "uGlobalMenu.h"
 #include "uGlobalMenuItem.h"
 #include "uGlobalMenuSeparator.h"
-#include "uGlobalMenuDummy.h"
 #include "uGlobalMenuDocListener.h"
-#include "uGlobalMenuBar.h"
 #include "uWidgetAtoms.h"
 
 #include "uDebug.h"
 
-uGlobalMenuObject*
-NewGlobalMenuItem(uGlobalMenuObject *aParent,
-                  uGlobalMenuDocListener *aListener,
-                  nsIContent *aContent,
-                  uGlobalMenuBar *aMenuBar)
+typedef uGlobalMenuObject* (*uMenuObjectConstructor)(uGlobalMenuObject*,
+                                                     uGlobalMenuDocListener*,
+                                                     nsIContent*);
+struct uMenuObjectConstructorMapEntry {
+  nsIAtom **tag;
+  uMenuObjectConstructor constructor;
+};
+
+static const uMenuObjectConstructorMapEntry kConstructorMap[] = {
+  { &uWidgetAtoms::menu, uGlobalMenu::Create },
+  { &uWidgetAtoms::menuitem, uGlobalMenuItem::Create },
+  { &uWidgetAtoms::menuseparator, uGlobalMenuSeparator::Create }
+};
+
+static uMenuObjectConstructor
+GetMenuObjectConstructor(nsIContent *aContent)
+{
+  if (!aContent->IsXUL()) {
+    return nullptr;
+  }
+
+  for (uint32_t i = 0; i < mozilla::ArrayLength(kConstructorMap); i++) {
+    if (aContent->Tag() == *kConstructorMap[i].tag) {
+      return kConstructorMap[i].constructor;
+    }
+  }
+
+  return nullptr;
+}
+
+static bool
+ContentIsSupported(nsIContent *aContent)
 {
   TRACEC(aContent);
 
-  if (!aContent->IsXUL()) {
-    return uGlobalMenuDummy::Create();
+  return GetMenuObjectConstructor(aContent) ? true : false;
+}
+
+nsIContent*
+uGlobalMenuUtils::GetPreviousSupportedSibling(nsIContent *aContent)
+{
+  while (aContent && !ContentIsSupported(aContent)) {
+    aContent = aContent->GetPreviousSibling();
   }
 
-  uGlobalMenuObject *menuitem = nsnull;
-  if (aContent->Tag() == uWidgetAtoms::menu) {
-    menuitem = uGlobalMenu::Create(aParent, aListener, aContent, aMenuBar);
-  } else if (aContent->Tag() == uWidgetAtoms::menuitem) {
-    menuitem = uGlobalMenuItem::Create(aParent, aListener, aContent, aMenuBar);
-  } else if (aContent->Tag() == uWidgetAtoms::menuseparator) {
-    menuitem = uGlobalMenuSeparator::Create(aParent, aListener, aContent, aMenuBar);
+  return aContent;
+}
+
+uGlobalMenuObject*
+uGlobalMenuUtils::CreateMenuObject(uGlobalMenuObject *aParent,
+                                   uGlobalMenuDocListener *aListener,
+                                   nsIContent *aContent,
+                                   bool *aFailed)
+{
+  TRACEC(aContent);
+
+  if (aFailed) {
+    *aFailed = false;
   }
 
-  if (!menuitem) {
-    // We didn't recognize the tag, or initialization failed. We'll
-    // insert an invisible dummy node so that the indices between the
-    // XUL menuand the GlobalMenu stay in sync.
-    menuitem = uGlobalMenuDummy::Create();
+  uMenuObjectConstructor constructor = GetMenuObjectConstructor(aContent);
+  if (!constructor) {
+    return nullptr;
   }
 
-  return menuitem;
+  uGlobalMenuObject *res = constructor(aParent, aListener, aContent);
+  if (!res && aFailed) {
+    *aFailed = true;
+  }
+
+  return res;
 }
 
 GtkWidget*
-WidgetToGTKWindow(nsIWidget *aWidget)
+uGlobalMenuUtils::WidgetToGTKWindow(nsIWidget *aWidget)
 {
   // Get the main GDK drawing window from our nsIWidget
   GdkWindow *window = static_cast<GdkWindow *>(aWidget->GetNativeData(NS_NATIVE_WINDOW));
-  if (!window)
-    return nsnull;
+  if (!window) {
+    return nullptr;
+  }
 
   // Get the widget for the main drawing window, which should be a MozContainer
-  gpointer user_data = nsnull;
+  gpointer user_data = nullptr;
   gdk_window_get_user_data(window, &user_data);
-  if (!user_data || !GTK_IS_CONTAINER(user_data))
-    return nsnull;
+  if (!user_data || !GTK_IS_CONTAINER(user_data)) {
+    return nullptr;
+  }
 
   return gtk_widget_get_toplevel(GTK_WIDGET(user_data));
 }

@@ -1,5 +1,6 @@
 globalmenu.jar:
 % content globalmenu  %content/
+  content/bindings.xml (content/bindings.xml)
   content/firefoxBrowserOverlay.js  (content/firefoxBrowserOverlay.js)
   content/firefoxBrowserOverlay.xul  (content/firefoxBrowserOverlay.xul)
   content/firefoxPlacesOverlay.xul (content/firefoxPlacesOverlay.xul)

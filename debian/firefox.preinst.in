@@ -3,10 +3,11 @@
 set -e
 
 APP_DIR="/etc/apparmor.d"
-APP_PROFILE="usr.bin.@MOZ_APP_NAME@"
+APP_PROFILE="usr.bin.@MOZ_PKG_NAME@"
 APP_CONFFILE="$APP_DIR/$APP_PROFILE"
 APP_DISABLE="$APP_DIR/disable/$APP_PROFILE"
-APP_NAME=@MOZ_APP_NAME@
+MOZ_PKG_NAME=@MOZ_PKG_NAME@
+MOZ_ADDONDIR=/@MOZ_ADDONDIR@
 MOZ_LIBDIR=/@MOZ_LIBDIR@
 
 # Prepare to move a conffile without triggering a dpkg question
@@ -82,18 +83,18 @@ if [ "$1" = "install" ] || [ "$1" = "upgrade" ] ; then
         fi
     fi
 
-    prepare_rm_conffile "${APP_NAME}" "/etc/${APP_NAME}/profile/bookmarks.html"
-    prepare_rm_conffile "${APP_NAME}" "/etc/${APP_NAME}/profile/localstore.rdf"
-    prepare_rm_conffile "${APP_NAME}" "/etc/${APP_NAME}/profile/mimeTypes.rdf"
-    prepare_rm_conffile "${APP_NAME}" "/etc/${APP_NAME}/profile/prefs.js"
-    prepare_rm_conffile "${APP_NAME}" "/etc/${APP_NAME}/profile/chrome/userChrome-example.css"
-    prepare_rm_conffile "${APP_NAME}" "/etc/${APP_NAME}/profile/chrome/userContent-example.css"
+    prepare_rm_conffile "${MOZ_PKG_NAME}" "/etc/${MOZ_PKG_NAME}/profile/bookmarks.html"
+    prepare_rm_conffile "${MOZ_PKG_NAME}" "/etc/${MOZ_PKG_NAME}/profile/localstore.rdf"
+    prepare_rm_conffile "${MOZ_PKG_NAME}" "/etc/${MOZ_PKG_NAME}/profile/mimeTypes.rdf"
+    prepare_rm_conffile "${MOZ_PKG_NAME}" "/etc/${MOZ_PKG_NAME}/profile/prefs.js"
+    prepare_rm_conffile "${MOZ_PKG_NAME}" "/etc/${MOZ_PKG_NAME}/profile/chrome/userChrome-example.css"
+    prepare_rm_conffile "${MOZ_PKG_NAME}" "/etc/${MOZ_PKG_NAME}/profile/chrome/userContent-example.css"
 
-%%ifdef MOZ_NEW_SYSPREF
-    prepare_mv_conffile "${APP_NAME}" "/etc/${APP_NAME}/pref/firefox.js"
+%%if DISTRIB_VERSION >= 1104
+    prepare_mv_conffile "${MOZ_PKG_NAME}" "/etc/${MOZ_PKG_NAME}/pref/firefox.js"
 %%endif
 
-%%ifdef MOZ_NO_MORE_SYMLINKED_DIST
+%%if DISTRIB_VERSION >= 1204
     # ${LIBDIR}/distribution was a symlink in 11.10
     if [ -h ${MOZ_LIBDIR}/distribution ] ; then
         rm -f ${MOZ_LIBDIR}/distribution
@@ -101,9 +102,9 @@ if [ "$1" = "install" ] || [ "$1" = "upgrade" ] ; then
 %%endif
 
     # This used to be a symlink
-%%ifdef MOZ_SYMLINKED_DIST
-    if [ -h /usr/lib/${APP_NAME}-addons/distribution/searchplugins ]; then
-        rm -f /usr/lib/${APP_NAME}-addons/distribution/searchplugins
+%%if DISTRIB_VERSION == 1110
+    if [ -h ${MOZ_ADDONDIR}/distribution/searchplugins ]; then
+        rm -f ${MOZ_ADDONDIR}/distribution/searchplugins
 %%else
     if [ -h ${MOZ_LIBDIR}/distribution/searchplugins ]; then
         rm -f ${MOZ_LIBDIR}/distribution/searchplugins

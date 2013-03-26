@@ -1,27 +1,5 @@
-1) To create the fully patched source, just run "debian/rules apply-patches" in the source directory. The fully patched source will be available in build-tree/mozilla
+1) Even though we are using source format 3.0 (quilt), we don't build or extract the source packages with patches applied. This is because we preprocess the series file to allow for per-arch and per-release patchsets, from a single packaging branch
 
-2) This package uses the quilt patch system. To create or edit patches which are applied at build time, you must first extract the source tarball. To do this, run "debian/rules pre-build". cd in to build-tree/mozilla and use quilt in the usual fashion (see "man quilt").
-
-Your life will be much easier if you add the following to ~/.quiltrc:
-
-for where in ./ ../ ../../ ../../../ ../../../../ ../../../../../; do
-        if [ -e ${where}debian/rules -a -d ${where}debian/patches ]; then
-                export QUILT_PATCHES=${where}debian/patches
-        fi
-done
-
-So, basically:
-
-	a) debian/rules pre-build
-	b) cd build-tree/mozilla
-	c) quilt push <patchname>
-	.....or.....
-	   quilt push
-	.....or.....
-	   quilt push -a
-	.....or.....
-	   quilt new
-
-You get the idea.....
+2) To create the fully patched source, just run "debian/rules apply-patches" in the source directory
 
 3) To remove any changes applied to the packaging, run "fakeroot debian/rules clean". This will remove all patches and delete auto-generated files

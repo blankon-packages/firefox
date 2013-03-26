@@ -36,7 +36,7 @@ if sys.version_info[0] < 3:
     import codecs
 
 DISTRO_ADDONS = [
-    '@MOZ_APP_NAME@',
+    '@MOZ_PKG_NAME@',
     'xul-ext-ubufox'
 ]
 
@@ -213,7 +213,10 @@ def compare_versions(a, b):
         spl = part.split('.')
 
         if part == '*' and len(part) == 1:
-            res.numA = sys.maxint
+            try:
+                res.numA = sys.maxint
+            except:
+                res.numA = sys.maxsize # python3
             res.strB = ""
         else:
             res.numA = int(re.sub(r'([0-9]*)(.*)', r'\1', spl[0]))
@@ -503,7 +506,7 @@ class Prefs:
             ]
 
             append_dirs = [ 'defaults/preferences/*.js' ]
-%%ifndef MOZ_NEW_SYSPREF
+%%if DISTRIB_VERSION < 1104
             locations.append('/@MOZ_LIBDIR@/defaults/syspref/*.js')
             append_dirs.append('defaults/syspref/*.js')
 %%endif
@@ -673,6 +676,7 @@ class Prefs:
                 self.value = None
                 self.tmp = None
                 self.skip = None
+                self.quote = None
 
             def _get_state(self):
                 return self._state
@@ -760,6 +764,7 @@ class Prefs:
             elif state.state == Prefs.STATE_PARSE_UNTIL_NAME:
                 if c == '"' or c == '\'':
                     state.tmp = ''
+                    state.quote = c
                     state.state = Prefs.STATE_PARSE_STRING
                     state.next_state = Prefs.STATE_PARSE_UNTIL_COMMA
                 elif c == '/':
@@ -773,7 +778,7 @@ class Prefs:
             elif state.state == Prefs.STATE_PARSE_STRING:
                 if c == '\\':
                     state.state = Prefs.STATE_PARSE_ESC_SEQ
-                elif c == '"':
+                elif c == state.quote:
                     state.state = state.next_state
                     state.next_state = Prefs.STATE_READY
                 else:
@@ -805,6 +810,7 @@ class Prefs:
             elif state.state == Prefs.STATE_PARSE_UNTIL_VALUE:
                 if c == '"' or c == '\'':
                     state.tmp = ''
+                    state.quote = c
                     state.state = Prefs.STATE_PARSE_STRING
                     state.next_state = Prefs.STATE_PARSE_UNTIL_CLOSE_PAREN
                 elif line.startswith('true', index):
@@ -1451,7 +1457,7 @@ def add_info(report, ui):
     add_apparmor = True
     if os.path.isdir(apparmor_disable_dir):
         for f in os.listdir(apparmor_disable_dir):
-            if f.startswith("usr.bin.@MOZ_APP_NAME@"):
+            if f.startswith("usr.bin.@MOZ_PKG_NAME@"):
                 add_apparmor = False
                 break
     if add_apparmor:
@@ -1473,8 +1479,8 @@ if __name__ == "__main__":
     import apport
     from apport import packaging
     D = {}
-    D['Package'] = '@MOZ_APP_NAME@'
-    D['SourcePackage'] = '@MOZ_APP_NAME@'
+    D['Package'] = '@MOZ_PKG_NAME@'
+    D['SourcePackage'] = '@MOZ_PKG_NAME@'
     add_info(D, None)
     for KEY in D.keys():
         print('''-------------------%s: ------------------\n%s''' % (KEY, D[KEY]))

@@ -54,7 +54,7 @@
 
   # noisy
   deny /@MOZ_LIBDIR@/** w,
-  deny /usr/lib/@MOZ_APP_NAME@-addons/** w,
+  deny /@MOZ_ADDONDIR@/** w,
   deny /usr/lib/xulrunner-addons/** w,
   deny /usr/lib/xulrunner-*/components/*.tmp w,
   deny /.suspended r,

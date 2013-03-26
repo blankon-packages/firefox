@@ -38,7 +38,7 @@
 
 #include <nsCOMPtr.h>
 #include <nsIContent.h>
-#include <nsStringAPI.h>
+#include <nsStringGlue.h>
 #include <nsDebug.h>
 #include <nsComponentManagerUtils.h>
 #include <nsIInterfaceRequestorUtils.h>
@@ -52,10 +52,11 @@
 #include <nsIImageToPixbuf.h>
 #include <nsIPrefService.h>
 #include <nsIPrefBranch2.h>
-#if MOZILLA_BRANCH_MAJOR_VERSION < 15
+#if MOZILLA_BRANCH_VERSION < 15
 # include <nsIXBLService.h>
 #endif
 #include <nsIXPConnect.h>
+#include <nsIAtomService.h>
 #include <nsNetUtil.h>
 #include <nsIStyleSheetService.h>
 #include <prenv.h>
@@ -66,6 +67,7 @@
 #include <gdk/gdkx.h>
 
 #include "uGlobalMenuService.h"
+#include "uGlobalMenuDocListener.h"
 #include "uWidgetAtoms.h"
 
 #include "uDebug.h"
@@ -79,7 +81,7 @@ public:
                        mCancellable(aCancellable)
   {
     g_object_ref(mCancellable);
-    mID = g_cancellable_connect(mCancellable, G_CALLBACK(Cancelled), this, nsnull);
+    mID = g_cancellable_connect(mCancellable, G_CALLBACK(Cancelled), this, nullptr);
   }
 
   static void Cancelled(GCancellable *aCancellable,
@@ -91,7 +93,7 @@ public:
     // If the request was cancelled, then invalidate pointers to objects
     // that might not exist anymore, as we don't assume that GDBus
     // cancellation is reliable (see https://launchpad.net/bugs/953562)
-    cbdata->mMenu = nsnull;
+    cbdata->mMenu = nullptr;
   }
 
   uGlobalMenuBar* GetMenuBar() { return mMenu; }
@@ -110,9 +112,9 @@ private:
 
 NS_IMPL_ISUPPORTS2(uGlobalMenuService, uIGlobalMenuService, nsIWindowMediatorListener)
 
-uGlobalMenuService* uGlobalMenuService::sService = nsnull;
+uGlobalMenuService* uGlobalMenuService::sService = nullptr;
 #define SERVICE(Name, Interface, CID) \
-Interface* uGlobalMenuService::s##Name = nsnull;
+Interface* uGlobalMenuService::s##Name = nullptr;
 #include "uGlobalMenuServiceList.h"
 #undef SERVICE
 bool uGlobalMenuService::sShutdown = false;
@@ -126,7 +128,7 @@ uGlobalMenuService::GetInstanceForService()
   }
 
   if (sShutdown) {
-    return nsnull;
+    return nullptr;
   }
 
   sService = new uGlobalMenuService();
@@ -134,8 +136,8 @@ uGlobalMenuService::GetInstanceForService()
 
   if (NS_FAILED(sService->Init())) {
     NS_RELEASE(sService);
-    sService = nsnull;
-    return nsnull;
+    sService = nullptr;
+    return nullptr;
   }
 
   NS_ADDREF(sService);
@@ -150,11 +152,11 @@ uGlobalMenuService::Get##Name() \
     return s##Name; \
   } \
   if (sShutdown) { \
-    return nsnull; \
+    return nullptr; \
   } \
   nsCOMPtr<Interface> tmp = do_GetService(CID); \
   if (!tmp) { \
-    return nsnull; \
+    return nullptr; \
   } \
   s##Name = tmp; \
   NS_ADDREF(s##Name); \
@@ -174,13 +176,13 @@ uGlobalMenuService::Shutdown()
         g_cancellable_cancel(sService->mCancellable);
       }
       NS_RELEASE(sService);
-      sService = nsnull;
+      sService = nullptr;
     }
 
 #define SERVICE(Name, Interface, CID) \
     if (s##Name) { \
       NS_RELEASE(s##Name); \
-      s##Name = nsnull; \
+      s##Name = nullptr; \
     }
 #include "uGlobalMenuServiceList.h"
 #undef SERVICE
@@ -199,7 +201,7 @@ uGlobalMenuService::InitService()
       do_GetService(U_GLOBALMENUSERVICE_CONTRACTID);
   }
 
-  return sService != nsnull;
+  return sService != nullptr;
 }
 
 /*static*/ void
@@ -227,7 +229,7 @@ uGlobalMenuService::ProxyCreatedCallback(GObject *object,
   }
 
   g_object_unref(sService->mCancellable);
-  sService->mCancellable = nsnull;
+  sService->mCancellable = nullptr;
 
   sService->mDbusProxy = proxy;
 
@@ -311,7 +313,7 @@ uGlobalMenuService::DestroyMenuForWidget(nsIWidget *aWidget)
 {
   for (PRUint32 i = 0; i < mMenus.Length(); i++) {
     if (GDK_WINDOW_XID(gtk_widget_get_window(mMenus[i]->TopLevelWindow())) ==
-        GDK_WINDOW_XID(gtk_widget_get_window(WidgetToGTKWindow(aWidget)))) {
+        GDK_WINDOW_XID(gtk_widget_get_window(uGlobalMenuUtils::WidgetToGTKWindow(aWidget)))) {
       mMenus.RemoveElementAt(i);
       return;
     }
@@ -339,7 +341,7 @@ uGlobalMenuService::WidgetHasGlobalMenu(nsIWidget *aWidget)
 {
   for (PRUint32 i = 0; i < mMenus.Length(); i++) {
     if (GDK_WINDOW_XID(gtk_widget_get_window(mMenus[i]->TopLevelWindow())) ==
-        GDK_WINDOW_XID(gtk_widget_get_window(WidgetToGTKWindow(aWidget))))
+        GDK_WINDOW_XID(gtk_widget_get_window(uGlobalMenuUtils::WidgetToGTKWindow(aWidget))))
       return true;
   }
   return false;
@@ -370,8 +372,8 @@ uGlobalMenuService::Init()
                            NULL);
 
   mWindowMediator = do_GetService("@mozilla.org/appshell/window-mediator;1");
+  NS_ASSERTION(mWindowMediator, "No window mediator");
   if (!mWindowMediator) {
-    NS_WARNING("No window mediator, which we need for close events");
     return NS_ERROR_FAILURE;
   }
 
@@ -383,21 +385,24 @@ uGlobalMenuService::Init()
   // see https://launchpad.net/bugs/1017247
   nsCOMPtr<nsIStyleSheetService> sss =
     do_GetService("@mozilla.org/content/style-sheet-service;1");
-  if (sss) {
-    nsCOMPtr<nsIURI> uri;
-    rv = NS_NewURI(getter_AddRefs(uri),
-                   NS_LITERAL_CSTRING("chrome://globalmenu/content/ua-overrides.css"));
-    if (NS_SUCCEEDED(rv) && uri) {
-      bool registered;
-      sss->SheetRegistered(uri, nsIStyleSheetService::AGENT_SHEET,
-                           &registered);
-      if (!registered) {
-        sss->LoadAndRegisterSheet(uri, nsIStyleSheetService::AGENT_SHEET);
-      }
+  if (!sss) {
+    NS_WARNING("No style sheet service");
+    return NS_OK;
+  }
+
+  nsCOMPtr<nsIURI> uri;
+  rv = NS_NewURI(getter_AddRefs(uri),
+                 NS_LITERAL_CSTRING("chrome://globalmenu/content/ua-overrides.css"));
+  if (NS_SUCCEEDED(rv) && uri) {
+    bool registered;
+    sss->SheetRegistered(uri, nsIStyleSheetService::AGENT_SHEET,
+                         &registered);
+    if (!registered) {
+      sss->LoadAndRegisterSheet(uri, nsIStyleSheetService::AGENT_SHEET);
     }
   }
 
-  return rv;
+  return NS_OK;
 }
 
 uGlobalMenuService::~uGlobalMenuService()
@@ -412,7 +417,7 @@ uGlobalMenuService::~uGlobalMenuService()
 
   if (mDbusProxy) {
     g_signal_handlers_disconnect_by_func(mDbusProxy,
-                                         FuncToVoidPtr(NameOwnerChangedCallback),
+                                         uGlobalMenuUtils::FuncToVoidPtr(NameOwnerChangedCallback),
                                          NULL);
     g_object_unref(mDbusProxy);
   }
@@ -434,6 +439,8 @@ uGlobalMenuService::CreateGlobalMenuBar(nsIWidget  *aParent,
   // for each top-level window
   if (WidgetHasGlobalMenu(aParent))
     return NS_ERROR_FAILURE;
+
+  uMenuAutoSuspendMutationEvents as;
 
   uGlobalMenuBar *menu = uGlobalMenuBar::Create(aParent, aMenuBarNode);
   if (!menu) {
@@ -523,13 +530,14 @@ NS_IMETHODIMP
 uGlobalMenuService::OnCloseWindow(nsIXULWindow *window)
 {
   nsCOMPtr<nsIBaseWindow> baseWindow = do_QueryInterface(window);
-  NS_ASSERTION(baseWindow, "nsIXULWindow passed to OnCloseWindow is not a nsIBaseWindow");
+  NS_ASSERTION(baseWindow, "nsIXULWindow failed QI to nsIBaseWindow");
   if (!baseWindow) {
     return NS_ERROR_INVALID_ARG;
   }
 
   nsCOMPtr<nsIWidget> widget;
   baseWindow->GetMainWidget(getter_AddRefs(widget));
+  NS_ASSERTION(widget, "Window has no widget");
   if (!widget) {
     return NS_ERROR_FAILURE;
   }

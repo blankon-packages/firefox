@@ -1,11 +1,549 @@
-firefox (14.0~b10+build1-0ubuntu1+blankon1) rote; urgency=low
+firefox (19.0.2+build1-0ubuntu1+blankon1) suroboyo; urgency=low
 
-  * Initial impor
-  * distribution.in branding to BlankOn
-  * debian/control* blankfox
-  * drop ubuntu.patch. 
+  * Upload to suroboyo 
 
- -- Rahman Yusri Aftian <aftian@di.blankon.in>  Wed, 04 Jul 2012 21:05:59 +0700
+ -- Rahman Yusri Aftian <aftian@di.blankon.in>  Tue, 26 Mar 2013 22:25:28 +0700
+
+firefox (19.0.2+build1-0ubuntu1) raring; urgency=low
+
+  * New upstream stable release (FIREFOX_19_0_2_BUILD1)
+    - see LP: #1152052 for USN information
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Thu, 07 Mar 2013 11:33:49 +0000
+
+firefox (19.0+build1-0ubuntu2) raring; urgency=low
+
+  * Update globalmenu-extension to 3.7.2
+    - Fix various imagelib related crashes (LP: #1134409)
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Wed, 27 Feb 2013 14:35:00 +0000
+
+firefox (19.0+build1-0ubuntu1) raring; urgency=low
+
+  * New upstream stable release (FIREFOX_19_0_BUILD1)
+
+  * Switch to the release channel
+    - update debian/config/branch.mk
+    - update debian/control.in
+    - disable Mongolian and Swahili
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Tue, 26 Feb 2013 11:30:08 +0000
+
+firefox (19.0~b6+build1-0ubuntu1) raring; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_19_0b6_BUILD1)
+
+  * Update globalmenu-extension to 3.7.1
+    - Revert "convert document observer to JS". It's only needed for Firefox
+      20, and it seems to be causing some problems
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Fri, 15 Feb 2013 22:24:53 +0000
+
+firefox (19.0~b5+build1-0ubuntu1) raring; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_19_0b5_BUILD1)
+
+  * Refresh debian/patches/fix-broken-langpack-install-manifests.patch
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Wed, 06 Feb 2013 18:52:24 +0000
+
+firefox (19.0~b4+build1-0ubuntu1) raring; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_19_0b4_BUILD1)
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Mon, 04 Feb 2013 09:55:55 +0000
+
+firefox (19.0~b3+build1-0ubuntu1) raring; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_19_0b3_BUILD1)
+
+  * Refresh debian/patches/fix-broken-langpack-install-manifests.patch
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Fri, 25 Jan 2013 15:16:37 +0000
+
+firefox (19.0~b2+build1-0ubuntu1) raring; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_19_0b2_BUILD1)
+
+  * Fix LP: #1098312 - Some language packs don't load in Firefox 18
+    - add debian/patches/fix-broken-langpack-install-manifests.patch
+    - update debian/patches/series.in
+  * Drop revert-restartless-language-packs.patch, as this changeset has
+    been backed out upstream now
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Wed, 16 Jan 2013 10:33:28 +0000
+
+firefox (19.0~b1+build2-0ubuntu1) raring; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_19_0b1_BUILD2)
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Tue, 08 Jan 2013 21:19:54 +0000
+
+firefox (19.0~b1+build1-0ubuntu1) raring; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_19_0b1_BUILD1)
+    - Fix LP: #1096286 - 404 error when using Chambers (UK) search.
+      Temporarily remove the plugin
+
+  * Update globalmenu-extension to r3.7
+    - Update for imagelib changes in Firefox 19 and 20
+    - Update for nsCAutoString removal in Firefox 19
+    - Don't #include mozilla/dom/Element.h anywhere, as that now pulls
+      in a lot of internal headers since Firefox 19
+    - implement the mutation observer in JS, as it's no longer possible
+      to do it all in native code
+  * Fix LP: #1064423 - "Submitting your report..." shows missing-icon icon.
+    Install the throbber icon in the package
+    - update debian/firefox.install.in
+  * Refresh patches
+    - update debian/patches/allow-lockPref-everywhere.patch
+    - update debian/patches/ionmonkey-hardfp-support.patch
+    - update debian/patches/python-virtualenv-multiarch-fix.patch
+  * Switch to encrypted search for Google
+    - update debian/searchplugins/en-GB/google.xml
+    - update debian/searchplugins/en-US/google.xml
+    - update debian/searchplugins/en-ZA/google.xml
+    - update debian/searchplugins/ja/google-jp.xml
+    - update debian/searchplugins/ku/google-ku.xml
+  * Fix LP: #1094376 - Language pack isn't used. Revert bmo: #677092 (make
+    language packs restartless) for now, as system-wide bootstrapped addons
+    with chrome are pretty broken
+    - add debian/patches/revert-restartless-language-packs.patch
+    - update debian/patches/series.in
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Tue, 08 Jan 2013 12:44:17 +0000
+
+firefox (18.0~b7+build1-0ubuntu1) raring; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_18_0b7_BUILD1)
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Wed, 02 Jan 2013 09:25:24 +0000
+
+firefox (18.0~b5+build1-0ubuntu1) raring; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_18_0b5_BUILD1)
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Sun, 23 Dec 2012 23:01:46 +0000
+
+firefox (18.0~b4+build1-0ubuntu1) raring; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_18_0b4_BUILD1)
+
+  * Make python-virtualenv compatible with the Python multiarch changes
+    - add debian/patches/python-virtualenv-multiarch-fix.patch
+    - update debian/patches/series.in
+  * Backport bmo: #802358 from Firefox 20 (add hardfp support to ionmonkey)
+    - add debian/patches/ionmonkey-hardfp-support.patch
+    - update debian/patches/series.in
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Thu, 13 Dec 2012 20:54:49 +0000
+
+firefox (18.0~b2+build1-0ubuntu1) raring; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_18_0b2_BUILD1)
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Thu, 29 Nov 2012 14:48:00 +0000
+
+firefox (18.0~b1+build1-0ubuntu1) raring; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_18_0b1_BUILD1)
+
+  * Update globalmenu-extension to 3.6.4
+    - Fix a build ordering issue causing the install.rdf to be missed
+      from the addon xpi
+  * Enable profiling on nightly builds
+    - update debian/config/mozconfig.in
+  * Drop patches fixed upstream
+    - remove debian/patches/fix-for-bmo795395.patch
+    - update debian/patches/series.in
+  * Turn on Network Manager integration
+    - update debian/vendor-gre.js
+  * Update favicon for Google searchplugin
+    - update debian/searchplugins/en-GB/google.xml
+    - update debian/searchplugins/en-US/google.xml
+    - update debian/searchplugins/en-ZA/google.xml
+    - update debian/searchplugins/ja/google-jp.xml
+    - update debian/searchplugins/ku/google-ku.xml
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Wed, 21 Nov 2012 13:23:51 +0000
+
+firefox (17.0~b6+build1-0ubuntu1) raring; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_17_0b6_BUILD1)
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Wed, 14 Nov 2012 20:41:33 +0000
+
+firefox (17.0~b5+build1-0ubuntu1) raring; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_17_0b5_BUILD1)
+
+  * Update globalmenu-extension to 3.6.3
+    - revert "Don't override the binding on menupopups if we aren't exporting
+      the menubar remotely", as this broke the Edit menu
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Thu, 08 Nov 2012 09:38:15 +0000
+
+firefox (17.0~b4+build1-0ubuntu1) raring; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_17_0b4_BUILD1)
+
+  * Build with --disable-webrtc on all architectures except for i386 and amd64
+    - update debian/config/mozconfig.in
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Mon, 05 Nov 2012 09:42:21 +0000
+
+firefox (17.0~b3+build1-0ubuntu1) raring; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_17_0b3_BUILD1)
+
+  * Update globalmenu-extension to 3.6.2
+    - Fix crash in uGlobalMenu::InitializePopup
+    - Don't override the binding on menupopups if we aren't exporting
+      the menubar remotely
+    - Fix issue with stale entries being left in the Recently Closed
+      Tabs / Windows menus
+    - Make logging work correctly on debug builds
+    - Handle submenu's being reopened without getting a close event
+      in between. We don't seem to get a close event when a menuitem
+      is activated
+  * Switch to beta
+    - update debian/config/branch.mk
+  * Enable beta only language support (Mongolian and Swahili)
+    - update debian/config/locales.shipped
+    - refresh debian/control
+  * Install the web app support
+    - update debian/firefox-globalmenu.links.in
+    - update debian/firefox.dirs.in
+    - update debian/firefox.install.in
+    - update debian/patches/series.in
+    - add debian/patches/webapprt-support-for-langpacks.patch
+    - update debian/rules
+  * Fix quoting issues when parsing preferences
+    - update debian/apport/source_firefox.py.in
+  * Refresh patches
+    - update debian/patches/ubuntu-ua-string-changes.patch
+    - update debian/patches/unity-globalmenu-build-support.patch
+    - update debian/patches/fix-for-bmo795395.patch
+  * Drop obsolete patches
+    - remove debian/patches/add-nativehandle-attribute.patch
+    - update debian/patches/series
+  * Don't ship empty ".mkdir.done" files in our packages. This should probably
+    be fixed in the upstream build system, but we'll do a temporary band-aid
+    fix in the packaging for now just so we can get some builds
+    - update debian/build/mozbuild.mk
+  * Turn off searchplugin override verification for now
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Fri, 26 Oct 2012 12:52:09 +0100
+
+firefox (16.0.2+build1-0ubuntu0.12.10.1) quantal-security; urgency=low
+
+  * New upstream stable release (FIREFOX_16_0_2_BUILD1)
+    - see LP: #1071392 for USN information
+
+ -- Micah Gersten <micahg@ubuntu.com>  Thu, 25 Oct 2012 16:00:46 -0500
+
+firefox (16.0.1+build1-0ubuntu1) quantal-security; urgency=low
+
+  * New upstream stable release (FIREFOX_16_0_1_BUILD1)
+    - see LP: #1065285 for USN information
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Wed, 10 Oct 2012 18:35:29 +0100
+
+firefox (16.0+build1-0ubuntu1) quantal-security; urgency=low
+
+  * New upstream stable release (FIREFOX_16_0_BUILD1)
+    - see LP: #1062611 for USN information
+
+  * Update globalmenu-extension to 3.5.4
+    - Fix crash in uGlobalMenuDocListener::HandleMutations
+  * Drop StartupWMClass from the desktop file, as it isn't actually
+    required by gnome shell or unity
+    - update debian/firefox.desktop.in
+  * Refresh patches
+    - update debian/patches/ubuntu-ua-string-changes.patch
+    - update debian/patches/dont-override-general-useragent-locale.patch
+  * Drop compare-locales from the packaging, and just check out the current
+    version when we create the tarball
+    - update debian/build/mozbuild.mk
+    - update debian/build/create-tarball.py
+    - remove debian/build/compare-locales
+  * Generate a list of the search engines that we modify and store this
+    in bzr, rather than determining this list at build time. We refresh
+    the list in the clean target and fail the build if anything changes.
+    This ensures that any upstream changes to the search engine list
+    for any locale will not go unnoticed and will force a manual check
+    to ensure that we are shipping correctly modified search engines
+    - add debian/build/refresh-search-modifications.pl
+    - update debian/build/mozbuild.mk
+    - add debian/config/search-mods.list
+    - rename debian/build/check-search-overrides.pl =>
+        debian/build/verify-search-overrides.pl
+  * Drop obsolete autocomplete-theme-tweak patch now
+    - remove debian/patches/autocomplete-theme-tweak.patch
+    - update debian/patches/series
+  * Fix for bmo: #795395
+    - add debian/patches/fix-for-bmo795395.patch
+    - update debian/patches/series
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Fri, 05 Oct 2012 19:16:08 +0100
+
+firefox (15.0.1+build1-0ubuntu4) quantal-proposed; urgency=low
+
+  * Update globalmenu-extension to 3.5.1
+    - Fix LP: #1051152 - Crash in nsIContent::SetAttr with greasemonkey
+      installed
+    - Improve handling of radio items, and work correctly for radio items
+      without a name (fixes the View -> Page Style submenu)
+    - Stop causing nested DOM mutations. There is a big warning about doing
+      this in nsIMutationObserver.h
+    - Delay processing of DOM mutations during code sections when we are
+      dispatching events. This should prevent a recurrence of
+      reentrancy-triggered crashes such as LP: #1025011, LP: #1035305 and
+      LP: #1051152, which have been exposed by updates of third-party addons
+      recently and caused because our view of the menu changes during
+      event delivery
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Thu, 27 Sep 2012 13:21:18 +0100
+
+firefox (15.0.1+build1-0ubuntu2) quantal; urgency=low
+
+  * Repeat after me:
+    - DO NOT UPLOAD BEFORE DRINKING COFFEE
+    - DO NOT UPLOAD BEFORE DRINKING COFFEE
+    - ....
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Fri, 07 Sep 2012 09:14:01 +0200
+
+firefox (15.0.1+build1-0ubuntu1) quantal; urgency=low
+
+  * New upstream stable release (FIREFOX_15_0_1_BUILD1)
+
+  * Fix LP: #1040313 - expose scriptable native window handle
+    - add debian/patches/add-nativehandle-attribute.patch
+    - update debian/patches/series.in
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Thu, 06 Sep 2012 10:59:59 +0100
+
+firefox (15.0+build1-0ubuntu1) quantal; urgency=low
+
+  * New upstream stable release (FIREFOX_15_0_BUILD1)
+    People running quantal should consider switching to the Firefox beta PPA
+    next week to start testing Firefox 16, which will be released to Ubuntu
+    12.10 on around 9th October
+    - https://launchpad.net/~mozillateam/+archive/firefox-next
+
+  * Update globalmenu-extension to 3.4 final
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Fri, 24 Aug 2012 22:41:20 +0100
+
+firefox (15.0~b6+build1-0ubuntu1) quantal; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_15_0b6_BUILD1)
+
+  * Add Acholi to the locale blacklist
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Wed, 22 Aug 2012 17:27:31 +0100
+
+firefox (15.0~b5+build1-0ubuntu1) quantal; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_15_0b5_BUILD1)
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Mon, 20 Aug 2012 11:22:04 +0100
+
+firefox (15.0~b4+build1-0ubuntu1) quantal; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_15_0b4_BUILD1)
+
+  * Update globalmenu-extension to 3.4 prerelease r435
+    + Drop the edit UI workarounds
+    + Fixes for LP: #1035305 - Crash when switching apps back to Firefox
+      with Firebug installed
+      - Keep the menu we export in sync with the document tree all of the
+        time, rather than only when the menus are on screen. The HUD likes to
+        open submenus without opening any of its ancestors, which can result in
+        us handling events on menu nodes that are no longer in a document
+        if an ancestor responds to a bubbled-up event by removing its
+        children
+      - Ensure we always null check the result of nsIDocument::GetCurrentDoc
+    + When tearing down a menu, make sure that we empty out our DbusmenuMenuitem
+      in case the parent reuses that item for another menu. Fixes a memory leak
+      and an issue where Firebug menu items are duplicated indefinitely each
+      time a menu is opened
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Sat, 11 Aug 2012 01:24:44 +0100
+
+firefox (15.0~b2+build1-0ubuntu1) quantal-proposed; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_15_0b2_BUILD1)
+
+  * Update globalmenu-extension to 3.4 prerelease r422
+    + Fixes for LP: #1025011 - HUD search crashes Firefox when Firebug
+      is installed
+      - Provide our own binding for menupopup nodes which derives from the
+        default binding and makes the "state" property work as if there
+        were a frame
+      - Make all menu nodes reference counted, and hold a strong ref when
+        dispatching events, in case the event results in the removal of menu
+        nodes
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Wed, 25 Jul 2012 17:23:35 +0100
+
+firefox (15.0~b1+build1-0ubuntu1) quantal; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_15_0b1_BUILD1)
+
+  [ Chris Coulson <chris.coulson@canonical.com> ]
+  * Update globalmenu-extension to 3.3
+  * Disable PGO again
+    - update debian/config/branch.mk
+  * Separate the package name from the application name in various places.
+    This enables us to change the package name without having to modify the
+    application or packaging (eg, to allow us to provide official branded
+    versions of Firefox ESR using the package name "firefox-esr")
+    - update debian/README.Debian.in
+    - update debian/apport/source_firefox.py.in
+    - update debian/build/get-orig-source.mk
+    - update debian/control{,.in}
+    - update debian/control.langpacks
+    - update debian/control.langpacks.unavail
+    - update debian/firefox-locale.preinst.in
+    - update debian/firefox.install.in
+    - update debian/firefox.links.in
+    - update debian/firefox.lintian-overrides.in
+    - update debian/firefox.postinst.in
+    - update debian/firefox.postrm.in
+    - update debian/firefox.preinst.in
+    - update debian/firefox.sh.in
+    - remove debian/patches/change-moz-app-name.patch
+    - update debian/patches/series
+    - update debian/rules
+    - update debian/usr.bin.firefox.apparmor.*
+  * Move parts of debian/rules that can be shared with Thunderbird to a
+    new, common file (mozbuild.mk)
+    - update debian/rules
+    - add debian/build/mozbuild.mk
+    - add debian/build/mozvars.mk
+    - update debian/build/testsuite.mk
+  * Make it possible to use the same create-tarball.py for Firefox and
+    Thunderbird
+    - update debian/build/create-tarball.py
+    - update debian/build/get-orig-source.mk
+    - add debian/config/tarball.conf
+  * Switch to source format 3.0
+    - add debian/source/format
+    - add debian/source/options to diff-ignore the .mozclient.mk file which
+      is created during clean, and to pass "--no-preparation"
+    - update debian/build/enable-dist-patches.pl
+    - rename debian/patches/series => debian/patches/series.in so the source
+      isn't built with patches applied
+    - update debian/README.source
+  * Goodbye embedded tarball, and our use of tarball.mk!
+    - update debian/build/create-tarball.py
+    - update debian/build/extract-file.py
+    - update debian/build/get-orig-source.mk
+    - update debian/build/mozbuild.mk
+  * Run the upstream cleansrcdir target during clean
+    - update debian/build/mozbuild.mk
+  * Refresh patches
+    - update debian/patches/mozilla-kde.patch
+  * Drop the plugin / abrowser / firefox-branding replaces + breaks on quantal
+    - update debian/rules
+  * Support the "parallel" option in DEB_BUILD_OPTIONS
+    - update debian/build/mozbuild.mk
+    - update debian/config/mozconfig.in
+  * Drop some of the complex shell script for creating language packs
+    - update debian/build/mozbuild.mk
+    - update debian/build/get-xpi-id.py
+  * Drop searchplugin patches - these patches are an absolute pain to maintain,
+    as they seem to break frequently and we have to touch each localized
+    plugin. Instead, just keep our own copy of plugins we modify, and add
+    these in to the language packs at the end of the build process
+    - remove debian/patches/ubuntu-codes-google.patch
+    - remove debian/patches/ubuntu-codes-amazon.patch
+    - remove debian/patches/ubuntu-codes-baidu.patch
+    - update debian/patches/series.in
+    - update debian/build/mozbuild.mk
+    - add debian/searchplugins/*
+  * Get rid of pointless python script
+    - remove debian/build/extract-file.py
+    - update debian/build/mozbuild.mk
+  * Add an automated check for finding search engines that match particular
+    patterns and verifying that they are replaced with our own search
+    engine if we think they should be
+    - add debian/build/check-search-overrides.pl
+    - update debian/build/mozbuild.mk
+    - add debian/searchplugins/overrides.json
+    - update debian/control{,.in}
+  * Drop reload-new-plugins.patch, as this shouldn't actually be needed
+    - remove debian/patches/reload-new-plugins.patch
+    - update debian/patches/series.in
+  * Merge get-orig-source.mk in to mozbuild.mk
+    - update debian/build/mozbuild.mk
+    - remove debian/build/get-orig-source.mk
+  * Handle comments in locales.blacklist
+    - update debian/build/refresh-supported-locales.pl
+    - update debian/config/locales.blacklist
+  * Fork the upstream text preprocessor and add support for additional
+    comparison operators, which means we no longer have to add new
+    defines for every distro version specific change we add
+    - add debian/build/Expression.py
+    - add debian/build/Preprocessor.py
+    - update debian/apport/source_firefox.py.in
+    - update debian/build/mozbuild.mk
+    - update debian/config/mozconfig.in
+    - update debian/firefox-dev.install.in
+    - update debian/firefox-locale.preinst.in
+    - update debian/firefox.desktop.in
+    - update debian/firefox.dirs.in
+    - update debian/firefox.install.in
+    - update debian/firefox.links.in
+    - update debian/firefox.postinst.in
+    - update debian/firefox.postrm.in
+    - update debian/firefox.preinst.in
+    - update debian/firefox.prerm.in
+    - update debian/rules
+  * Refresh shipped locales
+  * Drop powerpc patches, which are fixed upstream
+    - remove debian/patches/fix-dtoa-build-on-ppc.patch and
+    - remove debian/patches/fix-build-failure-without-yarr-jit.patch
+    - update debian/patches/series.in
+  * Drop fix-crashreporter-ftbfs-with-gcc4.7.patch, which is fixed upstream
+
+  [ Adam Conrad <adconrad@ubuntu.com> ]
+  * Add no_neon_on_arm.patch to skip the NEON tests on ARM, since we
+    don't build with NEON by default on either of our ARM architectures
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Mon, 23 Jul 2012 12:18:19 +0100
+
+firefox (14.0.1+build1-0ubuntu1) quantal; urgency=low
+
+  * New upstream stable release
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Sat, 14 Jul 2012 23:44:16 +0100
+
+firefox (14.0~b12+build1-0ubuntu1) quantal; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_14_0b12_BUILD1)
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Wed, 11 Jul 2012 19:46:08 +0100
+
+firefox (14.0~b11+build1-0ubuntu1) quantal; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_14_0b11_BUILD1)
+
+  [ Ben Collins <ben.collins@ubuntu.com> ]
+  * Cherry pick patch from aurora to use YARR interpreter on ppc
+    - update debian/patches/fix-build-failure-without-yarr-jit.patch
+    - update debian/patches/series
+  * Fix ppc build due to new dtoa library
+    - add debian/patches/fix-dtoa-build-on-ppc.patch
+    - update debian/patches/series
+
+  [ Matthieu Baerts (matttbe) ]
+  * debian/apport/source_firefox.py.in:
+    - Update apport hook for python3
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Wed, 04 Jul 2012 17:01:45 +0100
 
 firefox (14.0~b10+build1-0ubuntu1) quantal; urgency=low
 

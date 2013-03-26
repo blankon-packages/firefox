@@ -49,50 +49,53 @@
 #include <libdbusmenu-glib/server.h>
 
 #include "uGlobalMenuObject.h"
+#include "uWidgetAtoms.h"
 
-// The menu is in the process of opening
-#define UNITY_MENU_IS_OPEN_OR_OPENING     (1 << 7)
+#define UNITY_MENU_POPUP_STATE_0          FLAG(8)
+#define UNITY_MENU_POPUP_STATE_1          FLAG(9)
+#define UNITY_MENU_POPUP_STATE_2          FLAG(10)
+#define UNITY_MENU_POPUP_STATE_MASK       (UNITY_MENU_POPUP_STATE_2 | UNITY_MENU_POPUP_STATE_1 | UNITY_MENU_POPUP_STATE_0)
 
 // The menu needs rebuilding
-#define UNITY_MENU_NEEDS_REBUILDING       (1 << 8)
+#define UNITY_MENU_NEEDS_REBUILDING       FLAG(11)
 
 // The shell sent the first "AboutToOpen" event
-#define UNITY_MENU_READY                  (1 << 9)
+#define UNITY_MENU_READY                  FLAG(12)
 
 class uGlobalMenuItem;
-class uGlobalMenuBar;
 class uGlobalMenuDocListener;
+class nsITimer;
+
+enum uMenuPopupState {
+  ePopupClosed = 0,
+  ePopupShowing,
+  ePopupOpen1, // Menu was opened with an "about-to-show" signal
+  ePopupOpen2, // Menu was opened with an "opened" event
+  ePopupHiding
+};
 
 class uGlobalMenu: public uGlobalMenuObject
 {
 public:
   static uGlobalMenuObject* Create(uGlobalMenuObject *aParent,
                                    uGlobalMenuDocListener *aListener,
-                                   nsIContent *aContent,
-                                   uGlobalMenuBar *aMenuBar);
+                                   nsIContent *aContent);
+  virtual void Destroy();
+  virtual ~uGlobalMenu();
 
-  ~uGlobalMenu();
+  virtual uMenuObjectType GetType() { return eMenu; }
 
   bool CanOpen();
   void OpenMenuDelayed();
-  void Invalidate();
-  void ContainerIsOpening();
   
-  bool IsOpenOrOpening() { return !!(mFlags & UNITY_MENU_IS_OPEN_OR_OPENING); }
-
 protected:
-  void ObserveAttributeChanged(nsIDocument *aDocument,
-                               nsIContent *aContent,
-                               nsIAtom *aAttribute);
-  void ObserveContentRemoved(nsIDocument *aDocument,
-                             nsIContent *aContainer,
-                             nsIContent *aChild,
-                             PRInt32 aIndexInContainer);
-  void ObserveContentInserted(nsIDocument *aDocument,
-                              nsIContent *aContainer,
-                              nsIContent *aChild,
-                              PRInt32 aIndexInContainer);
-  void Refresh();
+  virtual void ObserveAttributeChanged(nsIContent *aContent,
+                                       nsIAtom *aAttribute);
+  virtual void ObserveContentRemoved(nsIContent *aContainer,
+                                     nsIContent *aChild);
+  virtual void ObserveContentInserted(nsIContent *aContainer,
+                                      nsIContent *aChild,
+                                      nsIContent *aPrevSibling);
 
 private:
   uGlobalMenu();
@@ -100,15 +103,23 @@ private:
   // Initialize the menu structure
   nsresult Init(uGlobalMenuObject *aParent,
                 uGlobalMenuDocListener *aListener,
-                nsIContent *aContent,
-                uGlobalMenuBar *aMenuBar);
-  bool InsertMenuObjectAt(uGlobalMenuObject *menuObj,
-                          PRUint32 index);
+                nsIContent *aContent);
+
+  uint32_t IndexOf(nsIContent *aContent);
+  bool InsertMenuObjectAfterContent(uGlobalMenuObject *menuObj,
+                                    nsIContent *aPrevSibling);
   bool AppendMenuObject(uGlobalMenuObject *menuObj);
-  bool RemoveMenuObjectAt(PRUint32 index);
-  void InitializeDbusMenuItem();
+  bool RemoveMenuObjectAt(uint32_t index, bool recycle);
+  bool RemoveMenuObjectForContent(nsIContent *aContent, bool recycle);
+  virtual void InitializeDbusMenuItem();
+  virtual void Refresh(uMenuObjectRefreshMode aMode);
+  virtual uMenuObjectProperties GetValidProperties()
+  {
+    return static_cast<uMenuObjectProperties>(eLabel | eEnabled | eVisible |
+                                              eIconData | eChildDisplay);
+  }
   nsresult Build();
-  void GetMenuPopupFromMenu(nsIContent **aResult);
+  void InitializePopup();
   static bool MenuAboutToOpenCallback(DbusmenuMenuitem *menu,
                                       void *data);
   static bool MenuEventCallback(DbusmenuMenuitem *menu,
@@ -116,35 +127,45 @@ private:
                                 GVariant *value,
                                 guint timestamp,
                                 void *data);
-  static gboolean DoOpen(gpointer user_data);
-  void AboutToOpen();
-  void OnOpen();
+  static void DoOpen(nsITimer *aTimer, void *aClosure);
+  void AboutToOpen(bool aOpenedEvent, bool aWantPopupShownEvent = true);
+  void FirePopupShownEvent();
   void OnClose();
-  void Activate();
-  void Deactivate();
+  void FirePopupHidingEvent();
   void SetNeedsRebuild() { mFlags = mFlags | UNITY_MENU_NEEDS_REBUILDING; }
   void ClearNeedsRebuild() { mFlags = mFlags & ~UNITY_MENU_NEEDS_REBUILDING; }
   bool DoesNeedRebuild() { return !!(mFlags & UNITY_MENU_NEEDS_REBUILDING); }
-  void FreeRecycleList() { mRecycleList = nsnull; }
+  void FlushRecycleList() { mRecycleList = nullptr; }
+  uMenuPopupState GetPopupState()
+  {
+    return static_cast<uMenuPopupState>((mFlags & UNITY_MENU_POPUP_STATE_MASK) >> 8);
+  }
+  void SetPopupState(uMenuPopupState aState);
 
   struct RecycleList
   {
-    RecycleList(uGlobalMenu *aMenu, PRUint32 aMarker);
+  public:
+    RecycleList(uGlobalMenu *aMenu);
     ~RecycleList();
 
-    void Empty();
-    DbusmenuMenuitem* Shift();
-    void Unshift(DbusmenuMenuitem *aItem);
-    void Push(DbusmenuMenuitem *aItem);
+    DbusmenuMenuitem* RecycleForAppend(uGlobalMenuObject *aMenuObj);
+    DbusmenuMenuitem* RecycleForInsert(uGlobalMenuObject *aMenuObj,
+                                       uint32_t aIndex,
+                                       uint32_t *aCorrectedIndex);
+    void TakeItem(DbusmenuMenuitem *aMenuObj, uint32_t aIndex);
 
-    PRUint32 mMarker;
+  private:
+    void Flush();
+    DbusmenuMenuitem* Shift(uGlobalMenuObject *aMenuObj = nullptr);
+
+    uint32_t mMarker;
     nsTArray<DbusmenuMenuitem *> mList;
     uGlobalMenu *mMenu;
     nsRefPtr<nsRunnableMethod<uGlobalMenu, void, false> > mFreeEvent;
   };
 
   nsCOMPtr<nsIContent> mPopupContent;
-  nsTArray< nsAutoPtr<uGlobalMenuObject> > mMenuObjects;
+  nsTArray< nsRefPtr<uGlobalMenuObject> > mMenuObjects;
   nsAutoPtr<RecycleList> mRecycleList;
 };
 

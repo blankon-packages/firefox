@@ -52,6 +52,7 @@ XPI_NAME	= globalmenu
 CPPSRCS		= uGlobalMenuModule.cpp
 
 EXTRA_DSO_LDOPTS += $(XPCOM_GLUE_LDOPTS) \
+		    -lxul \
 		    $(NSPR_LIBS) \
 		    $(DBUSMENU_LIBS) \
 		    $(MOZ_GTK2_LIBS) \
@@ -61,11 +62,12 @@ ifdef MOZ_DEBUG
 EXTRA_DSO_LDOPTS += -Wl,--unresolved-symbols=ignore-all
 endif
 
-LOCAL_INCLUDES = -I$(topsrcdir)/extensions/globalmenu/src
-
 SHARED_LIBRARY_LIBS = $(DEPTH)/extensions/globalmenu/src/$(LIB_PREFIX)globalmenu_s.$(LIB_SUFFIX)
 
+include $(topsrcdir)/extensions/globalmenu/compat/compat.mk
 include $(topsrcdir)/config/rules.mk
+
+LOCAL_INCLUDES += -I$(topsrcdir)/extensions/globalmenu/src
 
 CXXFLAGS += $(DBUSMENU_CFLAGS) \
 	    $(MOZ_GTK2_CFLAGS) \

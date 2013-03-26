@@ -37,16 +37,17 @@
  * ***** END LICENSE BLOCK ***** */
 
 #include <prtypes.h>
-#include <nsStringAPI.h>
+#include <nsStringGlue.h>
 #include <nsIURI.h>
 #include <nsILoadGroup.h>
 #include <imgIContainer.h>
-#include <nsNetError.h>
+#if MOZILLA_BRANCH_VERSION < 17
+# include <nsNetError.h>
+#else
+# include <nsError.h>
+#endif
 #include <nsNetUtil.h>
 #include <nsIImageToPixbuf.h>
-#if MOZILLA_BRANCH_MAJOR_VERSION == 13
-# include <nsIDOMNSElement.h>
-#endif
 #include <nsIDOMDOMTokenList.h>
 #include <nsIDOMDocument.h>
 #include <nsIDOMWindow.h>
@@ -57,6 +58,8 @@
 #include <nsIDOMRect.h>
 #include <nsICaseConversion.h>
 #include <imgILoader.h>
+#include <nsThreadUtils.h>
+#include <nsIRunnable.h>
 
 #include <libdbusmenu-gtk/menuitem.h>
 #include <gtk/gtk.h>
@@ -67,19 +70,19 @@
 #include "uWidgetAtoms.h"
 
 #include "uDebug.h"
-#include "compat.h"
 
 #define MAX_LABEL_NCHARS 40
 
 typedef nsresult (nsIDOMRect::*GetRectSideMethod)(nsIDOMCSSPrimitiveValue**);
 
-NS_IMPL_ISUPPORTS3(uGlobalMenuObject::IconLoader, imgIDecoderObserver,
-                   imgIContainerObserver, nsIRunnable)
+#if MOZILLA_BRANCH_VERSION >= 19
+NS_IMPL_ISUPPORTS1(uGlobalMenuObject::IconLoader, imgINotificationObserver)
+#else
+NS_IMPL_ISUPPORTS2(uGlobalMenuObject::IconLoader, imgIDecoderObserver,
+                   imgIContainerObserver)
+#endif
 
-// Yes, we're abusing PRPackedBool a bit here. We initialize it to a value
-// that is neither true or false, so that we don't need another static member
-// to indicate the intialization status of it.
-PRPackedBool uGlobalMenuObject::IconLoader::sImagesInMenus = -1;
+unsigned char uGlobalMenuObject::sImagesInMenus = 0xFF;
 
 // Must be kept in sync with uMenuObjectProperties
 const char *properties[] = {
@@ -95,55 +98,12 @@ const char *properties[] = {
   NULL
 };
 
-bool
-uGlobalMenuObject::IconLoader::ShouldShowIcon()
-{
-  // Ideally, we want to get the visibility of the XUL image in our menu item,
-  // but that is anonymous content which is only created when the frame is drawn
-  // (which obviously never happens here).
-  // As an alternative, we get the user setting for menus-have-icons from
-  // nsILookAndFeel. If menu icons are to be hidden, we hide everything except
-  // for menuitems with the menuitem-with-favicon class. This is basically
-  // how the visibility gets set anyway (see chrome://toolkit/content/xul.css),
-  // which should work in most cases. But, I guess a theme could override this,
-  // and then we ignore the users theme settings. Oh well......
-
-  if (sImagesInMenus == static_cast<PRPackedBool>(-1)) {
-    // We could get the correct GtkSettings by getting the GdkScreen that our
-    // top-level window is on. However, I don't think this matters, as
-    // nsILookAndFeel never had per-screen settings
-    GtkSettings *settings = gtk_settings_get_default();
-    gboolean menus_have_icons;
-    g_object_get(settings, "gtk-menu-images", &menus_have_icons, NULL);
-
-    sImagesInMenus = !!menus_have_icons;
-  }
-
-  if (sImagesInMenus) {
-    return true;
-  }
-
-  nsCOMPtr<nsIDOMNSElement> element = do_QueryInterface(mMenuItem->GetContent());
-  if (!element) {
-    return false;
-  }
-
-  nsCOMPtr<nsIDOMDOMTokenList> classes;
-  element->GetClassList(getter_AddRefs(classes));
-  if (!classes) {
-    return false;
-  }
-
-  bool show;
-  classes->Contains(NS_LITERAL_STRING("menuitem-with-favicon"), &show);
-
-  return show;
-}
-
 void
-uGlobalMenuObject::IconLoader::LoadIcon()
+uGlobalMenuObject::IconLoader::ScheduleIconLoad()
 {
-  NS_DispatchToCurrentThread(this);
+  nsCOMPtr<nsIRunnable> event =
+    NS_NewRunnableMethod(this, &uGlobalMenuObject::IconLoader::LoadIcon);
+  NS_DispatchToCurrentThread(event);
 }
 
 static PRInt32
@@ -151,51 +111,43 @@ GetDOMRectSide(nsIDOMRect* aRect, GetRectSideMethod aMethod)
 {
   nsCOMPtr<nsIDOMCSSPrimitiveValue> dimensionValue;
   (aRect->*aMethod)(getter_AddRefs(dimensionValue));
-  if (!dimensionValue)
+  if (!dimensionValue) {
     return -1;
+  }
 
   PRUint16 type;
   nsresult rv = dimensionValue->GetPrimitiveType(&type);
-  if (NS_FAILED(rv) || type != nsIDOMCSSPrimitiveValue::CSS_PX)
+  if (NS_FAILED(rv) || type != nsIDOMCSSPrimitiveValue::CSS_PX) {
     return -1;
+  }
 
   float dimension = 0;
   rv = dimensionValue->GetFloatValue(nsIDOMCSSPrimitiveValue::CSS_PX,
                                      &dimension);
-  if (NS_FAILED(rv))
+  if (NS_FAILED(rv)) {
     return -1;
+  }
 
   return NSToIntRound(dimension);
 }
 
-NS_IMETHODIMP
-uGlobalMenuObject::IconLoader::Run()
+void
+uGlobalMenuObject::IconLoader::LoadIcon()
 {
-  TRACEM(mMenuItem);
   // Some of this is borrowed from widget/src/cocoa/nsMenuItemIconX.mm
-  if (mIconRequest) {
-    mIconRequest->Cancel(NS_BINDING_ABORTED);
-    mIconRequest = nsnull;
-  }
+  TRACEM(mMenuItem);
 
   if (!mMenuItem) {
     // Our menu item got destroyed already
-    return NS_OK;
+    return;
   }
 
   nsIDocument *doc = mMenuItem->GetContent()->GetCurrentDoc();
   if (!doc) {
     // We might have been removed from the menu, in which case we will
     // no longer be in a document
-    return NS_OK;
+    return;
   }
-
-  if (!ShouldShowIcon()) {
-    ClearIcon();
-    return NS_OK;
-  }
-
-  mIconLoaded = false;
 
   nsAutoString uriString;
   bool hasImage = mMenuItem->GetContent()->GetAttr(kNameSpaceID_None,
@@ -215,12 +167,14 @@ uGlobalMenuObject::IconLoader::Run()
                                  getter_AddRefs(value));
       if (value) {
         nsCOMPtr<nsIDOMCSSPrimitiveValue> pval = do_QueryInterface(value);
-        PRUint16 type;
-        pval->GetPrimitiveType(&type);
-        if (type == nsIDOMCSSPrimitiveValue::CSS_URI) {
-          rv = pval->GetStringValue(uriString);
-          if (NS_SUCCEEDED(rv)) {
-            hasImage = true;
+        if (pval) {
+          PRUint16 type;
+          pval->GetPrimitiveType(&type);
+          if (type == nsIDOMCSSPrimitiveValue::CSS_URI) {
+            rv = pval->GetStringValue(uriString);
+            if (NS_SUCCEEDED(rv)) {
+              hasImage = true;
+            }
           }
         }
       }
@@ -228,8 +182,17 @@ uGlobalMenuObject::IconLoader::Run()
 
     if (!hasImage) {
       LOGM(mMenuItem, "Menuitem does not have an image");
-      ClearIcon();
-      return NS_OK;
+      mUriString.Truncate();
+      mImageRect.SetEmpty();
+      mMenuItem->ClearIcon();
+
+      // Make sure we cancel any pending request to set the icon
+      if (mIconRequest) {
+        mIconRequest->CancelAndForgetObserver(NS_BINDING_ABORTED);
+        mIconRequest = nullptr;
+      }
+
+      return;
     }
 
     nsCOMPtr<nsIDOMCSSValue> value;
@@ -237,40 +200,17 @@ uGlobalMenuObject::IconLoader::Run()
                                getter_AddRefs(value));
     if (value) {
       nsCOMPtr<nsIDOMCSSPrimitiveValue> pval = do_QueryInterface(value);
-      PRUint16 type;
-      pval->GetPrimitiveType(&type);
-      if (type == nsIDOMCSSPrimitiveValue::CSS_RECT) {
-        pval->GetRectValue(getter_AddRefs(domRect));
+      if (pval) {
+        PRUint16 type;
+        pval->GetPrimitiveType(&type);
+        if (type == nsIDOMCSSPrimitiveValue::CSS_RECT) {
+          pval->GetRectValue(getter_AddRefs(domRect));
+        }
       }
     }
   }
 
-  LOGM(mMenuItem, "Icon URI: %s", LOGU16TOU8(uriString));
-  nsCOMPtr<nsIURI> uri;
-  rv = NS_NewURI(getter_AddRefs(uri), uriString);
-  if (NS_FAILED(rv)) {
-    NS_WARNING("Failed to create new URI");
-    ClearIcon();
-    return NS_OK;
-  }
-
-  nsCOMPtr<nsILoadGroup> loadGroup = doc->GetDocumentLoadGroup();
-  imgILoader *loader = uGlobalMenuService::GetIconLoader();
-  if (!loader) {
-    return NS_ERROR_FAILURE;
-  }
-
-  rv = loader->LoadImage(uri, nsnull, nsnull, nsnull, loadGroup, this,
-                         nsnull, nsIRequest::LOAD_NORMAL, nsnull,
-                         nsnull, nsnull, getter_AddRefs(mIconRequest));
-  if (NS_FAILED(rv)) {
-    NS_WARNING("Failed to load icon");
-    return rv;
-  }
-
-  mIconRequest->RequestDecode();
-
-  mImageRect.SetEmpty();
+  nsIntRect imageRect;
 
   if (domRect) {
     PRInt32 bottom = GetDOMRectSide(domRect, &nsIDOMRect::GetBottom);
@@ -279,62 +219,69 @@ uGlobalMenuObject::IconLoader::Run()
     PRInt32 left = GetDOMRectSide(domRect, &nsIDOMRect::GetLeft);
 
     if (top < 0 || left < 0 || bottom <= top || right <= left) {
-      return NS_ERROR_FAILURE;
+      return;
     }
 
-    mImageRect.SetRect(left, top, right - left, bottom - top);
+    imageRect.SetRect(left, top, right - left, bottom - top);
   }
 
-  return NS_OK;
+  if (mUriString.Equals(uriString) && mImageRect.IsEqualEdges(imageRect)) {
+    LOGM(mMenuItem, "Icon has not changed");
+    return;
+  }
+
+  LOGM(mMenuItem, "Icon URI: %s", NS_LossyConvertUTF16toASCII(uriString).get());
+
+  if (mIconRequest) {
+    mIconRequest->CancelAndForgetObserver(NS_BINDING_ABORTED);
+    mIconRequest = nullptr;
+  }
+
+  mIconLoaded = false;
+
+  nsCOMPtr<nsIURI> uri;
+  rv = NS_NewURI(getter_AddRefs(uri), uriString);
+  if (NS_FAILED(rv)) {
+    NS_WARNING("Failed to create new URI");
+    return;
+  }
+
+  nsCOMPtr<nsILoadGroup> loadGroup = doc->GetDocumentLoadGroup();
+  imgILoader *loader = uGlobalMenuService::GetIconLoader();
+  NS_ASSERTION(loader, "Failed to get image loader");
+  if (!loader) {
+    return;
+  }
+
+#if MOZILLA_BRANCH_VERSION >= 20
+  rv = loader->LoadImageXPCOM(uri, nullptr, nullptr, nullptr, loadGroup, this,
+#else
+  rv = loader->LoadImage(uri, nullptr, nullptr, nullptr, loadGroup, this,
+#endif
+#if MOZILLA_BRANCH_VERSION >= 19
+                         nullptr, nsIRequest::LOAD_NORMAL,
+#else
+                         nullptr, nsIRequest::LOAD_NORMAL, nullptr,
+#endif
+                         nullptr, nullptr, getter_AddRefs(mIconRequest));
+  if (NS_FAILED(rv)) {
+    NS_WARNING("Failed to load icon");
+    return;
+  }
+
+  mIconRequest->RequestDecode();
+
+  mUriString = uriString;
+  mImageRect = imageRect;
+
+  return;
 }
 
-void
-uGlobalMenuObject::IconLoader::ClearIcon()
-{
-  dbusmenu_menuitem_property_remove(mMenuItem->GetDbusMenuItem(),
-                                    DBUSMENU_MENUITEM_PROP_ICON_DATA);
-}
-
-NS_IMETHODIMP
-uGlobalMenuObject::IconLoader::OnStartRequest(imgIRequest *aRequest)
-{
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
-
-NS_IMETHODIMP
-uGlobalMenuObject::IconLoader::OnStartDecode(imgIRequest *aRequest)
-{
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
-
-NS_IMETHODIMP
-uGlobalMenuObject::IconLoader::OnStartContainer(imgIRequest *aRequest,
-                                                imgIContainer *aContainer)
+nsresult
+uGlobalMenuObject::IconLoader::OnStopFrame(imgIRequest *aRequest)
 {
   TRACEM(mMenuItem);
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
 
-NS_IMETHODIMP
-uGlobalMenuObject::IconLoader::OnStartFrame(imgIRequest *aRequest,
-                                            PRUint32 aFrame)
-{
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
-
-NS_IMETHODIMP
-uGlobalMenuObject::IconLoader::OnDataAvailable(imgIRequest *aRequest,
-                                               bool aCurrentFrame,
-                                               const nsIntRect *aRect)
-{
-  return NS_ERROR_NOT_IMPLEMENTED;
-}
-
-NS_IMETHODIMP
-uGlobalMenuObject::IconLoader::OnStopFrame(imgIRequest *aRequest,
-                                           PRUint32 aFrame)
-{
-  TRACEM(mMenuItem);
   if (aRequest != mIconRequest) {
     return NS_ERROR_FAILURE;
   }
@@ -379,7 +326,7 @@ uGlobalMenuObject::IconLoader::OnStopFrame(imgIRequest *aRequest,
      * GDbus helpfully aborts the application. Thank you :)
      */
     NS_WARNING("Icon data too large");
-    ClearIcon();
+    mMenuItem->ClearIcon();
     return NS_OK;
   }
 
@@ -407,11 +354,93 @@ uGlobalMenuObject::IconLoader::OnStopFrame(imgIRequest *aRequest,
                                          pixbuf);
     g_object_unref(pixbuf);
   } else {
-    ClearIcon();
+    NS_WARNING("Failed to create pixbuf");
+    mMenuItem->ClearIcon();
   }
 
   return NS_OK;
 }
+
+void
+uGlobalMenuObject::IconLoader::OnStopRequest()
+{
+  TRACEM(mMenuItem);
+
+  if (mIconRequest) {
+    mIconRequest->Cancel(NS_BINDING_ABORTED);
+    mIconRequest = nullptr;
+  }
+}
+
+#if MOZILLA_BRANCH_VERSION >= 19
+
+NS_IMETHODIMP
+uGlobalMenuObject::IconLoader::Notify(imgIRequest *aProxy,
+                                      int32_t aType,
+                                      const nsIntRect *aRect)
+{
+  if (aType == imgINotificationObserver::FRAME_COMPLETE) {
+    return OnStopFrame(aProxy);
+  } else if (aType == imgINotificationObserver::LOAD_COMPLETE) {
+    OnStopRequest();
+  }
+
+  return NS_OK;
+}
+
+#else
+
+NS_IMETHODIMP
+uGlobalMenuObject::IconLoader::OnStopFrame(imgIRequest *aRequest,
+                                           PRUint32 aFrame)
+{
+  return OnStopFrame(aRequest);
+}
+
+NS_IMETHODIMP
+uGlobalMenuObject::IconLoader::OnStopRequest(imgIRequest *aRequest,
+                                             bool aIsLastPart)
+{
+  OnStopRequest();
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+uGlobalMenuObject::IconLoader::OnStartRequest(imgIRequest *aRequest)
+{
+  return NS_ERROR_NOT_IMPLEMENTED;
+}
+
+NS_IMETHODIMP
+uGlobalMenuObject::IconLoader::OnStartDecode(imgIRequest *aRequest)
+{
+  return NS_ERROR_NOT_IMPLEMENTED;
+}
+
+NS_IMETHODIMP
+uGlobalMenuObject::IconLoader::OnStartContainer(imgIRequest *aRequest,
+                                                imgIContainer *aContainer)
+{
+  TRACEM(mMenuItem);
+  return NS_ERROR_NOT_IMPLEMENTED;
+}
+
+NS_IMETHODIMP
+uGlobalMenuObject::IconLoader::OnStartFrame(imgIRequest *aRequest,
+                                            PRUint32 aFrame)
+{
+  return NS_ERROR_NOT_IMPLEMENTED;
+}
+
+NS_IMETHODIMP
+uGlobalMenuObject::IconLoader::OnDataAvailable(imgIRequest *aRequest,
+                                               bool aCurrentFrame,
+                                               const nsIntRect *aRect)
+{
+  return NS_ERROR_NOT_IMPLEMENTED;
+}
+
+
 
 NS_IMETHODIMP
 uGlobalMenuObject::IconLoader::OnStopContainer(imgIRequest *aRequest,
@@ -427,20 +456,6 @@ uGlobalMenuObject::IconLoader::OnStopDecode(imgIRequest *aRequest,
 {
   TRACEM(mMenuItem);
   return NS_ERROR_NOT_IMPLEMENTED;
-}
-
-NS_IMETHODIMP
-uGlobalMenuObject::IconLoader::OnStopRequest(imgIRequest *aRequest,
-                                             bool aIsLastPart)
-{
-  TRACEM(mMenuItem);
-
-  if (mIconRequest) {
-    mIconRequest->Cancel(NS_BINDING_ABORTED);
-    mIconRequest = nsnull;
-  }
-
-  return NS_OK;
 }
 
 NS_IMETHODIMP
@@ -463,35 +478,98 @@ uGlobalMenuObject::IconLoader::OnImageIsAnimated(imgIRequest* aRequest)
   return NS_OK;
 }
 
+#endif
+
 void
 uGlobalMenuObject::IconLoader::Destroy()
 {
   TRACEM(mMenuItem);
+
   if (mIconRequest) {
-    mIconRequest->Cancel(NS_BINDING_ABORTED);
-    mIconRequest = nsnull;
+    mIconRequest->CancelAndForgetObserver(NS_BINDING_ABORTED);
+    mIconRequest = nullptr;
   }
 
-  mMenuItem = nsnull;
+  mMenuItem = nullptr;
+}
+
+uGlobalMenuBar*
+uGlobalMenuObject::GetMenuBar()
+{
+  uGlobalMenuObject *tmp = this;
+  while (tmp) {
+    if (tmp->GetType() == eMenuBar) {
+      return static_cast<uGlobalMenuBar *>(tmp);
+    }
+
+    tmp = tmp->GetParent();
+  }
+
+  return nullptr;
 }
 
 void
-uGlobalMenuObject::SyncLabelFromContent(nsIContent *aContent)
+uGlobalMenuObject::ClearIcon()
 {
-  MENUOBJECT_REENTRANCY_GUARD(UNITY_MENUOBJECT_SYNC_LABEL_GUARD);
+  dbusmenu_menuitem_property_remove(mDbusMenuItem,
+                                    DBUSMENU_MENUITEM_PROP_ICON_DATA);
+}
+
+bool
+uGlobalMenuObject::ShouldShowIcon()
+{
+  // Ideally, we want to get the visibility of the XUL image in our menu item,
+  // but that is anonymous content which is only created when the frame is drawn
+  // (which obviously never happens here).
+  // As an alternative, we get the user setting for menus-have-icons from
+  // nsILookAndFeel. If menu icons are to be hidden, we hide everything except
+  // for menuitems with the menuitem-with-favicon class. This is basically
+  // how the visibility gets set anyway (see chrome://toolkit/content/xul.css),
+  // which should work in most cases. But, I guess a theme could override this,
+  // and then we ignore the users theme settings. Oh well......
+
+  if (sImagesInMenus == 0xFF) {
+    // We could get the correct GtkSettings by getting the GdkScreen that our
+    // top-level window is on. However, I don't think this matters, as
+    // nsILookAndFeel never had per-screen settings
+    GtkSettings *settings = gtk_settings_get_default();
+    gboolean menus_have_icons;
+    g_object_get(settings, "gtk-menu-images", &menus_have_icons, NULL);
+
+    sImagesInMenus = menus_have_icons ? 1 : 0;
+  }
+
+  if (sImagesInMenus) {
+    return true;
+  }
+
+  nsCOMPtr<nsIDOMElement> element = do_QueryInterface(mContent);
+  if (!element) {
+    return false;
+  }
+
+  nsCOMPtr<nsIDOMDOMTokenList> classes;
+  element->GetClassList(getter_AddRefs(classes));
+  if (!classes) {
+    return false;
+  }
+
+  bool show;
+  classes->Contains(NS_LITERAL_STRING("menuitem-with-favicon"), &show);
+
+  return show;
+}
+
+void
+uGlobalMenuObject::SyncLabelFromContent()
+{
   TRACETM();
   // Gecko stores the label and access key in separate attributes
   // so we need to convert label="Foo"/accesskey="F" in to
   // label="_Foo" for dbusmenu
 
   nsAutoString label;
-  if (aContent && aContent->GetAttr(kNameSpaceID_None,
-                                    uWidgetAtoms::label, label)) {
-    LOGC(aContent, "Content has label \"%s\"", LOGU16TOU8(label));
-    mContent->SetAttr(kNameSpaceID_None, uWidgetAtoms::label, label, true);
-  } else {
-    mContent->GetAttr(kNameSpaceID_None, uWidgetAtoms::label, label);
-  }
+  mContent->GetAttr(kNameSpaceID_None, uWidgetAtoms::label, label);
 
   nsAutoString accesskey;
   mContent->GetAttr(kNameSpaceID_None, uWidgetAtoms::accesskey, accesskey);
@@ -549,22 +627,16 @@ uGlobalMenuObject::SyncLabelFromContent(nsIContent *aContent)
     for (PRUint32 i = 1; i < 4; i++) {
       *(cur + (MAX_LABEL_NCHARS - i)) = PRUnichar('.');
     }
-    *(cur + MAX_LABEL_NCHARS) = nsnull;
+    *(cur + MAX_LABEL_NCHARS) = 0;
     label.SetLength(MAX_LABEL_NCHARS);
   }
 
-  nsCAutoString clabel;
+  nsAutoCString clabel;
   CopyUTF16toUTF8(label, clabel);
   LOGTM("Setting label to \"%s\"", clabel.get());
   dbusmenu_menuitem_property_set(mDbusMenuItem,
                                  DBUSMENU_MENUITEM_PROP_LABEL,
                                  clabel.get());
-}
-
-void
-uGlobalMenuObject::SyncLabelFromContent()
-{
-  SyncLabelFromContent(nsnull);
 }
 
 inline static void
@@ -575,10 +647,12 @@ GetCSSIdentValue(nsIDOMCSSStyleDeclaration *aStyle,
   aStyle->GetPropertyCSSValue(aProp, getter_AddRefs(value));
   if (value) {
     nsCOMPtr<nsIDOMCSSPrimitiveValue> pval = do_QueryInterface(value);
-    PRUint16 type;
-    pval->GetPrimitiveType(&type);
-    if (type == nsIDOMCSSPrimitiveValue::CSS_IDENT) {
-      pval->GetStringValue(aResult);
+    if (pval) {
+      PRUint16 type;
+      pval->GetPrimitiveType(&type);
+      if (type == nsIDOMCSSPrimitiveValue::CSS_IDENT) {
+        pval->GetStringValue(aResult);
+      }
     }
   }
 }
@@ -611,38 +685,21 @@ uGlobalMenuObject::SyncVisibilityFromContent()
   }
 
   LOGTM("Setting visibility to %s", vis ? "visible" : "hidden");
-  SetOrClearFlags(vis, UNITY_MENUOBJECT_CONTENT_IS_VISIBLE);
   dbusmenu_menuitem_property_set_bool(mDbusMenuItem,
                                       DBUSMENU_MENUITEM_PROP_VISIBLE,
                                       vis);
 }
 
 void
-uGlobalMenuObject::SyncSensitivityFromContent(nsIContent *aContent)
+uGlobalMenuObject::SyncSensitivityFromContent()
 {
-  MENUOBJECT_REENTRANCY_GUARD(UNITY_MENUOBJECT_SYNC_SENSITIVITY_GUARD);
   TRACETM();
 
-  nsIContent *content;
-  if (aContent) {
-    content = aContent;
-  } else {
-    content = mContent;
-  }
-  bool disabled = content->AttrValueIs(kNameSpaceID_None,
-                                       uWidgetAtoms::disabled,
-                                       uWidgetAtoms::_true,
-                                       eCaseMatters);
+  bool disabled = mContent->AttrValueIs(kNameSpaceID_None,
+                                        uWidgetAtoms::disabled,
+                                        uWidgetAtoms::_true,
+                                        eCaseMatters);
   LOGTM("Setting %s", disabled ? "disabled" : "enabled");
-
-  if (aContent) {
-    if (disabled) {
-      mContent->SetAttr(kNameSpaceID_None, uWidgetAtoms::disabled,
-                        NS_LITERAL_STRING("true"), true);
-    } else {
-      mContent->UnsetAttr(kNameSpaceID_None, uWidgetAtoms::disabled, true);
-    }
-  }
 
   dbusmenu_menuitem_property_set_bool(mDbusMenuItem,
                                       DBUSMENU_MENUITEM_PROP_ENABLED,
@@ -650,57 +707,36 @@ uGlobalMenuObject::SyncSensitivityFromContent(nsIContent *aContent)
 }
 
 void
-uGlobalMenuObject::SyncSensitivityFromContent()
-{
-  SyncSensitivityFromContent(nsnull);
-}
-
-void
 uGlobalMenuObject::SyncIconFromContent()
 {
   TRACETM();
-  if (!mIconLoader) {
-    mIconLoader = new IconLoader(this);
-  }
+  if (ShouldShowIcon()) {
+    if (!mIconLoader) {
+      mIconLoader = new IconLoader(this);
+    }
 
-  mIconLoader->LoadIcon();
-}
-
-void
-uGlobalMenuObject::DestroyIconLoader()
-{
-  if (mIconLoader) {
-    mIconLoader->Destroy();
-  }
-}
-
-void
-uGlobalMenuObject::Invalidate()
-{
-  if (IsContainerOnScreen()) {
-    Refresh();
+    mIconLoader->ScheduleIconLoad();
   } else {
-    SetFlags(UNITY_MENUOBJECT_IS_DIRTY);
-  }
-}
+    if (mIconLoader) {
+      mIconLoader->Destroy();
+      mIconLoader = nullptr;
+    }
 
-void
-uGlobalMenuObject::ContainerIsOpening()
-{
-  TRACETM();
-
-  SetFlags(UNITY_MENUOBJECT_CONTAINER_ON_SCREEN);
-
-  if (IsDirty()) {
-    Refresh();
+    ClearIcon();
   }
 }
 
 DbusmenuMenuitem*
 uGlobalMenuObject::GetDbusMenuItem()
 {
+  if (IsDestroyed()) {
+    return nullptr;
+  }
+
   if (!mDbusMenuItem) {
+    mDbusMenuItem = dbusmenu_menuitem_new();
     InitializeDbusMenuItem();
+    Refresh(eRefreshFull);
   }
 
   return mDbusMenuItem;
@@ -709,15 +745,18 @@ uGlobalMenuObject::GetDbusMenuItem()
 void
 uGlobalMenuObject::SetDbusMenuItem(DbusmenuMenuitem *aDbusMenuItem)
 {
+  NS_ASSERTION(!IsDestroyed(), "Menuobject has been destroyed");
   NS_ASSERTION(!mDbusMenuItem, "This node already has a corresponding DbusmenuMenuitem");
-  if (mDbusMenuItem) {
+  if (mDbusMenuItem || IsDestroyed()) {
     return;
   }
 
   mDbusMenuItem = aDbusMenuItem;
   g_object_ref(mDbusMenuItem);
 
+  OnlyKeepProperties(GetValidProperties());
   InitializeDbusMenuItem();
+  Refresh(eRefreshFull);
 }
 
 void
@@ -735,21 +774,75 @@ uGlobalMenuObject::OnlyKeepProperties(uMenuObjectProperties aKeep)
 void
 uGlobalMenuObject::GetComputedStyle(nsIDOMCSSStyleDeclaration **aResult)
 {
-  *aResult = nsnull;
+  *aResult = nullptr;
 
   nsIDocument *doc = mContent->GetCurrentDoc();
-  if (doc) {
-    nsCOMPtr<nsIDOMWindow> domWin;
-    nsCOMPtr<nsIDOMDocument> domDoc = do_QueryInterface(doc);
-    if (domDoc) {
-      domDoc->GetDefaultView(getter_AddRefs(domWin));
-      if (domWin) {
-        nsCOMPtr<nsIDOMElement> domElement = do_QueryInterface(mContent);
-        if (domElement) {
-          domWin->GetComputedStyle(domElement, EmptyString(),
-                                   aResult);
-        }
-      }
-    }
+  if (!doc) {
+    return;
   }
+
+  nsCOMPtr<nsIDOMDocument> domDoc = do_QueryInterface(doc);
+  if (!domDoc) {
+    return;
+  }
+
+  nsCOMPtr<nsIDOMWindow> domWin;
+  domDoc->GetDefaultView(getter_AddRefs(domWin));
+  if (!domWin) {
+    return;
+  }
+
+  nsCOMPtr<nsIDOMElement> domElement = do_QueryInterface(mContent);
+  if (domElement) {
+    domWin->GetComputedStyle(domElement, EmptyString(),
+                             aResult);
+  }
+}
+
+uGlobalMenuObject::~uGlobalMenuObject()
+{
+  TRACETM();
+
+  if (!IsDestroyed()) {
+    Destroy();
+  }
+}
+
+void
+uGlobalMenuObject::ContainerIsOpening()
+{
+  NS_ASSERTION(!IsDestroyed(), "Menuobject has been destroyed");
+  if (IsDestroyed()) {
+    return;
+  }
+
+  Refresh(eContainerOpeningRefresh);
+}
+
+void
+uGlobalMenuObject::Destroy()
+{
+  TRACETM();
+
+  NS_ASSERTION(!IsDestroyed(), "Menuobject is already destroyed");
+  if (IsDestroyed()) {
+    return;
+  }
+
+  if (mIconLoader) {
+    mIconLoader->Destroy();
+  }
+
+  if (mListener) {
+    mListener->UnregisterForContentChanges(mContent, this);
+  }
+
+  if (mDbusMenuItem) {
+    g_object_unref(mDbusMenuItem);
+    mDbusMenuItem = nullptr;
+  }
+
+  mParent = nullptr;
+
+  SetFlags(UNITY_MENUOBJECT_DESTROYED);
 }

@@ -41,6 +41,7 @@
 #include "mozilla/ModuleUtils.h"
 #include "uGlobalMenuService.h"
 #include "uGlobalMenuLoader.h"
+#include "uGlobalMenuDocListener.h"
 
 NS_GENERIC_FACTORY_SINGLETON_CONSTRUCTOR(uGlobalMenuService,
                                          uGlobalMenuService::GetInstanceForService)
@@ -65,6 +66,7 @@ static void
 UnloadMenuModule()
 {
     uGlobalMenuService::Shutdown();
+    uGlobalMenuDocListener::Shutdown();
 }
 
 static const mozilla::Module kGlobalMenuModule = {

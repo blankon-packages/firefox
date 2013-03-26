@@ -1,388 +1,135 @@
 #!/usr/bin/make -f
 
-DISTRIB_VERSION_MAJOR 	= $(shell lsb_release -s -r | cut -d '.' -f 1)
-DISTRIB_VERSION_MINOR 	= $(shell lsb_release -s -r | cut -d '.' -f 2)
-DISTRIB_CODENAME	= $(shell lsb_release -s -c)
-
+include $(CURDIR)/debian/build/mozvars.mk
 include $(CURDIR)/debian/config/branch.mk
 
-MOZ_APP_BASENAME	:= firefox
+MOZ_PKG_BASENAME	:= firefox
+MOZ_APP			:= browser
+MOZ_VENDOR		:= Mozilla
 MOZ_MOZDIR		:=
 
-# Various build defaults
-# 1 = Enable crashreporter (if supported)
-MOZ_ENABLE_BREAKPAD	?= 0
-# 1 = Disable official branding and crash reporter (the crash reporter builds but is not enabled in application.ini)
-MOZ_BUILD_UNOFFICIAL	?= 1
-# 1 = Build without jemalloc suitable for valgrind debugging
-MOZ_VALGRIND		?= 0
-# 1 = Profile guided build
-MOZ_BUILD_PGO		?= 0
-# 1 = Build and run the testsuite
-MOZ_WANT_UNIT_TESTS	?= 0
-# 1 = Turn on debugging bits and disable optimizations
-MOZ_DEBUG		?= 0
-# 1 = Disable optimizations
-MOZ_NO_OPTIMIZE		?= 0
-
-# These are used for cross-compiling and for saving the configure script
-# from having to guess our platform (since we know it already)
-DEB_HOST_GNU_TYPE	?= $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
-DEB_BUILD_GNU_TYPE	?= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
-DEB_HOST_ARCH		?= $(shell dpkg-architecture -qDEB_HOST_ARCH)
-DEB_HOST_GNU_CPU	?= $(shell dpkg-architecture -qDEB_HOST_GNU_CPU)
-DEB_HOST_GNU_SYSTEM	?= $(shell dpkg-architecture -qDEB_HOST_GNU_SYSTEM)
-# Other things which should be defined before including the CDBS rules
-DEB_TAR_SRCDIR		:= mozilla
-
-# We need this to execute before the debian/control target gets called
-clean:: pre-auto-update-debian-control
-
-# We need this to run before apply-patches
-post-patches:: enable-dist-patches
-
--include /usr/share/cdbs/1/rules/tarball.mk
--include /usr/share/cdbs/1/rules/debhelper.mk
--include /usr/share/cdbs/1/rules/patchsys-quilt.mk
--include /usr/share/cdbs/1/class/makefile.mk
-include $(CURDIR)/debian/build/get-orig-source.mk
-
-MOZ_OBJDIR		:= $(DEB_BUILDDIR)/$(MOZ_MOZDIR)/obj-$(DEB_HOST_GNU_TYPE)
-MOZ_DISTDIR		:= $(MOZ_OBJDIR)/$(MOZ_MOZDIR)/dist
-
-# Define other variables used throughout the build
-MOZ_APP_NAME		:= $(shell dpkg-parsechangelog | sed -n 's/^Source: *\(.*\)$$/\1/ p')
-MOZ_APP_NAME_SUFFIX	:= $(shell echo $(MOZ_APP_NAME) | sed 's/\($(MOZ_APP_BASENAME)\)\-*\(.*\)/\2/' )
-
-DEB_MAKE_MAKEFILE	:= client.mk
-# Without this, CDBS passes CFLAGS and CXXFLAGS options to client.mk, which breaks the build
-DEB_MAKE_EXTRA_ARGS	:=
-# These normally come from autotools.mk, which we no longer include (because we
-# don't want to run configure)
-DEB_MAKE_INSTALL_TARGET	:= install DESTDIR=$(CURDIR)/debian/tmp
-DEB_MAKE_CLEAN_TARGET	:= distclean
-DEB_DH_STRIP_ARGS	:= --dbg-package=$(MOZ_APP_NAME)-dbg
-# We don't want build-tree/mozilla/README to be shipped as a doc
-DEB_INSTALL_DOCS_ALL 	:= $(NULL)
-
-MOZ_VERSION		= $(shell cat $(DEB_BUILDDIR)/browser/config/version.txt)
-MOZ_LIBDIR		= usr/lib/$(MOZ_APP_NAME)
-MOZ_INCDIR		= usr/include/$(MOZ_APP_NAME)
-MOZ_IDLDIR		= usr/share/idl/$(MOZ_APP_NAME)
-MOZ_SDKDIR		= usr/lib/$(MOZ_APP_NAME)-devel
-MOZ_ADDONDIR		= usr/lib/$(MOZ_APP_NAME)-addons
-
-DEB_AUTO_UPDATE_DEBIAN_CONTROL	= no
-
-MOZ_PYTHON		:= $(shell which python)
-DISTRIB 		:= $(shell lsb_release -i -s)
-
-NO_AUTO_REFRESH_LOCALES	?= 0
-
-CFLAGS			= -g
-CXXFLAGS		= -g
-LDFLAGS 		= $(shell echo $$LDFLAGS | sed -e 's/-Wl,-Bsymbolic-functions//')
-
-ifneq (,$(findstring nocheck,$(DEB_BUILD_OPTIONS)))
-	MOZ_WANT_UNIT_TESTS=0
-endif
-
-ifeq (1,$(MOZ_VALGRIND))
-	MOZ_BUILD_UNOFFICIAL = 1
-endif
-
-ifneq (,$(findstring noopt,$(DEB_BUILD_OPTIONS)))
-	MOZ_BUILD_PGO = 0
-	MOZ_NO_OPTIMIZE = 1
-endif
-
-ifneq (,$(findstring debug,$(DEB_BUILD_OPTIONS)))
-	MOZ_NO_OPTIMIZE = 1
-	MOZ_DEBUG = 1
-	MOZ_BUILD_UNOFFICIAL = 1
-endif
-
-include $(CURDIR)/debian/build/testsuite.mk
-
-ifneq ($(MOZ_APP_NAME),$(MOZ_APP_BASENAME))
-	# We don't want to make builds which change MOZ_APP_NAME official
-	MOZ_BUILD_UNOFFICIAL = 1
-endif
-
-# enable the crash reporter only on i386, amd64 and armel
-ifeq (,$(filter i386 amd64 armel,$(DEB_HOST_ARCH)))
-	MOZ_ENABLE_BREAKPAD = 0
-endif
-
-# powerpc sucks
-ifneq (,$(filter powerpc,$(DEB_HOST_ARCH)))
-	MOZ_WANT_UNIT_TESTS = 0
-endif
-
-# Ensure the crash reporter gets disabled for derivatives
-ifneq (BlankOn, $(DISTRIB))
-	MOZ_ENABLE_BREAKPAD = 0
-endif
-
-BRANDING	= $(CHANNEL)
-ifneq (,$(filter release beta, $(BRANDING)))
-	BRANDING = official
+MOZ_BRANDING		:= $(CHANNEL)
+ifneq (,$(filter release beta, $(MOZ_BRANDING)))
+MOZ_BRANDING		:= official
 endif
 ifeq (1,$(MOZ_BUILD_UNOFFICIAL))
-ifneq (,$(filter official aurora, $(BRANDING)))
-	BRANDING = unofficial
+ifneq (,$(filter official aurora, $(MOZ_BRANDING)))
+MOZ_BRANDING		:= unofficial
 endif
 endif
+MOZ_BRANDING_DIR 	:= $(MOZ_APP)/branding/$(MOZ_BRANDING)
 ifeq (official,$(BRANDING))
-	MOZ_BRANDING_OPTION = --enable-official-branding
+MOZ_BRANDING_OPTION	:= --enable-official-branding
 else
-	MOZ_BRANDING_OPTION = --with-branding=$(BRANDING_DIR)
-endif
-BRANDING_DIR		= browser/branding/$(BRANDING)
-MOZ_DISPLAY_NAME	= $(shell cat $(DEB_BUILDDIR)/$(BRANDING_DIR)/locales/en-US/brand.properties \
-			    | grep brandShortName | sed -e 's/brandShortName\=//')
-
-ifeq (,$(filter i386 amd64, $(DEB_HOST_ARCH)))
-MOZ_BUILD_PGO = 0
+MOZ_BRANDING_OPTION	:= --with-branding=$(MOZ_BRANDING_DIR)
 endif
 
-export LDFLAGS
-export DEB_BUILD_HARDENING=1
-ifeq (BlankOn, $(DISTRIB))
-export MOZ_UA_VENDOR=BlankOn
-endif
-ifeq (1,$(shell test "$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)" -lt "1110" && echo "1"))
-	MOZ_BUILD_PGO := 0
-endif
-ifeq (1,$(shell test "$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)" -ge "1104" && echo "1"))
-	MOZ_ENABLE_GLOBALMENU := 1
-endif
-ifeq (1,$(shell test "$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)" -ge "1010" && echo "1"))
-	MOZ_SYSTEM_DICTDIR = /usr/share/hunspell
+ifneq (,$(filter oneiric, $(DISTRIB_CODENAME)))
+MOZ_SEARCHPLUGIN_DIR	= $(MOZ_ADDONDIR)/distribution/searchplugins
 else
-	MOZ_SYSTEM_DICTDIR = /usr/share/myspell/dicts
-endif
-ifeq (1,$(shell test "$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)" -eq "1110" && echo "1"))
-	DIST_SEARCHPLUGIN_DIR = $(MOZ_ADDONDIR)/distribution/searchplugins
-else
-	DIST_SEARCHPLUGIN_DIR = $(MOZ_LIBDIR)/distribution/searchplugins
-endif
-export MOZCONFIG=$(CURDIR)/debian/config/mozconfig
-ifneq (1,$(MOZ_BUILD_UNOFFICIAL))
-	export BUILD_OFFICIAL=1
-endif
-ifeq (1,$(MOZ_ENABLE_BREAKPAD))
-	# Needed to enable crashreported in application.ini
-	export MOZILLA_OFFICIAL=1
+MOZ_SEARCHPLUGIN_DIR	= $(MOZ_LIBDIR)/distribution/searchplugins
 endif
 
-ifeq (linux-gnu, $(DEB_HOST_GNU_SYSTEM))
-LANGPACK_DIR := linux-$(DEB_HOST_GNU_CPU)/xpi
-else
-LANGPACK_DIR := $(DEB_HOST_GNU_SYSTEM)-$(DEB_HOST_GNU_CPU)/xpi
-endif
-
-ifeq ($(MOZ_APP_BASENAME), $(MOZ_APP_NAME))
-ifeq (1,$(shell test "$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)" -eq "1004" && echo "1"))
+ifeq (firefox, $(MOZ_APP_NAME))
+ifneq (,$(filter lucid, $(DISTRIB_CODENAME)))
 PLUGIN_BREAKS := flashplugin-installer (<= 11.2.202.233ubuntu0.10.04.1), adobe-flashplugin (<= 11.1.102.63-0lucid1)
 PLUGIN_CONFLICTS := gcu-plugin (<= 0.10.12-2ubuntu1), gecko-mediaplayer (<= 0.9.9.2-1ubuntu0.10.04.1), \
 		    mozilla-gtk-vnc (<= 0.3.10-2ubuntu2.1), mozilla-opensc  (<= 0.11.12-1ubuntu3.2), \
 		    mozilla-plugin-pcmanx (<= 0.3.9-2ubuntu2), mozplugger (<= 1.13.3-1ubuntu1), \
 		    xine-plugin (<= 1.0.2-1ubuntu2), mozilla-virt-viewer (<= 0.0.3-6ubuntu7.xul191.1)
 else
-ifeq (1,$(shell test "$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)" -eq "1010" && echo "1"))
+ifneq (,$(filter maverick, $(DISTRIB_CODENAME)))
 PLUGIN_BREAKS := flashplugin-installer (<= 11.2.202.228ubuntu0.10.10.1), adobe-flashplugin (<= 11.1.102.63-0maverick1)
 PLUGIN_CONFLICTS := gcu-plugin (<= 0.12.3-1), gecko-mediaplayer (<= 0.9.9.2-1ubuntu0.10.10.1), \
 		    mozilla-gtk-vnc (<= 0.4.1-3ubuntu2), mozilla-opensc (<= 0.11.13-1ubuntu2.1), \
 		    mozilla-plugin-pcmanx (<= 0.3.9-2ubuntu2), mozplugger (<= 1.14.1-2~exp3ubuntu1), \
 		    xine-plugin (<= 1.0.2-2ubuntu1)
 else
-ifeq (1,$(shell test "$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)" -eq "1104" && echo "1"))
+ifneq (,$(filter natty, $(DISTRIB_CODENAME)))
 PLUGIN_BREAKS := flashplugin-installer (<= 11.2.202.233ubuntu0.11.04.2), adobe-flashplugin (<= 11.1.102.63-0natty1)
 PLUGIN_CONFLICTS := gcu-plugin (<=  0.12.7-1ubuntu1)
 else
-ifeq (1,$(shell test "$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)" -eq "1110" && echo "1"))
+ifneq (,$(filter oneiric, $(DISTRIB_CODENAME)))
 PLUGIN_BREAKS := flashplugin-installer (<= 11.2.202.233ubuntu0.11.10.3), adobe-flashplugin (<= 11.1.102.63-0oneiric1)
 PLUGIN_CONFLICTS := gcu-plugin (<= 0.12.8-1ubuntu3)
 else
+ifneq (,$(filter precise, $(DISTRIB_CODENAME)))
 PLUGIN_BREAKS := flashplugin-installer (<= 11.1.102.63ubuntu1), adobe-flashplugin (<= 11.1.102.63-0precise1)
 PLUGIN_CONFLICTS := gcu-plugin (<= 0.12.10-1ubuntu1)
 endif
 endif
 endif
 endif
-ifeq (1,$(shell test "$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)" -ge "1010" && echo "1"))
-APP_CONTROL_ARGS := -Vapp:Replaces="abrowser, abrowser-branding, firefox-branding, kubuntu-firefox-installer" \
-		    -Vapp:Breaks="abrowser (<= 4.0~b11+build3+nobinonly-0ubuntu1), abrowser-branding (<= 4.0~b11+build3+nobinonly-0ubuntu1), \
-				  firefox-branding (<= 4.0~b11+build3+nobinonly-0ubuntu1), $(PLUGIN_BREAKS)" \
-		    -Vapp:Conflicts="$(PLUGIN_CONFLICTS)"
+endif
+endif
+
+ifeq (firefox, $(MOZ_PKG_NAME))
+ifeq (,$(filter lucid maverick natty oneiric precise, $(DISTRIB_CODENAME)))
+PKG_APP_REPLACES_ARGS	:= kubuntu-firefox-installer
 else
-APP_CONTROL_ARGS := -Vapp:Provides="firefox-3.6, firefox-3.5, firefox-3.0, firefox-2, firefox-2-dom-inspector, firefox-2-libthai" \
-		    -Vapp:Conflicts="firefox-3.6 (<< 3.6~hg20100117r33523), firefox-3.5 (<< 3.6~hg20100117r33523), \
-				     firefox-3.0 (<< 3.6~hg20100117r33523), firefox-3.6-gnome-support (<< 3.6~hg20100117r33523), \
-				     firefox-2 (<< 3), firefox-2-libthai (<< 3), firefox-2-dom-inspector (<< 3), \
-				     abrowser (<= 4.0~b11+build3+nobinonly-0ubuntu1), abrowser-branding (<= 4.0~b11+build3+nobinonly-0ubuntu1), \
-				     firefox-branding (<= 4.0~b11+build3+nobinonly-0ubuntu1), $(PLUGIN_CONFLICTS)" \
-		    -Vapp:Replaces="firefox-3.6, firefox-3.5, firefox-3.0, firefox-3.6-gnome-support, firefox-2, firefox-2-libthai, \
-				    firefox-2-dom-inspector, abrowser, abrowser-branding, firefox-branding, kubuntu-firefox-installer" \
-		    -Vapp:Breaks="$(PLUGIN_BREAKS)"
-DEV_CONTROL_ARGS := -Vdev:Provides="firefox-3.6-dev, firefox-3.5-dev, firefox-3.0-dev, firefox-2-dev" \
-		    -Vdev:Replaces="firefox-3.6-dev, firefox-3.5-dev, firefox-3.0-dev, firefox-2-dev" \
-		    -Vdev:Conflicts="firefox-3.6-dev (<< 3.6~hg20100117r33523+nobinonly), firefox-3.5-dev (<< 3.6~hg20100117r33523), \
-				     firefox-3.0-dev (<< 3.6~hg20100117r33523), firefox-2-dev (<< 3)"
-GS_CONTROL_ARGS := -Vgs:Provides="firefox-3.6-gnome-support, firefox-3.5-gnome-support, firefox-3.0-gnome-support, firefox-2" \
-		   -Vgs:Conflicts="firefox-3.6-gnome-support (<< 3.6~hg20100117r33523+nobinonly), \
-				   firefox-3.5-gnome-support (<< 3.6~hg20100117r33523), firefox-3.0-gnome-support (<< 3.6~hg20100117r33523), \
-				   firefox-2 (<< 3)" \
-		   -Vgs:Replaces="firefox-3.6-gnome-support, firefox-3.5-gnome-support, firefox-3.0-gnome-support, firefox-2-gnome-support"
-DBG_CONTROL_ARGS := -Vdbg:Conflicts="firefox-3.6-dbg (<< 3.6~hg20100117r33523+nobinonly), firefox-3.5-dbg (<< 3.6~hg20100117r33523), \
-				     firefox-2-dbg (<< 3)" \
-		    -Vdbg:Replaces="firefox-3.6-dbg, firefox-3.5-dbg, firefox-2-dbg" \
-		    -Vdbg:Provides="firefox-3.6-dbg, firefox-3.5-dbg, firefox-2-dbg"
-
-endif
-endif
-
-ifeq (1,$(shell test "$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)" -lt "1010" && echo "1"))
-DEB_DH_GENCONTROL_ARGS_$(MOZ_APP_NAME) := -- -Vsupport:Suggests="$(MOZ_APP_NAME)-gnome-support, kmozillahelper (>= 0.6)" $(APP_CONTROL_ARGS)
+ifeq (,$(filter lucid, $(DISTRIB_CODENAME)))
+PKG_APP_REPLACES_ARGS	:= abrowser, abrowser-branding, firefox-branding, kubuntu-firefox-installer
+PKG_APP_BREAKS_ARGS	:= abrowser (<= 4.0~b11+build3+nobinonly-0ubuntu1), abrowser-branding (<= 4.0~b11+build3+nobinonly-0ubuntu1), \
+			   firefox-branding (<= 4.0~b11+build3+nobinonly-0ubuntu1), $(PLUGIN_BREAKS)
+PKG_APP_CONFLICTS_ARGS	:= $(PLUGIN_CONFLICTS)
 else
-ifeq (1,$(shell test "$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)" -lt "1210" && echo "1"))
-DEB_DH_GENCONTROL_ARGS_$(MOZ_APP_NAME) := -- -Vsupport:Suggests="$(MOZ_APP_NAME)-gnome-support | firefox-kde-support" $(APP_CONTROL_ARGS)
+PKG_APP_PROVIDES_ARGS	:= firefox-3.6, firefox-3.5, firefox-3.0, firefox-2, firefox-2-dom-inspector, firefox-2-libthai
+PKG_APP_CONFLICTS_ARGS	:= firefox-3.6 (<< 3.6~hg20100117r33523), firefox-3.5 (<< 3.6~hg20100117r33523), \
+			   firefox-3.0 (<< 3.6~hg20100117r33523), firefox-3.6-gnome-support (<< 3.6~hg20100117r33523), \
+			   firefox-2 (<< 3), firefox-2-libthai (<< 3), firefox-2-dom-inspector (<< 3), \
+			   abrowser (<= 4.0~b11+build3+nobinonly-0ubuntu1), abrowser-branding (<= 4.0~b11+build3+nobinonly-0ubuntu1), \
+			   firefox-branding (<= 4.0~b11+build3+nobinonly-0ubuntu1), $(PLUGIN_CONFLICTS)
+PKG_APP_REPLACES_ARGS	:= firefox-3.6, firefox-3.5, firefox-3.0, firefox-3.6-gnome-support, firefox-2, firefox-2-libthai, \
+			   firefox-2-dom-inspector, abrowser, abrowser-branding, firefox-branding, kubuntu-firefox-installer
+PKG_APP_BREAKS_ARGS	:= $(PLUGIN_BREAKS)
+PKG_DEV_PROVIDES_ARGS	:= firefox-3.6-dev, firefox-3.5-dev, firefox-3.0-dev, firefox-2-dev
+PKG_DEV_REPLACES_ARGS	:= firefox-3.6-dev, firefox-3.5-dev, firefox-3.0-dev, firefox-2-dev
+PKG_DEV_CONFLICTS_ARGS	:= firefox-3.6-dev (<< 3.6~hg20100117r33523+nobinonly), firefox-3.5-dev (<< 3.6~hg20100117r33523), \
+			   firefox-3.0-dev (<< 3.6~hg20100117r33523), firefox-2-dev (<< 3)
+PKG_GS_PROVIDES_ARGS	:= firefox-3.6-gnome-support, firefox-3.5-gnome-support, firefox-3.0-gnome-support, firefox-2
+PKG_GS_CONFLICTS_ARGS	:= firefox-3.6-gnome-support (<< 3.6~hg20100117r33523+nobinonly), \
+			   firefox-3.5-gnome-support (<< 3.6~hg20100117r33523), firefox-3.0-gnome-support (<< 3.6~hg20100117r33523), \
+			   firefox-2 (<< 3)
+PKG_GS_REPLACES_ARGS	:= firefox-3.6-gnome-support, firefox-3.5-gnome-support, firefox-3.0-gnome-support, firefox-2-gnome-support
+PKG_DBG_CONFLICTS_ARGS	:= firefox-3.6-dbg (<< 3.6~hg20100117r33523+nobinonly), firefox-3.5-dbg (<< 3.6~hg20100117r33523), firefox-2-dbg (<< 3)
+PKG_DBG_REPLACES_ARGS	:= firefox-3.6-dbg, firefox-3.5-dbg, firefox-2-dbg
+PKG_DBG_PROVIDES_ARGS	:= firefox-3.6-dbg, firefox-3.5-dbg, firefox-2-dbg
+endif
+endif
+endif
+
+ifneq (,$(filter lucid, $(DISTRIB_CODENAME)))
+PKG_SUPPORT_SUGGESTS	:= $(MOZ_PKG_NAME)-gnome-support, kmozillahelper (>= 0.6)
 else
-DEB_DH_GENCONTROL_ARGS_$(MOZ_APP_NAME) := -- -Vsupport:Suggests="$(MOZ_APP_NAME)-gnome-support" $(APP_CONTROL_ARGS)
-endif
-endif
-ifneq (,$(DEV_CONTROL_ARGS))
-DEB_DH_GENCONTROL_ARGS_$(MOZ_APP_NAME)-dev := -- $(DEV_CONTROL_ARGS)
-endif
-# With GSettings and at-spi2 in 11.10, we no longer rely on gconf for anything
-ifeq (1,$(shell test "$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)" -lt "1110" && echo "1"))
-GCONF_DEPENDS := libgconf2-4
-endif
-DEB_DH_GENCONTROL_ARGS_$(MOZ_APP_NAME)-gnome-support := -- -Vgconf:Depends="$(GCONF_DEPENDS)" $(GS_CONTROL_ARGS)
-ifneq (,$(DBG_CONTROL_ARGS))
-DEB_DH_GENCONTROL_ARGS_$(MOZ_APP_NAME)-dbg := -- $(DBG_CONTROL_ARGS)
-endif
-
-# Defines used for the Mozilla text preprocessor
-DEB_DEFINES = 	-DMOZ_LIBDIR="$(MOZ_LIBDIR)" -DMOZ_APP_NAME="$(MOZ_APP_NAME)" -DMOZ_APP_BASENAME="$(MOZ_APP_BASENAME)"\
-		-DMOZ_INCDIR="$(MOZ_INCDIR)" -DMOZ_IDLDIR="$(MOZ_IDLDIR)" -DMOZ_VERSION="$(MOZ_VERSION)" -DDEB_HOST_ARCH="$(DEB_HOST_ARCH)" \
-		-DMOZ_DISPLAY_NAME="$(MOZ_DISPLAY_NAME)" -DMOZ_SYSTEM_DICTDIR="$(MOZ_SYSTEM_DICTDIR)" -DMOZ_OVERRIDE_SHLIBS="$(MOZ_OVERRIDE_SHLIBS)" \
-		-DMOZ_BRANDING_OPTION="$(MOZ_BRANDING_OPTION)" -DTOPSRCDIR="$(CURDIR)" -DDEB_HOST_GNU_TYPE="$(DEB_HOST_GNU_TYPE)" \
-		-DMOZ_ADDONDIR="$(MOZ_ADDONDIR)" -DMOZ_SDKDIR="$(MOZ_SDKDIR)" -DMOZ_DISTDIR="$(MOZ_DISTDIR)" -DMOZ_UPDATE_CHANNEL="$(CHANNEL)" \
-		-DMOZ_OBJDIR="$(MOZ_OBJDIR)" -DDEB_BUILDDIR="$(DEB_BUILDDIR)" -DMOZ_PYTHON="$(MOZ_PYTHON)" -DMOZ_PROFILE_PREFIX=".mozilla/"
-
-ifeq (1, $(MOZ_ENABLE_BREAKPAD))
-	DEB_DEFINES += -DMOZ_ENABLE_BREAKPAD
-endif
-ifeq (1, $(MOZ_VALGRIND))
-	DEB_DEFINES += -DMOZ_VALGRIND
-endif
-ifeq (1,$(MOZ_NO_OPTIMIZE))
-	DEB_DEFINES += -DMOZ_NO_OPTIMIZE
-endif
-ifeq (1,$(MOZ_WANT_UNIT_TESTS))
-	DEB_DEFINES += -DMOZ_WANT_UNIT_TESTS
-endif
-ifneq ($(DEB_BUILD_GNU_TYPE),$(DEB_HOST_GNU_TYPE))
-	DEB_DEFINES += -DDEB_BUILD_GNU_TYPE="$(DEB_BUILD_GNU_TYPE)"
-endif
-ifeq (1,$(MOZ_BUILD_PGO))
-	DEB_DEFINES += -DMOZ_BUILD_PGO
-endif
-ifeq (1,$(MOZ_DEBUG))
-	DEB_DEFINES += -DMOZ_DEBUG
-endif
-ifeq (1,$(MOZ_ENABLE_GLOBALMENU))
-	DEB_DEFINES += -DMOZ_ENABLE_GLOBALMENU
-endif
-ifeq (official, $(BRANDING))
-	DEB_DEFINES += -DMOZ_OFFICIAL_BRANDING
-endif
-ifeq (1,$(shell test "$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)" -ge "1104" && echo "1"))
-	DEB_DEFINES += -DMOZ_NEW_SYSPREF
-endif
-ifeq (1,$(shell test "$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)" -eq "1110" && echo "1"))
-	DEB_DEFINES += -DMOZ_SYMLINKED_DIST
+ifneq (,$(filter lucid maverick natty oneiric, $(DISTRIB_CODENAME)))
+PKG_SUPPORT_SUGGESTS	:= $(MOZ_PKG_NAME)-gnome-support | firefox-kde-support
 else
-ifeq (1,$(shell test "$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)" -ge "1204" && echo "1"))
-	DEB_DEFINES += -DMOZ_NO_MORE_SYMLINKED_DIST
-endif
-endif
-ifeq (1,$(shell test "$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)" -lt "1204" && echo "1"))
-	DEB_DEFINES += -DMOZ_LIBXUL_PKGCONFIG
-endif
-ifeq (1,$(shell test "$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)" -ge "1204" && echo "1"))
-	DEB_DEFINES += -DMOZ_FREEDESKTOP_ACTIONS
-endif
-ifeq (1,$(shell test "$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)" -lt "1210" && echo "1"))
-ifneq (,$(filter armel,$(DEB_HOST_ARCH)))
-DEB_DEFINES += -DMOZ_ENABLE_THUMB
+PKG_SUPPORT_SUGGESTS	:= $(MOZ_PKG_NAME)-gnome-support
 endif
 endif
 
-WM_CLASS = $(shell echo $(MOZ_APP_NAME) | sed -n 's/\<./\U&/ p')
-DEB_DEFINES += -DMOZ_WM_CLASS="$(WM_CLASS)"
-
-DEBIAN_EXECUTABLES = $(MOZ_APP_NAME)/$(MOZ_LIBDIR)/firefox.sh \
-		     $(NULL)
-
-subst_files = \
-	debian/usr.bin.$(MOZ_APP_NAME) \
+MOZ_PKGNAME_SUBST_FILES = \
+	debian/usr.bin.$(MOZ_PKG_NAME) \
 	debian/README.Debian \
-	debian/firefox.sh \
+	debian/$(MOZ_PKG_NAME)-locale.preinst \
+	debian/$(MOZ_PKG_BASENAME).sh \
 	debian/apport/blacklist \
 	debian/apport/native-origins \
-	debian/apport/source_$(MOZ_APP_NAME).py \
-	debian/$(MOZ_APP_NAME).desktop \
-	debian/$(MOZ_APP_NAME)-gnome-support.install \
-	debian/$(MOZ_APP_NAME).dirs \
-	debian/$(MOZ_APP_NAME).install \
-	debian/$(MOZ_APP_NAME).links \
-	debian/$(MOZ_APP_NAME).manpages \
-	debian/$(MOZ_APP_NAME).postinst \
-	debian/$(MOZ_APP_NAME).postrm \
-	debian/$(MOZ_APP_NAME).preinst \
-	debian/$(MOZ_APP_NAME).prerm \
-	debian/$(MOZ_APP_NAME).1 \
-	debian/$(MOZ_APP_NAME)-mozsymbols.install \
-	debian/$(MOZ_APP_NAME)-dev.install \
-	debian/$(MOZ_APP_NAME)-dev.links \
-	debian/$(MOZ_APP_NAME).lintian-overrides \
-	debian/$(MOZ_APP_NAME)-globalmenu.dirs \
-	debian/config/mozconfig \
-	debian/$(MOZ_APP_NAME)-locale.preinst \
+	debian/apport/source_$(MOZ_PKG_NAME).py \
 	$(NULL)
 
-pkgconfig_files = \
+MOZ_APPNAME_SUBST_FILES = \
+	debian/$(MOZ_APP_NAME).1 \
+	debian/$(MOZ_APP_NAME)-restart-required.update-notifier \
+	$(NULL)
+
+MOZ_PKGCONFIG_FILES = \
 	debian/pkgconfig/mozilla-plugin.pc \
 	debian/pkgconfig/libxul.pc \
 	debian/pkgconfig/mozilla-nspr.pc \
 	$(NULL)
 
-debian/control:: debian/control.in debian/control.langpacks debian/control.langpacks.unavail debian/config/locales.shipped debian/config/locales.all
-	@echo ""
-	@echo "*****************************"
-	@echo "* Refreshing debian/control *"
-	@echo "*****************************"
-	@echo ""
-
-	@sed -e 's/@MOZ_APP_NAME@/$(MOZ_APP_NAME)/g' < debian/control.in > debian/control
-
-	@perl debian/build/dump-langpack-control-entries.pl -i $(CURDIR)/debian/config -t $(CURDIR)/debian > debian/control.tmp
-
-	@sed -e 's/@MOZ_APP_NAME@/$(MOZ_APP_NAME)/g' < debian/control.tmp >> debian/control && rm -f debian/control.tmp
-
-BRANCH	:=
-ifneq (,$(MOZ_APP_NAME_SUFFIX))
-	BRANCH = -$(MOZ_APP_NAME_SUFFIX)
-endif
-$(subst_files): $(foreach file, $(subst_files), $(subst $(BRANCH),,$(file).in))
-	$(MOZ_PYTHON) $(DEB_BUILDDIR)/$(MOZ_MOZDIR)/config/Preprocessor.py -Fsubstitution --marker="%%" $(DEB_DEFINES) $(CURDIR)/$(subst $(BRANCH),,$@.in) > $(CURDIR)/$@
-
-%.pc: WCHAR_CFLAGS = $(shell cat $(MOZ_OBJDIR)/config/autoconf.mk | grep WCHAR_CFLAGS | sed 's/^[^=]*=[[:space:]]*\(.*\)$$/\1/')
-%.pc: %.pc.in debian/stamp-makefile-build
-	$(MOZ_PYTHON) $(DEB_BUILDDIR)/$(MOZ_MOZDIR)/config/Preprocessor.py -Fsubstitution --marker="%%" $(DEB_DEFINES) -DWCHAR_CFLAGS="$(WCHAR_CFLAGS)" $(CURDIR)/$< > $(CURDIR)/$@
+include $(CURDIR)/debian/build/mozbuild.mk
 
 debian/usr.bin.firefox.in:
 	if [ '$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)' -ge '1204' ]; then \
@@ -397,255 +144,52 @@ debian/usr.bin.firefox.in:
 		cp $(CURDIR)/debian/usr.bin.firefox.apparmor.9.10 $(CURDIR)/debian/usr.bin.firefox.in ; \
 	fi
 
-make-buildsymbols: debian/stamp-makebuildsymbols
-debian/stamp-makebuildsymbols: debian/stamp-makefile-build
-ifeq (1, $(MOZ_ENABLE_BREAKPAD))
-	# create build symbols
-	cd $(MOZ_OBJDIR); \
-	        $(MAKE) buildsymbols MOZ_SYMBOLS_EXTRA_BUILDID=$(shell date -d "`dpkg-parsechangelog | grep Date: | sed -e 's/^Date: //'`" +%y%m%d%H%M%S)-$(DEB_HOST_GNU_CPU)
-endif
-	touch $@
-
-compare-locales/scripts/compare-locales:
-	cp -r $(CURDIR)/debian/compare-locales $(CURDIR)
-	chmod +x $(CURDIR)/compare-locales/scripts/*
-
-make-langpack-xpis: debian/stamp-make-langpack-xpis
-debian/stamp-make-langpack-xpis: compare-locales/scripts/compare-locales
-	@echo ""
-	@echo "********************************"
-	@echo "* Building language pack xpi's *"
-	@echo "********************************"
-	@echo ""
-
-	rm -rf $(CURDIR)/debian/l10n-mergedirs
-	mkdir $(CURDIR)/debian/l10n-mergedirs
-
-	@export PATH=$(CURDIR)/compare-locales/scripts/:$$PATH ; \
-	export PYTHONPATH=$(CURDIR)/compare-locales/lib ; \
-	cd $(MOZ_OBJDIR)/browser/locales ; \
-	while read line ; \
-	do \
-		line=`echo $$line | sed 's/#.*//' | sed '/^$$/d'` ; \
-		if [ ! -z "$$line" ] ; \
-		then \
-			language=`echo $$line | sed 's/\([^:]*\):*\([^:]*\)/\1/'` ; \
-			echo "" ; \
-			echo "" ; \
-			echo "* Building $${language}" ; \
-			echo "" ; \
-			$(MAKE) merge-$$language LOCALE_MERGEDIR=$(CURDIR)/debian/l10n-mergedirs/$$language || exit 1 ; \
-			$(MAKE) langpack-$$language LOCALE_MERGEDIR=$(CURDIR)/debian/l10n-mergedirs/$$language || exit 1; \
-		fi \
-	done < $(CURDIR)/debian/config/locales.shipped
-
-	touch $@
-
-common-build-arch:: run-tests $(pkgconfig_files) make-langpack-xpis
-
-common-install-arch common-install-indep::
-	$(foreach dir,$(MOZ_LIBDIR) $(MOZ_INCDIR) $(MOZ_IDLDIR) $(MOZ_SDKDIR), \
-		if [ -d debian/tmp/$(dir)-$(MOZ_VERSION) ]; \
-		then \
-			mv debian/tmp/$(dir)-$(MOZ_VERSION) debian/tmp/$(dir); \
-		fi; )
-
-common-binary-arch:: make-buildsymbols
-
-binary-install/$(MOZ_APP_NAME)::
-ifeq (1,$(MOZ_ENABLE_BREAKPAD))
-	install -m 0644 $(CURDIR)/debian/apport/blacklist $(CURDIR)/debian/$(MOZ_APP_NAME)/etc/apport/blacklist.d/$(MOZ_APP_NAME)
-endif
-	install -m 0644 $(CURDIR)/debian/apport/native-origins $(CURDIR)/debian/$(MOZ_APP_NAME)/etc/apport/native-origins.d/$(MOZ_APP_NAME)
-
-ifeq (1, $(MOZ_ENABLE_GLOBALMENU))
-binary-install/$(MOZ_APP_NAME)-globalmenu::
-	unzip -o -d debian/$(MOZ_APP_NAME)-globalmenu/$(MOZ_ADDONDIR)/extensions/globalmenu@ubuntu.com/ $(MOZ_DISTDIR)/xpi-stage/globalmenu.xpi
-	find debian/$(MOZ_APP_NAME)-globalmenu/$(MOZ_ADDONDIR)/extensions/globalmenu@ubuntu.com/ -type f -executable | xargs chmod -x
-endif
-
-GNOME_SUPPORT_FILES = libmozgnome.so
-
-binary-post-install/$(MOZ_APP_NAME)::
-	$(foreach file,$(GNOME_SUPPORT_FILES),rm -fv debian/$(MOZ_APP_NAME)/$(MOZ_LIBDIR)/components/$(file);) true
-
-binary-post-install/$(MOZ_APP_NAME)-dev::
-	rm -f debian/$(MOZ_APP_NAME)-dev/$(MOZ_INCDIR)/nspr/md/_linux.cfg
-	dh_link -p$(MOZ_APP_NAME)-dev $(MOZ_INCDIR)/nspr/prcpucfg.h $(MOZ_INCDIR)/nspr/md/_linux.cfg
-
-common-binary-post-install-arch::
-	@echo ""
-	@echo "**********************************"
-	@echo "* Installing language pack xpi's *"
-	@echo "**********************************"
-	@echo ""
-
-	@while read line ; \
-	do \
-		line=`echo $$line | sed 's/#.*//' | sed '/^$$/d'` ; \
-		if [ ! -z "$$line" ] ; \
-		then \
-			language=`echo $$line | sed 's/\([^:]*\):*\([^:]*\)/\1/'` ; \
-			pkgname=`echo $$line | sed 's/\([^:]*\):*\([^:]*\)/\2/'` ; \
-			id=`python $(CURDIR)/debian/build/get-xpi-id.py $(CURDIR)/$(MOZ_DISTDIR)/$(LANGPACK_DIR)/$(MOZ_APP_NAME)-$(MOZ_VERSION).$${language}.langpack.xpi` ; \
-			[ $$? -eq 0 ] || exit 1 ; \
-			echo "Installing $(MOZ_APP_NAME)-$(MOZ_VERSION).$${language}.langpack.xpi to $${id}.xpi in $(MOZ_APP_NAME)-locale-$${pkgname}" ; \
-			dh_installdirs -p$(MOZ_APP_NAME)-locale-$${pkgname} $(MOZ_ADDONDIR)/extensions ; \
-			cp $(CURDIR)/$(MOZ_DISTDIR)/$(LANGPACK_DIR)/$(MOZ_APP_NAME)-$(MOZ_VERSION).$${language}.langpack.xpi \
-			  $(CURDIR)/debian/$(MOZ_APP_NAME)-locale-$${pkgname}/$(MOZ_ADDONDIR)/extensions/$${id}.xpi ; \
-			dh_installdirs -p$(MOZ_APP_NAME)-locale-$${pkgname} $(DIST_SEARCHPLUGIN_DIR)/locale/$${language} ; \
-			cp -r $(CURDIR)/$(MOZ_DISTDIR)/xpi-stage/locale-$${language}/searchplugins/*.xml \
-			  $(CURDIR)/debian/$(MOZ_APP_NAME)-locale-$${pkgname}/$(DIST_SEARCHPLUGIN_DIR)/locale/$${language}/. ; \
-			cp -r $(CURDIR)/debian/duckduckgo.xml $(CURDIR)/debian/$(MOZ_APP_NAME)-locale-$${pkgname}/$(DIST_SEARCHPLUGIN_DIR)/locale/$${language} ; \
-		fi \
-	done < $(CURDIR)/debian/config/locales.shipped
-
 common-binary-fixup-arch::
 	@while read line ; \
 	do \
 		line=`echo $$line | sed 's/#.*//' | sed '/^$$/d'` ; \
 		if [ ! -z "$$line" ] ; \
 		then \
-			pkgname=`echo $$line | sed 's/\([^:]*\):*\([^:]*\)/\2/'` ; \
-			cp $(CURDIR)/debian/$(MOZ_APP_NAME)-locale.preinst $(CURDIR)/debian/$(MOZ_APP_NAME)-locale-$${pkgname}.preinst ; \
+		pkgname=`echo $$line | sed 's/\([^:]*\):*\([^:]*\)/\2/'` ; \
+			cp $(CURDIR)/debian/$(MOZ_PKG_NAME)-locale.preinst $(CURDIR)/debian/$(MOZ_PKG_NAME)-locale-$${pkgname}.preinst ; \
 		fi \
 	done < $(CURDIR)/debian/config/locales.shipped
 
-binary-predeb/$(MOZ_APP_NAME)::
-	$(foreach lib,libsoftokn3.so libfreebl3.so libnssdbm3.so, \
-	        LD_LIBRARY_PATH=debian/$(MOZ_APP_NAME)/$(MOZ_LIBDIR):$$LD_LIBRARY_PATH \
-	        $(MOZ_DISTDIR)/bin/shlibsign -v -i debian/$(MOZ_APP_NAME)/$(MOZ_LIBDIR)/$(lib);)
+LOCALE_PACKAGES := $(shell cat $(CURDIR)/debian/control | grep "^Package:[[:space:]]*$(MOZ_PKG_NAME)-locale\-" | sed -n -e 's/^Package\:[[:space:]]*\([^[:space:]]*\)/\1/ p')
 
-common-binary-predeb-arch::
-	$(foreach file,$(DEBIAN_EXECUTABLES),chmod a+x debian/$(file);)
-	# we want the gnome dependencies not to be in the main package at shlibdeps runtime, hence we dont
-	# install them at binary-install/* stage, but copy them over _after_ the shlibdeps had been generated
-	$(foreach file,$(GNOME_SUPPORT_FILES),mv debian/$(MOZ_APP_NAME)-gnome-support/$(MOZ_LIBDIR)/components/$(file) debian/$(MOZ_APP_NAME)/$(MOZ_LIBDIR)/components/;) true
+common-binary-post-install-arch:: install-webapprt-langpack-links
 
-pre-build:: $(subst_files)
-	cp $(CURDIR)/debian/syspref.js $(CURDIR)/debian/$(MOZ_APP_BASENAME).js
+install-webapprt-langpack-links: $(foreach target, $(LOCALE_PACKAGES), install-webapprt-langpack-link-$(target))
+install-webapprt-langpack-link-%: XPIS = $(notdir $(wildcard debian/$*/$(MOZ_ADDONDIR)/extensions/*.xpi))
+install-webapprt-langpack-link-%:
+	$(foreach xpi,$(XPIS),dh_link -p$* $(MOZ_ADDONDIR)/extensions/$(xpi) $(MOZ_LIBDIR)/webapprt/extensions/$(xpi);)
 
-	# KDE integration
-	cp $(DEB_SRCDIR)/toolkit/content/widgets/dialog.xml $(DEB_SRCDIR)/toolkit/content/widgets/dialog-kde.xml
-	cp $(DEB_SRCDIR)/toolkit/content/widgets/preferences.xml $(DEB_SRCDIR)/toolkit/content/widgets/preferences-kde.xml
-	cp $(DEB_SRCDIR)/browser/base/content/browser.xul $(DEB_SRCDIR)/browser/base/content/browser-kde.xul
+pre-build::
+	@cp $(DEB_SRCDIR)/toolkit/content/widgets/dialog.xml $(DEB_SRCDIR)/toolkit/content/widgets/dialog-kde.xml
+	@cp $(DEB_SRCDIR)/toolkit/content/widgets/preferences.xml $(DEB_SRCDIR)/toolkit/content/widgets/preferences-kde.xml
+	@cp $(DEB_SRCDIR)/browser/base/content/browser.xul $(DEB_SRCDIR)/browser/base/content/browser-kde.xul
 
-	mkdir -p $(DEB_SRCDIR)/extensions/globalmenu
-	(cd debian/globalmenu && tar -cvhf - .) | (cd $(DEB_SRCDIR)/extensions/globalmenu && tar -xf -) 
+ifneq ($(MOZ_APP_BASENAME),$(MOZ_DEFAULT_APP_BASENAME))
+	@echo "Setting MOZ_APP_UA_NAME to $(MOZ_DEFAULT_APP_BASENAME)"
+	@cp $(DEB_SRCDIR)/$(MOZ_BRANDING_DIR)/configure.sh $(DEB_SRCDIR)/$(MOZ_BRANDING_DIR)/configure.sh.bak; \
+		echo "MOZ_APP_UA_NAME=$(MOZ_DEFAULT_APP_BASENAME)" >> $(DEB_SRCDIR)/$(MOZ_BRANDING_DIR)/configure.sh
 
-get-compare-locales:
-	mkdir -p compare-locales-tmp
-	hg clone http://hg.mozilla.org/build/compare-locales compare-locales-tmp
-ifdef HGTAG
-	cd compare-locales-tmp; \
-		hg update $(HGTAG); \
-		printf "TAG=%s" $(HGTAG) > REV
-else
-	cd compare-locales-tmp; \
-		CHANGESET=`hg summary | grep parent | cut -d ' ' -f 2 | cut -d : -f 2`; \
-		printf "CHANGESET=%s" $$CHANGESET > REV
+	@echo "Setting UAName to $(MOZ_DEFAULT_APP_BASENAME)"
+	@cp $(DEB_SRCDIR)/webapprt/application.ini.in $(DEB_SRCDIR)/webapprt/application.ini.in.bak; \
+		sed -ri 's/@MOZ_APP_BASENAME@/$(MOZ_DEFAULT_APP_BASENAME)/g' $(DEB_SRCDIR)/webapprt/application.ini.in
 endif
-	cd  compare-locales-tmp; \
-		find . -name *.pyc | xargs rm -f; \
-		rm -rf .hg .hgtags .hgignore tests *.py
-	rm -rf debian/compare-locales
-	mv compare-locales-tmp debian/compare-locales
-
-refresh-supported-locales: real-refresh-supported-locales debian/control
-
-real-refresh-supported-locales:
-	@echo ""
-	@echo "****************************************"
-	@echo "* Refreshing list of shipped languages *"
-	@echo "****************************************"
-	@echo ""
-
-	@if [ ! -f $(CURDIR)/upstream-shipped-locales ] ; \
-	then \
-		if [ ! -z $(TARBALL) ] ; \
-		then \
-			tarball_opts="-o $(TARBALL)" ; \
-		else \
-			tarball_opts="" ; \
-		fi ; \
-		python debian/build/extract-file.py -d $(CURDIR) $$tarball_opts upstream-shipped-locales ; \
-		touch $(CURDIR)/upstream-shipped-locales.stamp ; \
-	fi
-ifdef LANGPACK_O_MATIC
-	@perl debian/build/refresh-supported-locales.pl -s $(CURDIR)/upstream-shipped-locales -l $(LANGPACK_O_MATIC) -o $(CURDIR)/debian/config -b $(CURDIR)/debian/config/locales.blacklist
-else
-	@perl debian/build/refresh-supported-locales.pl -s $(CURDIR)/upstream-shipped-locales -o $(CURDIR)/debian/config -b $(CURDIR)/debian/config/locales.blacklist
-endif
-	@if [ -f $(CURDIR)/upstream-shipped-locales.stamp ] ; \
-	then \
-		rm -f $(CURDIR)/upstream-shipped-locales $(CURDIR)/upstream-shipped-locales.stamp ; \
-	fi
-	
-
-pre-auto-refresh-supported-locales:
-	cp debian/config/locales.shipped debian/config/locales.shipped.old
-
-auto-refresh-supported-locales: pre-auto-refresh-supported-locales real-refresh-supported-locales
-	@if ! cmp -s debian/config/locales.shipped debian/config/locales.shipped.old ; \
-	then \
-		echo "" ; \
-		echo "****************************************************************************" ; \
-		echo "* List of shipped locales is out of date. Please refresh and try again     *" ; \
-		echo "* To refresh, run \"debian/rules refresh-supported-locales\" in the source   *" ; \
-		echo "* directory. If you are in bzr, you will need to pass the location of the  *" ; \
-		echo "* upstream tarball, using \"TARBALL=/path/to/tarball\". If extra information *" ; \
-		echo "* is required for new locales, you will also need to pass the location of  *" ; \
-		echo "* langpack-o-matic, using \"LANGPACK_O_MATIC=/path/to/langpack-o-matic\"     *" ; \
-		echo "****************************************************************************" ; \
-		echo "" ; \
-		rm -f debian/config/locales.shipped.old ; \
-		exit 1 ; \
-	fi
-	rm -f debian/config/locales.shipped.old
-
-pre-auto-update-debian-control:
-	cp debian/control debian/control.old
-	touch debian/control.in
-
-post-auto-update-debian-control:
-	@if ! cmp -s debian/control debian/control.old ; \
-	then \
-		echo "" ; \
-		echo "*************************************************************************" ; \
-		echo "* debian/control file is out of date. Please refresh and try again      *" ; \
-		echo "* To refresh, run \"debian/rules debian/control\" in the source directory *" ; \
-		echo "*************************************************************************" ; \
-		echo "" ; \
-		rm -f debian/control.old ; \
-		exit 1 ; \
-	fi
-	rm -f debian/control.old
-
-ifdef PATCHES_DIST
-CODENAME = $(PATCHES_DIST)
-else
-CODENAME = $(DISTRIB_CODENAME)
+ifneq ($(MOZ_APP_NAME),$(MOZ_DEFAULT_APP_NAME))
+	@echo "Replacing instances of \"%APP%\" with \"firefox\" in firefox-branding.js"
+	@cp $(DEB_SRCDIR)/$(MOZ_BRANDING_DIR)/pref/firefox-branding.js $(DEB_SRCDIR)/$(MOZ_BRANDING_DIR)/pref/firefox-branding.js.bak; \
+		sed -ri 's/%APP%/firefox/g' $(DEB_SRCDIR)/$(MOZ_BRANDING_DIR)/pref/firefox-branding.js
 endif
 
-ifdef PATCHES_ARCH
-ARCH = $(PATCHES_ARCH)
-else
-ARCH = $(DEB_HOST_ARCH)
-endif
-
-enable-dist-patches:
-	perl $(CURDIR)/debian/build/enable-dist-patches.pl $(CODENAME) $(ARCH) $(CURDIR)/debian/patches/series
-
-ifeq (1, $(NO_AUTO_REFRESH_LOCALES))
-clean:: post-auto-update-debian-control
-else
-clean:: auto-refresh-supported-locales post-auto-update-debian-control
-endif
-	perl $(CURDIR)/debian/build/enable-dist-patches.pl --clean $(CURDIR)/debian/patches/series
-	rm -f $(subst_files)
-	rm -f debian/$(MOZ_APP_NAME)-locale-*.preinst
+clean::
+	rm -f debian/$(MOZ_PKG_NAME)-locale-*.preinst
 	rm -f debian/usr.bin.firefox.in
-	rm -f debian/stamp-*
-	rm -rf debian/l10n-mergedirs
-	rm -rf compare-locales
-	rm -f debian/$(MOZ_APP_BASENAME).js
+	$(call RESTORE_BACKUP, $(DEB_SRCDIR)/$(MOZ_BRANDING_DIR)/configure.sh)
+	$(call RESTORE_BACKUP, $(DEB_SRCDIR)/$(MOZ_BRANDING_DIR)/pref/firefox-branding.js)
+	$(call RESTORE_BACKUP, $(DEB_SRCDIR)/webapprt/application.ini.in)
+	rm -f $(DEB_SRCDIR)/toolkit/content/widgets/dialog-kde.xml
+	rm -f $(DEB_SRCDIR)/toolkit/content/widgets/preferences-kde.xml
+	rm -f $(DEB_SRCDIR)/browser/base/content/browser-kde.xul
