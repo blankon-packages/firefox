@@ -6,8 +6,4 @@
 etc/apparmor.d/disable
 etc/apport/native-origins.d
 etc/apport/blacklist.d
-%%if DISTRIB_VERSION == 1110
-@MOZ_ADDONDIR@/distribution/searchplugins/common
-%%else
 @MOZ_LIBDIR@/distribution/searchplugins/common
-%%endif

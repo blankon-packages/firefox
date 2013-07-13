@@ -1,8 +1,10 @@
---- mozilla/build/autoconf/arch.m4.orig	2012-07-13 17:43:33.687954382 -0600
-+++ mozilla/build/autoconf/arch.m4	2012-07-13 17:50:38.719939349 -0600
-@@ -198,17 +198,17 @@
-       HAVE_ARM_SIMD=1
-   fi
+Index: firefox-trunk-23.0~a1~hg20130413r128668/build/autoconf/arch.m4
+===================================================================
+--- firefox-trunk-23.0~a1~hg20130413r128668.orig/build/autoconf/arch.m4	2013-04-14 01:17:16.115548804 +0100
++++ firefox-trunk-23.0~a1~hg20130413r128668/build/autoconf/arch.m4	2013-04-14 01:17:34.415548874 +0100
+@@ -207,27 +207,27 @@
+   ARM_ARCH=`${CC-cc} ${CFLAGS} -dM -E - < /dev/null | sed -n 's/.*__ARM_ARCH_\([[0-9]]*\).*/\1/p'`
+   AC_MSG_RESULT("$ARM_ARCH")
  
 -  AC_MSG_CHECKING(for ARM NEON support in compiler)
 -  # We try to link so that this also fails when
@@ -14,6 +16,16 @@
 -  if test "$result" = "yes"; then
 -      AC_DEFINE(HAVE_ARM_NEON)
 -      HAVE_ARM_NEON=1
+-
+-      dnl We don't need to build NEON support if we're targetting a non-NEON device.
+-      dnl This matches media/webrtc/trunk/webrtc/build/common.gypi.
+-      if test -n "$ARM_ARCH"; then
+-          if test "$ARM_ARCH" -lt 7; then
+-              BUILD_ARM_NEON=0
+-          else
+-              BUILD_ARM_NEON=1
+-          fi
+-      fi
 -  fi
 +  #AC_MSG_CHECKING(for ARM NEON support in compiler)
 +  ## We try to link so that this also fails when
@@ -25,15 +37,27 @@
 +  #if test "$result" = "yes"; then
 +  #    AC_DEFINE(HAVE_ARM_NEON)
 +  #    HAVE_ARM_NEON=1
++  #
++  #    dnl We don't need to build NEON support if we're targetting a non-NEON device.
++  #    dnl This matches media/webrtc/trunk/webrtc/build/common.gypi.
++  #    if test -n "$ARM_ARCH"; then
++  #        if test "$ARM_ARCH" -lt 7; then
++  #            BUILD_ARM_NEON=0
++  #        else
++  #            BUILD_ARM_NEON=1
++  #        fi
++  #    fi
 +  #fi
+ 
  fi # CPU_ARCH = arm
  
- AC_SUBST(HAVE_ARM_SIMD)
---- mozilla/js/src/build/autoconf/arch.m4.orig	2012-07-13 17:43:33.687954382 -0600
-+++ mozilla/js/src/build/autoconf/arch.m4	2012-07-13 17:50:38.719939349 -0600
-@@ -198,17 +198,17 @@
-       HAVE_ARM_SIMD=1
-   fi
+Index: firefox-trunk-23.0~a1~hg20130413r128668/js/src/build/autoconf/arch.m4
+===================================================================
+--- firefox-trunk-23.0~a1~hg20130413r128668.orig/js/src/build/autoconf/arch.m4	2013-04-13 07:33:02.000000000 +0100
++++ firefox-trunk-23.0~a1~hg20130413r128668/js/src/build/autoconf/arch.m4	2013-04-14 01:18:23.555549063 +0100
+@@ -207,27 +207,27 @@
+   ARM_ARCH=`${CC-cc} ${CFLAGS} -dM -E - < /dev/null | sed -n 's/.*__ARM_ARCH_\([[0-9]]*\).*/\1/p'`
+   AC_MSG_RESULT("$ARM_ARCH")
  
 -  AC_MSG_CHECKING(for ARM NEON support in compiler)
 -  # We try to link so that this also fails when
@@ -45,6 +69,16 @@
 -  if test "$result" = "yes"; then
 -      AC_DEFINE(HAVE_ARM_NEON)
 -      HAVE_ARM_NEON=1
+-
+-      dnl We don't need to build NEON support if we're targetting a non-NEON device.
+-      dnl This matches media/webrtc/trunk/webrtc/build/common.gypi.
+-      if test -n "$ARM_ARCH"; then
+-          if test "$ARM_ARCH" -lt 7; then
+-              BUILD_ARM_NEON=0
+-          else
+-              BUILD_ARM_NEON=1
+-          fi
+-      fi
 -  fi
 +  #AC_MSG_CHECKING(for ARM NEON support in compiler)
 +  ## We try to link so that this also fails when
@@ -56,7 +90,17 @@
 +  #if test "$result" = "yes"; then
 +  #    AC_DEFINE(HAVE_ARM_NEON)
 +  #    HAVE_ARM_NEON=1
++  #
++  #    dnl We don't need to build NEON support if we're targetting a non-NEON device.
++  #    dnl This matches media/webrtc/trunk/webrtc/build/common.gypi.
++  #    if test -n "$ARM_ARCH"; then
++  #        if test "$ARM_ARCH" -lt 7; then
++  #            BUILD_ARM_NEON=0
++  #        else
++  #            BUILD_ARM_NEON=1
++  #        fi
++  #    fi
 +  #fi
+ 
  fi # CPU_ARCH = arm
  
- AC_SUBST(HAVE_ARM_SIMD)

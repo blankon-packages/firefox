@@ -1,7 +1,7 @@
+[Additions]
+duckduckgo
+
 [Overrides]
 amazondotcn
 baidu
-google*
-
-[Additions]
-duckduckgo
+google

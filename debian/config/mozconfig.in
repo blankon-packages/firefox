@@ -35,13 +35,7 @@ ac_add_options --enable-valgrind
 %%ifdef DEB_PARALLEL_JOBS
 mk_add_options MOZ_MAKE_FLAGS=-j@DEB_PARALLEL_JOBS@
 %%endif
-%%ifdef MOZ_WANT_UNIT_TESTS
 ac_add_options --enable-tests
-# ac_add_options --enable-ipdl-tests
-%%else
-ac_add_options --disable-tests
-ac_add_options --disable-ipdl-tests
-%%endif
 %%ifdef MOZ_ENABLE_BREAKPAD
 ac_add_options --enable-crashreporter
 %%else
@@ -61,9 +55,6 @@ ac_add_options --enable-debug
 ac_add_options --disable-debug
 %%endif
 ac_add_options --disable-elf-hack
-%%ifdef MOZ_ENABLE_GLOBALMENU
-ac_add_options --enable-extensions=default,globalmenu
-%%endif
 %%if MOZ_APP_BASENAME != MOZ_DEFAULT_APP_BASENAME
 ac_add_options --with-app-basename=@MOZ_APP_BASENAME@
 %%else

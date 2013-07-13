@@ -506,10 +506,6 @@ class Prefs:
             ]
 
             append_dirs = [ 'defaults/preferences/*.js' ]
-%%if DISTRIB_VERSION < 1104
-            locations.append('/@MOZ_LIBDIR@/defaults/syspref/*.js')
-            append_dirs.append('defaults/syspref/*.js')
-%%endif
             if os.path.isdir('/@MOZ_LIBDIR@/distribution/bundles'):
                 bundles = os.listdir('/@MOZ_LIBDIR@/distribution/bundles')
                 bundles.sort(reverse=True)

@@ -56,9 +56,7 @@ if [ "$1" = "abort-install" -o "$1" = "abort-upgrade" ] ; then
     abort_rm_conffile "/etc/${MOZ_PKG_NAME}/profile/chrome/userChrome-example.css"
     abort_rm_conffile "/etc/${MOZ_PKG_NAME}/profile/chrome/userContent-example.css"
 
-%%if DISTRIB_VERSION >= 1104
     abort_mv_conffile "/etc/${MOZ_PKG_NAME}/pref/firefox.js"
-%%endif
 fi
 
 #DEBHELPER#

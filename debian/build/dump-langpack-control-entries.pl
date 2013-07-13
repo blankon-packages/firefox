@@ -9,7 +9,18 @@ my $lp_unavail_desc;
 my %all;
 my %shipped;
 
-{
+my $moz_language_list;
+
+while (@ARGV) {
+    my $arg = shift(@ARGV);
+    if ($arg eq '-l') {
+        $moz_language_list = 1;
+    } else {
+        die "Unknown argument '$arg'";
+    }
+}
+
+if (not defined($moz_language_list)) {
     my $file;
     local $/=undef;
     open($file, "debian/control.langpacks") or die "Couldn't find control.langpacks";
@@ -43,9 +54,17 @@ while (<$shipped_file>) {
 close($all_file);
 close($shipped_file);
 
+my $first = 1;
+
 foreach my $pkg (sort(keys(%all))) {
-    my $entry = exists $shipped{$pkg} ? $lp_avail_desc : $lp_unavail_desc;
-    $entry =~ s/\@LANGCODE\@/$pkg/g;
-    $entry =~ s/\@LANG\@/$all{$pkg}/g;
-    print $entry;
+    if (not defined($moz_language_list)) {
+        my $entry = exists $shipped{$pkg} ? $lp_avail_desc : $lp_unavail_desc;
+        $entry =~ s/\@LANGCODE\@/$pkg/g;
+        $entry =~ s/\@LANG\@/$all{$pkg}/g;
+        print $entry;
+    } else {
+        if ($first != 1) { print ","; }
+        $first = 0;
+        print "$pkg";
+    }
 }

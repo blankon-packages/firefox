@@ -1,3 +1,0 @@
-%%ifdef MOZ_ENABLE_GLOBALMENU
-@MOZ_ADDONDIR@/extensions/globalmenu@ubuntu.com
-%%endif
