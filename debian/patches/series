@@ -1,5 +1,7 @@
+ubuntu-bookmarks.patch
 normalize-distribution-searchplugins.patch
 allow-lockPref-everywhere.patch
+ubuntu-ua-string-changes.patch
 dont-include-hyphenation-patterns.patch
 dont-override-general-useragent-locale.patch
 webapprt-support-for-langpacks.patch
