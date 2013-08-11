@@ -689,12 +689,13 @@ Description: Malayalam language pack for Firefox
 Package: firefox-locale-mn
 Architecture: any
 Depends: ${misc:Depends}
-Replaces: language-pack-mn-base
 Conflicts: ${app:Conflicts}
 Provides: ${app:Provides}
-Description: Mongolian language pack for Firefox
- This package contains Mongolian translations and search plugins
- for Firefox
+Description: Transitional package for unavailable language
+ This language is unavailable for the current version of Firefox
+ .
+ This is an empty transitional package to ensure a clean upgrade
+ process. You can safely remove this package after installation.
 
 Package: firefox-locale-mr
 Architecture: any
@@ -880,12 +881,13 @@ Description: Swedish language pack for Firefox
 Package: firefox-locale-sw
 Architecture: any
 Depends: ${misc:Depends}
-Replaces: language-pack-sw-base
 Conflicts: ${app:Conflicts}
 Provides: ${app:Provides}
-Description: Swahili language pack for Firefox
- This package contains Swahili translations and search plugins
- for Firefox
+Description: Transitional package for unavailable language
+ This language is unavailable for the current version of Firefox
+ .
+ This is an empty transitional package to ensure a clean upgrade
+ process. You can safely remove this package after installation.
 
 Package: firefox-locale-ta
 Architecture: any

@@ -1,8 +1,31 @@
-firefox (23.0~b4+build1-0ubuntu1+blankon1) suroboyo; urgency=low
+firefox (23.0+build2-0ubuntu1+blankon1) suroboyo; urgency=low
 
-  * Impor to suroboyo 
+  * Upload to suroboyo 
 
- -- Rahman Yusri Aftian <aftian@di.blankon.in>  Sun, 21 Jul 2013 12:18:57 +0700
+ -- Rahman Yusri Aftian <aftian@di.blankon.in>  Sun, 11 Aug 2013 22:21:04 +0700
+
+firefox (23.0+build2-0ubuntu1) saucy; urgency=low
+
+  * New upstream stable release (FIREFOX_23_0_BUILD2)
+
+  * Switch to the release channel
+    - update debian/config/branch.mk
+    - update debian/config/locales.*
+    - refresh debian/control
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Wed, 07 Aug 2013 18:55:00 +0100
+
+firefox (23.0~b10+build1-0ubuntu1) saucy; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_23_0b10_BUILD1)
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Thu, 01 Aug 2013 10:05:42 +0100
+
+firefox (23.0~b9+build1-0ubuntu1) saucy; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_23_0b9_BUILD1)
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Mon, 29 Jul 2013 22:03:10 +0100
 
 firefox (23.0~b4+build1-0ubuntu1) saucy; urgency=low
 
