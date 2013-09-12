@@ -1,8 +1,15 @@
-firefox (23.0+build2-0ubuntu1+blankon1) suroboyo; urgency=low
+firefox (23.0+build2-0ubuntu2+blankon1) suroboyo; urgency=low
 
   * Upload to suroboyo 
 
- -- Rahman Yusri Aftian <aftian@di.blankon.in>  Sun, 11 Aug 2013 22:21:04 +0700
+ -- Rahman Yusri Aftian <aftian@di.blankon.in>  Thu, 12 Sep 2013 22:46:34 +0700
+
+firefox (23.0+build2-0ubuntu2) saucy; urgency=low
+
+  * debian/control.in: Add missing libgl1-mesa-dri dependency to -testsuite,
+    to fix the autopkgtest.
+
+ -- Martin Pitt <martin.pitt@ubuntu.com>  Tue, 10 Sep 2013 14:21:36 -0400
 
 firefox (23.0+build2-0ubuntu1) saucy; urgency=low
 

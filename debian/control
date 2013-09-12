@@ -2,7 +2,7 @@
 Source: firefox
 Section: web
 Priority: optional
-Maintainer: BlankOn Developers <blankon-dev@googlegroups.com>
+Maintainer: BlankOn Developers <blankon-dev@googlegaroups.com>
 XSBC-Original-Maintainer: Ubuntu Mozilla Team <ubuntu-mozillateam@lists.ubuntu.com>
 Vcs-Bzr: https://code.launchpad.net/~mozillateam/firefox/firefox-beta.saucy
 Build-Depends: cdbs,
@@ -138,6 +138,7 @@ Depends: ${shlibs:Depends},
 	python,
 	dbus-x11,
 	xvfb,
+	libgl1-mesa-dri,
 	make,
 	notify-osd,
 	metacity,
