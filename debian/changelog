@@ -1,8 +1,9 @@
 firefox (24.0+build1-0ubuntu1blankon1) suroboyo; urgency=low
 
   * Upload to suroboyo 
+  * Added dependensi xauth
 
- -- Rahman Yusri Aftian <aftian@di.blankon.in>  Sat, 21 Sep 2013 22:55:15 +0700
+ -- Rahman Yusri Aftian <aftian@di.blankon.in>  Sun, 22 Sep 2013 00:52:11 +0700
 
 firefox (24.0+build1-0ubuntu1) saucy; urgency=low
 
