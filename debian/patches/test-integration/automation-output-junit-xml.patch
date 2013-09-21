@@ -3,10 +3,10 @@ Description: Add JUnit XML output support for reftest and mochitest harnesses.
 Author: Chris Coulson <chris.coulson@canonical.com>
 Forwarded: no
 
-Index: firefox-trunk-23.0~a1~hg20130413r128668/build/automation.py.in
+Index: firefox-trunk-24.0~a1~hg20130622r136144/build/automation.py.in
 ===================================================================
---- firefox-trunk-23.0~a1~hg20130413r128668.orig/build/automation.py.in	2013-04-14 01:23:57.043550343 +0100
-+++ firefox-trunk-23.0~a1~hg20130413r128668/build/automation.py.in	2013-04-14 01:23:57.039550343 +0100
+--- firefox-trunk-24.0~a1~hg20130622r136144.orig/build/automation.py.in	2013-06-23 00:48:06.984606442 +0100
++++ firefox-trunk-24.0~a1~hg20130622r136144/build/automation.py.in	2013-06-23 00:48:06.980606442 +0100
 @@ -19,6 +19,8 @@
  import tempfile
  import sqlite3
@@ -16,7 +16,7 @@ Index: firefox-trunk-23.0~a1~hg20130413r128668/build/automation.py.in
  
  SCRIPT_DIR = os.path.abspath(os.path.realpath(os.path.dirname(sys.argv[0])))
  sys.path.insert(0, SCRIPT_DIR)
-@@ -119,6 +121,182 @@
+@@ -124,6 +126,182 @@
      self.port = port
      self.options = options
  
@@ -199,7 +199,7 @@ Index: firefox-trunk-23.0~a1~hg20130413r128668/build/automation.py.in
  class Automation(object):
    """
    Runs the browser from a script, and provides useful utilities
-@@ -753,7 +931,17 @@
+@@ -641,7 +819,17 @@
                        action = "append", type = "string",
                        default = [],
                        dest = "extraPrefs", metavar = "PREF=VALUE",
@@ -218,7 +218,7 @@ Index: firefox-trunk-23.0~a1~hg20130413r128668/build/automation.py.in
  
    def fillCertificateDB(self, profileDir, certPath, utilityPath, xrePath):
      pwfilePath = os.path.join(profileDir, ".crtdbpw")
-@@ -1165,11 +1353,61 @@
+@@ -1056,11 +1244,61 @@
    def checkForCrashes(self, minidumpDir, symbolsPath):
      return mozcrash.check_for_crashes(minidumpDir, symbolsPath, test_name=self.lastTestSeen)
  
@@ -281,7 +281,7 @@ Index: firefox-trunk-23.0~a1~hg20130413r128668/build/automation.py.in
      """
      Run the app, log the duration it took to execute, return the status code.
      Kills the app if it runs for longer than |maxTime| seconds, or outputs nothing for |timeout| seconds.
-@@ -1184,6 +1422,11 @@
+@@ -1075,6 +1313,11 @@
      if timeout == -1:
        timeout = self.DEFAULT_TIMEOUT
  
@@ -293,7 +293,7 @@ Index: firefox-trunk-23.0~a1~hg20130413r128668/build/automation.py.in
      # copy env so we don't munge the caller's environment
      env = dict(env);
      env["NO_EM_RESTART"] = "1"
-@@ -1231,9 +1474,17 @@
+@@ -1122,9 +1365,17 @@
        # app is launched.
        onLaunch()
  
@@ -311,11 +311,11 @@ Index: firefox-trunk-23.0~a1~hg20130413r128668/build/automation.py.in
      # Do a final check for zombie child processes.
      zombieProcesses = self.checkForZombies(processLog, utilityPath, debuggerInfo)
  
-Index: firefox-trunk-23.0~a1~hg20130413r128668/layout/tools/reftest/reftest.js
+Index: firefox-trunk-24.0~a1~hg20130622r136144/layout/tools/reftest/reftest.js
 ===================================================================
---- firefox-trunk-23.0~a1~hg20130413r128668.orig/layout/tools/reftest/reftest.js	2013-04-14 01:23:57.043550343 +0100
-+++ firefox-trunk-23.0~a1~hg20130413r128668/layout/tools/reftest/reftest.js	2013-04-14 01:23:57.039550343 +0100
-@@ -1131,17 +1131,17 @@
+--- firefox-trunk-24.0~a1~hg20130622r136144.orig/layout/tools/reftest/reftest.js	2013-06-23 00:48:06.984606442 +0100
++++ firefox-trunk-24.0~a1~hg20130622r136144/layout/tools/reftest/reftest.js	2013-06-23 00:48:06.980606442 +0100
+@@ -1126,17 +1126,17 @@
          var test = gURLs[0];
          if (test.expected == EXPECTED_DEATH) {
              ++gTestResults.Skip;
@@ -336,7 +336,7 @@ Index: firefox-trunk-23.0~a1~hg20130413r128668/layout/tools/reftest/reftest.js
              gURLs.shift();
          } else {
              break;
-@@ -1219,11 +1219,11 @@
+@@ -1215,11 +1215,11 @@
              if (e == "bad pref") {
                  var test = gURLs[0];
                  if (test.expected == EXPECTED_FAIL) {
@@ -350,11 +350,11 @@ Index: firefox-trunk-23.0~a1~hg20130413r128668/layout/tools/reftest/reftest.js
                               " | " + badPref + " not known or wrong type\n");
                      ++gTestResults.UnexpectedFail;
                  }
-Index: firefox-trunk-23.0~a1~hg20130413r128668/layout/tools/reftest/runreftest.py
+Index: firefox-trunk-24.0~a1~hg20130622r136144/layout/tools/reftest/runreftest.py
 ===================================================================
---- firefox-trunk-23.0~a1~hg20130413r128668.orig/layout/tools/reftest/runreftest.py	2013-04-14 01:23:57.043550343 +0100
-+++ firefox-trunk-23.0~a1~hg20130413r128668/layout/tools/reftest/runreftest.py	2013-04-14 01:23:57.039550343 +0100
-@@ -120,6 +120,15 @@
+--- firefox-trunk-24.0~a1~hg20130622r136144.orig/layout/tools/reftest/runreftest.py	2013-06-23 00:48:06.984606442 +0100
++++ firefox-trunk-24.0~a1~hg20130622r136144/layout/tools/reftest/runreftest.py	2013-06-23 00:48:06.980606442 +0100
+@@ -121,6 +121,15 @@
        reftestlist = self.getManifestPath(testPath)
        if cmdlineArgs == None:
          cmdlineArgs = ['-reftest', reftestlist]
@@ -370,7 +370,7 @@ Index: firefox-trunk-23.0~a1~hg20130413r128668/layout/tools/reftest/runreftest.p
        profileDir = mkdtemp()
        self.copyExtraFilesToProfile(options, profileDir)
        self.createReftestProfile(options, profileDir, reftestlist)
-@@ -137,7 +146,10 @@
+@@ -138,7 +147,10 @@
                                   symbolsPath=options.symbolsPath,
                                   # give the JS harness 30 seconds to deal
                                   # with its own timeouts
@@ -382,9 +382,9 @@ Index: firefox-trunk-23.0~a1~hg20130413r128668/layout/tools/reftest/runreftest.p
        processLeakLog(self.leakLogFile, options.leakThreshold)
        self.automation.log.info("\nREFTEST INFO | runreftest.py | Running tests: end.")
      finally:
-@@ -256,6 +268,11 @@
-                            "only test items that have a matching test URL will be run.")
-     defaults["filter"] = None
+@@ -264,6 +276,11 @@
+                            "Defaults to `all'.")
+     defaults["focusFilterMode"] = "all"
  
 +    self.add_option("--tests-root-dir",
 +                    action = "store", type = "string", dest = "testsRootDir",
@@ -394,11 +394,11 @@ Index: firefox-trunk-23.0~a1~hg20130413r128668/layout/tools/reftest/runreftest.p
      self.set_defaults(**defaults)
  
    def verifyCommonOptions(self, options, reftest):
-Index: firefox-trunk-23.0~a1~hg20130413r128668/testing/mochitest/runtests.py
+Index: firefox-trunk-24.0~a1~hg20130622r136144/testing/mochitest/runtests.py
 ===================================================================
---- firefox-trunk-23.0~a1~hg20130413r128668.orig/testing/mochitest/runtests.py	2013-04-14 01:23:57.043550343 +0100
-+++ firefox-trunk-23.0~a1~hg20130413r128668/testing/mochitest/runtests.py	2013-04-14 01:23:57.039550343 +0100
-@@ -707,6 +707,28 @@
+--- firefox-trunk-24.0~a1~hg20130622r136144.orig/testing/mochitest/runtests.py	2013-06-23 00:48:06.984606442 +0100
++++ firefox-trunk-24.0~a1~hg20130622r136144/testing/mochitest/runtests.py	2013-06-23 00:48:06.980606442 +0100
+@@ -723,6 +723,28 @@
                                      "VMware recording: (%s)" % str(e))
        self.vmwareHelper = None
  
@@ -427,7 +427,7 @@ Index: firefox-trunk-23.0~a1~hg20130413r128668/testing/mochitest/runtests.py
    def runTests(self, options, onLaunch=None):
      """ Prepare, configure, run tests and cleanup """
      debuggerInfo = getDebuggerInfo(self.oldcwd, options.debugger, options.debuggerArgs,
-@@ -754,6 +776,8 @@
+@@ -770,6 +792,8 @@
      if options.vmwareRecording:
        self.startVMwareRecording(options);
  
@@ -436,7 +436,7 @@ Index: firefox-trunk-23.0~a1~hg20130413r128668/testing/mochitest/runtests.py
      self.automation.log.info("INFO | runtests.py | Running tests: start.\n")
      try:
        status = self.automation.runApp(testURL, browserEnv, options.app,
-@@ -765,7 +789,10 @@
+@@ -781,7 +805,10 @@
                                    debuggerInfo=debuggerInfo,
                                    symbolsPath=options.symbolsPath,
                                    timeout=timeout,

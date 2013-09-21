@@ -1,15 +1,13 @@
 #!/usr/bin/make -f
 
 # We need this to execute before the debian/control target gets called
-clean::
-	cp debian/control debian/control.old
-	cp debian/tests/control debian/tests/control.old
+# and before patches are unapplied
+clean:: restore-upstream-files
 ifneq (1, $(MOZ_DISABLE_CLEAN_CHECKS))
+	cp debian/control debian/control.old
 	touch debian/control.in
-	touch debian/tests/control.in
 else
 	touch debian/control
-	touch debian/tests/control
 endif
 
 -include /usr/share/cdbs/1/rules/debhelper.mk
@@ -31,21 +29,28 @@ endif
 ifeq (,$(MOZ_PKG_BASENAME))
 $(error "Need to set MOZ_PKG_BASENAME")
 endif
+ifeq (,$(MOZ_BRANDING_OPTION))
+$(error "Need to set MOZ_BRANDING_OPTION")
+endif
+ifeq (,$(MOZ_BRANDING_DIR))
+$(error "Need to set MOZ_BRANDING_DIR")
+endif
 
-MOZ_PKG_NAMES = $(shell sed -n 's/Package\: \(.*\)/\1/ p' < debian/control)
-
-DEB_MAKE_MAKEFILE	:= client.mk
+DEB_MAKE_MAKEFILE		:= client.mk
 # Without this, CDBS passes CFLAGS and CXXFLAGS options to client.mk, which breaks the build
-DEB_MAKE_EXTRA_ARGS	:=
+DEB_MAKE_EXTRA_ARGS		:=
 # These normally come from autotools.mk, which we no longer include (because we
 # don't want to run configure)
 DEB_MAKE_INSTALL_TARGET	:= install DESTDIR=$(CURDIR)/debian/tmp
 DEB_MAKE_CLEAN_TARGET	:= cleansrcdir
-DEB_DH_STRIP_ARGS	:= --dbg-package=$(MOZ_PKG_NAME)-dbg
+# Don't save debug symbols in firefox-dbg (rely on pkg-create-dbgsym to create
+# ddeb packages for us). This is needed as long as there is a firefox-dbg
+# transitional package
+DEB_DH_STRIP_ARGS		:= --dbg-package=$(MOZ_PKG_NAME)-dbg
 # We don't want build-tree/mozilla/README to be shipped as a doc
 DEB_INSTALL_DOCS_ALL 	:= $(NULL)
 # scour breaks the testsuite
-DEB_DH_SCOUR_ARGS := -N$(MOZ_PKG_NAME)-testsuite
+DEB_DH_SCOUR_ARGS		:= -N$(MOZ_PKG_NAME)-testsuite
 
 MOZ_VERSION		:= $(shell cat $(DEB_SRCDIR)/$(MOZ_APP)/config/version.txt)
 MOZ_LIBDIR		:= usr/lib/$(MOZ_APP_NAME)
@@ -178,10 +183,10 @@ pkgname_subst_files = \
 	$(MOZ_PKGNAME_SUBST_FILES) \
 	$(NULL)
 
-$(foreach pkg,$(MOZ_PKG_NAMES), \
-	$(foreach dhfile, install dirs links manpages postinst preinst postrm prerm lintian-overrides, $(eval pkgname_subst_files += \
-	$(shell if [ -f $(CURDIR)/$(subst $(MOZ_PKG_NAME),$(MOZ_PKG_BASENAME),debian/$(pkg).$(dhfile).in) ]; then \
-		echo debian/$(pkg).$(dhfile); fi))))
+$(foreach pkg,$(DEB_ALL_PACKAGES), \
+	$(foreach e,install dirs links manpages postinst preinst postrm prerm lintian-overrides,\
+		$(if $(wildcard debian/$(subst $(MOZ_PKG_NAME),$(MOZ_PKG_BASENAME),$(pkg)).$(e).in),\
+			$(eval pkgname_subst_files += debian/$(pkg).$(e)))))
 
 appname_subst_files = \
 	debian/$(MOZ_APP_NAME).desktop \
@@ -202,10 +207,12 @@ debian/control:: debian/control.in debian/control.langpacks debian/control.langp
 	@echo "*****************************"
 	@echo ""
 
-	sed -e 's/@MOZ_PKG_NAME@/$(MOZ_PKG_NAME)/g' \
-	    -e 's/@MOZ_LOCALE_PKGS@/$(shell perl debian/build/dump-langpack-control-entries.pl -l | sed 's/\(\,\?\)\([^\,]*\)\(\,\?\)/\1$(MOZ_PKG_NAME)\-locale\-\2 (= $${binary:Version})\3 /g')/g' < debian/control.in > debian/control
-	perl debian/build/dump-langpack-control-entries.pl > debian/control.tmp
-	sed -e 's/@MOZ_PKG_NAME@/$(MOZ_PKG_NAME)/g' < debian/control.tmp >> debian/control && rm -f debian/control.tmp
+	cp debian/control.in debian/control.tmp
+	perl debian/build/dump-langpack-control-entries.pl >> debian/control.tmp
+	sed -e 's/@MOZ_PKG_NAME@/$(MOZ_PKG_NAME)/g' < debian/control.tmp > debian/control
+	rm -f debian/control.tmp
+
+	sed -i -e 's/@MOZ_LOCALE_PKGS@/$(foreach p,$(MOZ_LOCALE_PKGS),$(p) \(= $${binary:Version}\),)/' debian/control
 
 $(pkgname_subst_files): $(foreach file,$(pkgname_subst_files),$(subst $(MOZ_PKG_NAME),$(MOZ_PKG_BASENAME),$(file).in))
 	PYTHONDONTWRITEBYTECODE=1 python $(CURDIR)/debian/build/Preprocessor.py -Fsubstitution --marker="%%" $(MOZ_DEFINES) $(CURDIR)/$(subst $(MOZ_PKG_NAME),$(MOZ_PKG_BASENAME),$@.in) > $(CURDIR)/$@
@@ -238,7 +245,7 @@ endif
 	@touch $@
 
 install-testsuite: debian/stamp-installtestsuite
-debian/stamp-installtestsuite: debian/stamp-maketestsuite
+debian/stamp-installtestsuite: debian/stamp-maketestsuite debian/stamp-makefile-install
 	install $(MOZ_DISTDIR)/bin/xpcshell debian/tmp/$(MOZ_LIBDIR)
 	install $(MOZ_DISTDIR)/bin/components/httpd.js debian/tmp/$(MOZ_LIBDIR)/components
 	install $(MOZ_DISTDIR)/bin/components/httpd.manifest debian/tmp/$(MOZ_LIBDIR)/components
@@ -250,7 +257,7 @@ debian/stamp-installtestsuite: debian/stamp-maketestsuite
 $(VIRTENV_PATH)/bin/compare-locales:
 	cd $(CURDIR)/$(MOZ_MOZDIR)/python/compare-locales; $(MOZ_PYTHON) $(CURDIR)/$(MOZ_MOZDIR)/python/compare-locales/setup.py install
 
-make-langpack-xpis: $(VIRTENV_PATH)/bin/compare-locales $(foreach target,$(shell sed -n 's/\#.*//;/^$$/d;s/\([^\:]*\)\:\?.*/\1/ p' < $(CURDIR)/debian/config/locales.shipped),debian/stamp-make-langpack-xpi-$(target))
+make-langpack-xpis: $(VIRTENV_PATH)/bin/compare-locales $(foreach locale,$(MOZ_LOCALES),debian/stamp-make-langpack-xpi-$(locale))
 debian/stamp-make-langpack-xpi-%:
 	@echo ""
 	@echo ""
@@ -260,7 +267,7 @@ debian/stamp-make-langpack-xpi-%:
 	rm -rf $(CURDIR)/debian/l10n-mergedirs/$*
 	mkdir -p $(CURDIR)/debian/l10n-mergedirs/$*
 
-	@export PATH=$(VIRTENV_PATH)/bin/:$$PATH ; \
+	export PATH=$(VIRTENV_PATH)/bin/:$$PATH ; \
 	cd $(MOZ_OBJDIR)/$(MOZ_APP)/locales ; \
 		$(MAKE) merge-$* LOCALE_MERGEDIR=$(CURDIR)/debian/l10n-mergedirs/$* || exit 1 ; \
 		$(MAKE) langpack-$* LOCALE_MERGEDIR=$(CURDIR)/debian/l10n-mergedirs/$* || exit 1;
@@ -270,14 +277,14 @@ common-build-arch:: make-langpack-xpis $(pkgconfig_files) make-testsuite run-tes
 
 install/$(MOZ_PKG_NAME)::
 	@echo "Adding suggests / recommends on support packages"
-	@echo "$(MOZ_PKG_SUPPORT_SUGGESTS)" | perl -0 -ne 's/[ \t\n]+/ /g; /\w/ and print "support:Suggests=$$_\n"' >> debian/$(MOZ_PKG_NAME).substvars
-	@echo "$(MOZ_PKG_SUPPORT_RECOMMENDS)" | perl -0 -ne 's/[ \t\n]+/ /g; /\w/ and print "support:Recommends=$$_\n"' >> debian/$(MOZ_PKG_NAME).substvars
+	echo "$(MOZ_PKG_SUPPORT_SUGGESTS)" | perl -0 -ne 's/[ \t\n]+/ /g; /\w/ and print "support:Suggests=$$_\n"' >> debian/$(MOZ_PKG_NAME).substvars
+	echo "$(MOZ_PKG_SUPPORT_RECOMMENDS)" | perl -0 -ne 's/[ \t\n]+/ /g; /\w/ and print "support:Recommends=$$_\n"' >> debian/$(MOZ_PKG_NAME).substvars
 
 ifneq ($(MOZ_PKG_NAME),$(MOZ_APP_NAME))
 install/%::
 	@echo "Adding conflicts / provides for renamed package"
-	@echo "app:Conflicts=$(subst $(subst $(MOZ_APP_NAME),,$(MOZ_PKG_NAME)),,$*)" >> debian/$*.substvars
-	@echo "app:Provides=$(subst $(subst $(MOZ_APP_NAME),,$(MOZ_PKG_NAME)),,$*)" >> debian/$*.substvars
+	echo "app:Conflicts=$(subst $(subst $(MOZ_APP_NAME),,$(MOZ_PKG_NAME)),,$*)" >> debian/$*.substvars
+	echo "app:Provides=$(subst $(subst $(MOZ_APP_NAME),,$(MOZ_PKG_NAME)),,$*)" >> debian/$*.substvars
 endif
 
 common-install-arch common-install-indep::
@@ -295,100 +302,70 @@ binary-install/$(MOZ_PKG_NAME)::
 	install -m 0644 $(CURDIR)/debian/apport/blacklist $(CURDIR)/debian/$(MOZ_PKG_NAME)/etc/apport/blacklist.d/$(MOZ_PKG_NAME)
 	install -m 0644 $(CURDIR)/debian/apport/native-origins $(CURDIR)/debian/$(MOZ_PKG_NAME)/etc/apport/native-origins.d/$(MOZ_PKG_NAME)
 
-binary-post-install/$(MOZ_PKG_NAME):: install-searchplugins-,$(MOZ_PKG_NAME)
+binary-post-install/$(MOZ_PKG_NAME):: install-searchplugins-$(MOZ_PKG_NAME)
 
-MOZ_LANGPACK_TARGETS := $(shell sed -n 's/[^\:]*\:\?\(.*\)/\1/ p' < debian/config/locales.shipped | uniq)
-$(patsubst %,binary-post-install/$(MOZ_PKG_NAME)-locale-%,$(MOZ_LANGPACK_TARGETS)):: binary-post-install/$(MOZ_PKG_NAME)-locale-%: install-langpack-xpis-% install-searchplugins-%
+$(patsubst %,binary-post-install/%,$(MOZ_LOCALE_PKGS)):: binary-post-install/%: install-langpack-xpis-% install-searchplugins-%
 
 binary-post-install/$(MOZ_PKG_NAME)-dev::
 	rm -f debian/$(MOZ_PKG_NAME)-dev/$(MOZ_INCDIR)/nspr/md/_linux.cfg
 	dh_link -p$(MOZ_PKG_NAME)-dev $(MOZ_INCDIR)/nspr/prcpucfg.h $(MOZ_INCDIR)/nspr/md/_linux.cfg
 
 $(patsubst %,binary-post-install/%,$(DEB_ALL_PACKAGES)) :: binary-post-install/%:
-	find debian/$* -name .mkdir.done -delete
+	find debian/$(cdbs_curpkg) -name .mkdir.done -delete
+
+define locales_for_langpack
+$(strip $(if $(filter $(MOZ_PKG_NAME),$(1)),\
+	en-US,\
+	$(shell grep $(subst $(MOZ_PKG_NAME)-locale-,,$(1))$$ debian/config/locales.shipped | sed -n 's/\([^\:]*\)\:\?.*/\1/ p')))
+endef
 
 install-langpack-xpis-%:
 	@echo ""
-	@echo "Installing language pack xpis for $(MOZ_PKG_NAME)-locale-$*"
-	dh_installdirs -p$(MOZ_PKG_NAME)-locale-$* $(MOZ_ADDONDIR)/extensions
-	@for lang in $(shell grep $*$$ debian/config/locales.shipped | sed -n 's/\([^\:]*\)\:\?.*/\1/ p' | tr '\n' ' '); \
-	do \
-		id=`PYTHONDONTWRITEBYTECODE=1 python $(CURDIR)/debian/build/xpi-id.py $(CURDIR)/$(MOZ_DISTDIR)/$(LANGPACK_DIR)/$(MOZ_APP_NAME)-$(MOZ_VERSION).$$lang.langpack.xpi 2>/dev/null`; \
-		echo "Installing $(MOZ_APP_NAME)-$(MOZ_VERSION).$$lang.langpack.xpi to $$id.xpi in to $(MOZ_PKG_NAME)-locale-$*"; \
-		install -m 0644 $(CURDIR)/$(MOZ_DISTDIR)/$(LANGPACK_DIR)/$(MOZ_APP_NAME)-$(MOZ_VERSION).$$lang.langpack.xpi \
-			$(CURDIR)/debian/$(MOZ_PKG_NAME)-locale-$*/$(MOZ_ADDONDIR)/extensions/$$id.xpi; \
-	done
+	@echo "Installing language pack xpis for $*"
+	dh_installdirs -p$* $(MOZ_ADDONDIR)/extensions
+	$(foreach lang,$(call locales_for_langpack,$*), \
+		id=`PYTHONDONTWRITEBYTECODE=1 python $(CURDIR)/debian/build/xpi-id.py $(CURDIR)/$(MOZ_DISTDIR)/$(LANGPACK_DIR)/$(MOZ_APP_NAME)-$(MOZ_VERSION).$(lang).langpack.xpi 2>/dev/null`; \
+		install -m 0644 $(CURDIR)/$(MOZ_DISTDIR)/$(LANGPACK_DIR)/$(MOZ_APP_NAME)-$(MOZ_VERSION).$(lang).langpack.xpi \
+			$(CURDIR)/debian/$*/$(MOZ_ADDONDIR)/extensions/$$id.xpi;)
 
-CUSTOMIZE_SEARCHPLUGINS = \
-	echo ""; \
-	echo "Applying search customizations for $(2)"; \
-	for lang in $(1); do \
-		echo "Applying customizations to $$lang"; \
-		list=debian/searchplugins/$$lang/list.txt; \
-		if [ ! -f $$list ]; then \
-			list=debian/searchplugins/list.txt; \
-		fi; \
-		overrides=`sed -n '/^\[Overrides\]/,/^\[/{/^\[/d;/^$$/d; p}' < $$list`; \
-		additions=`sed -n '/^\[Additions\]/,/^\[/{/^\[/d;/^$$/d; p}' < $$list`; \
-		for o in $$overrides; do \
-			f=`ls -1 debian/searchplugins/$$lang/$$o.xml 2>/dev/null | head -n1`; \
-			if [ -z $$f ]; then \
-				f=`ls -1 debian/searchplugins/en-US/$$o.xml 2>/dev/null | head -n1`; \
-			fi; \
-			if [ -z $$f ]; then \
-				echo "Cannot find source plugin for $$o"; \
-				exit 1; \
-			fi; \
-			if [ ! -f debian/$(2)/$(MOZ_LIBDIR)/distribution/searchplugins/locale/$$lang/`basename $$f` ]; then \
-				echo "No plugin `basename $$f` to override"; \
-				exit 1; \
-			fi; \
-			echo "Overriding `basename $$f`"; \
-			dh_install -p$(2) $$f $(MOZ_LIBDIR)/distribution/searchplugins/locale/$$lang; \
-		done; \
-		for a in $$additions; do \
-			f=`ls -1 debian/searchplugins/$$lang/$$a.xml 2>/dev/null | head -n1`; \
-			if [ -z $$f ]; then \
-				f=`ls -1 debian/searchplugins/en-US/$$a.xml 2>/dev/null | head -n1`; \
-			fi; \
-			if [ -z $$f ]; then \
-				echo "Cannot find source plugin for $$a"; \
-				exit 1; \
-			fi; \
-			if [ -f debian/$(2)/$(MOZ_LIBDIR)/distribution/searchplugins/locale/$$lang/`basename $$f` ]; then \
-				echo "Plugin `basename $$f` already exists"; \
-				exit 1; \
-			fi; \
-			echo "Adding `basename $$f`"; \
-			dh_install -p$(2) $$f $(MOZ_LIBDIR)/distribution/searchplugins/locale/$$lang; \
-		done; \
-	done
+$(patsubst %,install-searchplugins-%,$(MOZ_LOCALE_PKGS) $(MOZ_PKG_NAME)) :: install-searchplugins-% :
+	@echo ""
+	@echo "Installing searchplugins for $*"
+$(patsubst %,install-searchplugins-%,$(MOZ_LOCALE_PKGS) $(MOZ_PKG_NAME)) :: install-searchplugins-% : install-searchplugins-IMPL-% customize-searchplugins-IMPL-%
+$(patsubst %,install-searchplugins-%,$(MOZ_LOCALE_PKGS) $(MOZ_PKG_NAME)) :: install-searchplugins-% :
+	@echo ""
 
-install-searchplugins-%: P1 = $(shell echo $* | sed 's/\([^,]*\),\?\([^,]*\)/\1/')
-install-searchplugins-%: P2 = $(shell echo $* | sed 's/\([^,]*\),\?\([^,]*\)/\2/')
-install-searchplugins-%: LANGUAGES = $(if $(P1),$(shell grep $(P1)$$ debian/config/locales.shipped | sed -n 's/\([^\:]*\)\:\?.*/\1/ p' | tr '\n' ' '),en-US)
-install-searchplugins-%: PKGNAME = $(if $(P2),$(P2),$(MOZ_PKG_NAME)-locale-$(P1))
-install-searchplugins-%:
-	@echo ""
-	@echo "Installing searchplugins for $(PKGNAME)"
-	@for lang in $(LANGUAGES); do \
-		echo "Installing searchplugins for $$lang"; \
-		rm -rf debian/$(PKGNAME)/$(MOZ_LIBDIR)/distribution/searchplugins/locale/$$lang; \
-		src=$(MOZ_DISTDIR)/xpi-stage/locale-$$lang/$(MOZ_APP_SUBDIR)/searchplugins; \
-		if [ ! -d $$src ]; then \
-			src=debian/tmp/$(MOZ_LIBDIR)/$(MOZ_APP_SUBDIR)/searchplugins; \
-		fi; \
-		dh_installdirs -p$(PKGNAME) $(MOZ_LIBDIR)/distribution/searchplugins/locale/$$lang; \
-		dh_install -p$(PKGNAME) $$src/*.xml $(MOZ_LIBDIR)/distribution/searchplugins/locale/$$lang; \
-	done
-	@$(if $(wildcard debian/searchplugins),$(call CUSTOMIZE_SEARCHPLUGINS,$(LANGUAGES),$(PKGNAME)))
-	@echo ""
+define search_mod_list
+$(shell sed -n '/^\[$(1)\]/,/^\[/{/^\[/d;/^$$/d; p}' < $(firstword $(wildcard debian/searchplugins/$(2)/list.txt) debian/searchplugins/list.txt))
+endef
+
+define searchplugin_source_path
+$(firstword $(wildcard debian/searchplugins/$(2)/$(1).xml) $(wildcard debian/searchplugins/en-US/$(1).xml))
+endef
+
+customize-searchplugins-IMPL-%:
+	$(foreach lang,$(call locales_for_langpack,$*),$(if $(wildcard debian/searchplugins), \
+		$(foreach o,$(call search_mod_list,Overrides,$(lang)), \
+			$(if $(call searchplugin_source_path,$(o),$(lang)),,$(error No plugin to override for $(o))) \
+			$(if $(wildcard debian/$*/$(MOZ_LIBDIR)/distribution/searchplugins/locale/$(lang)/$(notdir $(call searchplugin_source_path,$(o),$(lang)))),, \
+				$(error No plugin $(notdir $(call searchplugin_source_path,$(o),$(lang))) to override)) \
+			dh_install -p$* $(call searchplugin_source_path,$(o),$(lang)) $(MOZ_LIBDIR)/distribution/searchplugins/locale/$(lang);) \
+		$(foreach a,$(call search_mod_list,Additions,$(lang)), \
+			$(if $(wildcard debian/$*/$(MOZ_LIBDIR)/distribution/searchplugins/locale/$(lang)/$(notdir $(call searchplugin_source_path,$(a),$(lang)))), \
+				$(error Plugin $(notdir $(call searchplugin_source_path,$(a),$(lang))) already exists)) \
+			dh_install -p$* $(call searchplugin_source_path,$(a),$(lang)) $(MOZ_LIBDIR)/distribution/searchplugins/locale/$(lang);)))
+
+install-searchplugins-IMPL-%:
+	$(foreach lang,$(call locales_for_langpack,$*), \
+		rm -rf debian/$*/$(MOZ_LIBDIR)/distribution/searchplugins/locale/$(lang); \
+		dh_installdirs -p$* $(MOZ_LIBDIR)/distribution/searchplugins/locale/$(lang); \
+		dh_install -p$* $(firstword $(wildcard $(MOZ_DISTDIR)/xpi-stage/locale-$(lang)/$(MOZ_APP_SUBDIR)/searchplugins) \
+			debian/tmp/$(MOZ_LIBDIR)/$(MOZ_APP_SUBDIR)/searchplugins)/*.xml \
+			$(MOZ_LIBDIR)/distribution/searchplugins/locale/$(lang);)
 
 $(patsubst %,binary-fixup/%,$(DEB_ALL_PACKAGES)) :: binary-fixup/%:
-	find debian/$(cdbs_curpkg) -type f -perm -5 \( -name '*.zip' -or -name '*.xml' \) -print0 2>/dev/null | xargs -0r chmod 644
-
-common-binary-fixup-arch::
-	$(foreach pkg,$(MOZ_PKG_NAMES),$(foreach file,$(MOZ_EXECUTABLES_$(pkg)),chmod a+x debian/$(pkg)/$(file);))
+	find debian/$(cdbs_curpkg) -type f -perm -5 \( -name '*.zip' -or -name '*.xml' -or -name '*.js' -or -name '*.manifest' -or -name '*.xpt' \) -print0 2>/dev/null | xargs -0r chmod 644
+	$(foreach f,$(call cdbs_expand_curvar,MOZ_EXECUTABLES),chmod a+x debian/$(cdbs_curpkg)/$(f);)
 
 binary-predeb/$(MOZ_PKG_NAME)::
 	$(foreach lib,libsoftokn3.so libfreebl3.so libnssdbm3.so, \
@@ -398,13 +375,50 @@ binary-predeb/$(MOZ_PKG_NAME)::
 mozconfig: debian/config/mozconfig
 	cp $< $@
 
-pre-build:: auto-refresh-supported-locales $(pkgname_subst_files) $(appname_subst_files) mozconfig
-ifeq (,$(MOZ_BRANDING_OPTION))
-	$(error "Need to set MOZ_BRANDING_OPTION")
-endif
-ifeq (,$(MOZ_BRANDING_DIR))
-	$(error "Need to set MOZ_BRANDING_DIR")
-endif
+define cmp_auto_generated_file
+@if ! cmp -s $(1) $(1).old; then \
+	echo ""; \
+	diff -Nurp $(1).old $(1); \
+	echo ""; \
+	echo "****************************************************************************"; \
+	echo "* An automatically generated file is out of date and needs to be refreshed *"; \
+	echo "****************************************************************************"; \
+	echo ""; \
+	echo "$(1) is out of date. Please run \"debian/rules $(firstword $(2) $(1))\" in VCS"; \
+	echo ""; \
+	rm -f $(1).old; \
+	exit 1; \
+fi
+rm -f $(1).old
+endef
+
+pre-build::
+	cp debian/config/locales.shipped debian/config/locales.shipped.old
+pre-build:: debian/config/locales.shipped $(pkgname_subst_files) $(appname_subst_files) mozconfig
+	$(call cmp_auto_generated_file,debian/config/locales.shipped,refresh-supported-locales)
+pre-build:: debian/stamp-monkey-patch-upstream-files
+
+debian/stamp-monkey-patch-upstream-files:
+	@touch debian/monkey-patch-files
+	@echo "#!/bin/sh" >> debian/monkey-patch-files.sh
+	make -f debian/rules monkey-patch-upstream-files
+	@while read line; do \
+		cp $$line $$line.moz-orig; \
+	done < debian/monkey-patch-files
+	sh debian/monkey-patch-files.sh
+	@rm debian/monkey-patch-files.sh
+	@touch $@
+
+monkey-patch-upstream-files::
+
+restore-upstream-files::
+	@$(if $(wildcard debian/monkey-patch-files), \
+		while read line; do \
+			if [ -f $$line.moz-orig ]; then \
+				mv $$line.moz-orig $$line; \
+			fi \
+		done < debian/monkey-patch-files; \
+		rm debian/monkey-patch-files)
 
 EXTRACT_TARBALL = $(firstword $(shell TMPDIR=`mktemp -d`; tar -jxf $(1) -C $$TMPDIR > /dev/null 2>&1; echo $$TMPDIR/`ls $$TMPDIR/ | head -n1`))
 
@@ -420,38 +434,18 @@ refresh-supported-locales::
 	@echo "****************************************"
 	@echo ""
 
+	$(if $(SHIPPED_LOCALES),,$(error We aren't in the full source directory. Please use "TARBALL=<path_to_orig.tar.bzr>"))
+
 	perl debian/build/refresh-supported-locales.pl -s $(SHIPPED_LOCALES) $(LPOM_OPT)
 
 refresh-supported-locales:: debian/control
 	$(if $(EXTRACTED),rm -rf $(dir $(EXTRACTED)))
 
-auto-refresh-supported-locales::
-	cp debian/config/locales.shipped debian/config/locales.shipped.old
-
-auto-refresh-supported-locales:: refresh-supported-locales
-auto-refresh-supported-locales::
-	@if ! cmp -s debian/config/locales.shipped debian/config/locales.shipped.old ; \
-	then \
-		echo "" ; \
-		echo "****************************************************************************" ; \
-		echo "* List of shipped locales is out of date. Please refresh and try again     *" ; \
-		echo "* To refresh, run \"debian/rules refresh-supported-locales\" in the source   *" ; \
-		echo "* directory. If you are in bzr, you will need to pass the location of the  *" ; \
-		echo "* upstream tarball, using \"TARBALL=/path/to/tarball\". If extra information *" ; \
-		echo "* is required for new locales, you will also need to pass the location of  *" ; \
-		echo "* langpack-o-matic, using \"LANGPACK_O_MATIC=/path/to/langpack-o-matic\"     *" ; \
-		echo "****************************************************************************" ; \
-		echo "" ; \
-		mv debian/config/locales.shipped.old debian/config/locales.shipped ; \
-		exit 1 ; \
-	fi
-	rm -f debian/config/locales.shipped.old
-
-ifneq (1, $(MOZ_DISABLE_CLEAN_CHECKS))
-clean:: auto-refresh-supported-locales
-endif
-
-RESTORE_BACKUP = $(shell if [ -f $(1).bak ] ; then rm -f $(1); mv $(1).bak $(1); fi)
+define moz_monkey_patch_file
+$(if $(wildcard debian/stamp-monkey-patch-upstream-files),$(error Too late to use moz_monkey_patch_file), \
+	echo "$(1)" >> debian/monkey-patch-files; \
+	echo "$(2) $(1)" >> debian/monkey-patch-files.sh)
+endef
 
 get-orig-source: ARGS = -r $(MOZILLA_REPO) -l $(L10N_REPO) -n $(MOZ_PKG_NAME) -a $(MOZ_APP)
 ifdef DEBIAN_TAG
@@ -469,38 +463,23 @@ get-orig-source:
 echo-%:
 	@echo "$($*)"
 
-clean:: debian/tests/control
-	@if ! cmp -s debian/control debian/control.old ; \
-	then \
-		echo "" ; \
-		echo "*************************************************************************" ; \
-		echo "* debian/control file is out of date. Please refresh and try again      *" ; \
-		echo "* To refresh, run \"debian/rules debian/control\" in the source directory *" ; \
-		echo "*************************************************************************" ; \
-		echo "" ; \
-		rm -f debian/control.old ; \
-		exit 1 ; \
-	fi
-	rm -f debian/control.old
-	@if ! cmp -s debian/tests/control debian/tests/control.old ; \
-	then \
-		echo "" ; \
-		echo "*******************************************************************************" ; \
-		echo "* debian/tests/control file is out of date. Please refresh and try again      *" ; \
-		echo "* To refresh, run \"debian/rules debian/tests/control\" in the source directory *" ; \
-		echo "*******************************************************************************" ; \
-		echo "" ; \
-		rm -f debian/control.old ; \
-		exit 1 ; \
-	fi
-	rm -f debian/tests/control.old
+ifneq (1, $(MOZ_DISABLE_CLEAN_CHECKS))
+clean::
+	cp debian/tests/control debian/tests/control.old
+	cp debian/config/locales.shipped debian/config/locales.shipped.old
+clean:: debian/tests/control refresh-supported-locales
+	$(call cmp_auto_generated_file,debian/config/locales.shipped,refresh-supported-locales)
+	$(call cmp_auto_generated_file,debian/control)
+	$(call cmp_auto_generated_file,debian/tests/control)
+endif
+
+clean::
 	rm -f $(pkgname_subst_files) $(appname_subst_files)
 	rm -f debian/stamp-*
 	rm -rf debian/l10n-mergedirs
 	rm -rf $(MOZ_OBJDIR)
-	rm -f debian/searchplugin*.list
 	rm -f mozconfig
 	rm -f debian/testing/extra.test.zip
 	rm -rf debian/testing/extra-stage
 
-.PHONY: make-buildsymbols make-testsuite make-langpack-xpis refresh-supported-locales auto-refresh-supported-locales get-orig-source
+.PHONY: make-buildsymbols make-testsuite make-langpack-xpis refresh-supported-locales get-orig-source monkey-patch-upstream-files

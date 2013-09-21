@@ -1,18 +1,11 @@
 #!/usr/bin/make -f
 
-# These are used for cross-compiling and for saving the configure script
-# from having to guess our platform (since we know it already)
-DEB_HOST_GNU_TYPE	:= $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
-DEB_BUILD_GNU_TYPE	:= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
-DEB_HOST_ARCH		:= $(shell dpkg-architecture -qDEB_HOST_ARCH)
-DEB_HOST_GNU_CPU	:= $(shell dpkg-architecture -qDEB_HOST_GNU_CPU)
-DEB_HOST_GNU_SYSTEM	:= $(shell dpkg-architecture -qDEB_HOST_GNU_SYSTEM)
-
 DISTRIB_VERSION_MAJOR 	:= $(shell lsb_release -s -r | cut -d '.' -f 1)
 DISTRIB_VERSION_MINOR 	:= $(shell lsb_release -s -r | cut -d '.' -f 2)
 DISTRIB_CODENAME	:= $(shell lsb_release -s -c)
 
 include $(CURDIR)/debian/config/branch.mk
+-include /usr/share/cdbs/1/rules/buildvars.mk
 
 # Various build defaults
 # 1 = Build crashreporter (if supported)
@@ -62,3 +55,7 @@ ifneq ($(MOZ_APP_NAME)$(MOZ_APP_BASENAME),$(MOZ_DEFAULT_APP_NAME)$(MOZ_DEFAULT_A
 # If we change MOZ_APP_NAME or MOZ_APP_BASENAME, don't use official branding
 MOZ_FORCE_UNOFFICIAL_BRANDING = 1
 endif
+
+MOZ_LOCALE_PKGS	= $(strip $(shell dh_listpackages | grep $(MOZ_PKG_NAME)-locale-))
+
+MOZ_LOCALES	:= $(shell sed -n 's/\#.*//;/^$$/d;s/\([^\:]*\)\:\?.*/\1/ p' < $(CURDIR)/debian/config/locales.shipped)

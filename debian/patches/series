@@ -1,3 +1,4 @@
+ubuntu-bookmarks.patch
 normalize-distribution-searchplugins.patch
 allow-lockPref-everywhere.patch
 ubuntu-ua-string-changes.patch
@@ -7,7 +8,7 @@ webapprt-support-for-langpacks.patch
 no_neon_on_arm.patch
 unity-menubar.patch
 test-integration/automation-output-junit-xml.patch
-test-integration/mochitest-allow-test-manifest-for-chrome.patch
+test-integration/mochitest-allow-test-manifest-for-browser-chrome.patch
 fix-broken-langpack-install-manifests.patch
 test-integration/xpcshell-output-valid-junit-xml.patch
 test-fixes/xpcshell-docshell-no-writes-to-appdir.patch
@@ -21,7 +22,8 @@ test-integration/xpcshell-disable-addon-select-dialog-test-for-adt.patch
 test-integration/xpcshell-disable-tests-which-need-appdir-write-access.patch
 test-overrides/disable-failing-python-tests.patch
 test-fixes/xpcshell-xunit-output-no-bell.patch
-test-fixes/xpcshell-search-fix-json-cache-test.patch
+test-fixes/xpcshell-search-fix-tests-when-plugins-are-not-in-appdir.patch
 test-integration/xpcshell-dont-return-nonzero-on-test-failure.patch
 test-fixes/xpcshell-chrome-fix-test_bug848297-with-locale-matchOS.patch
 test-integration/xpcshell-write-time-for-failed-test.patch
+test-integration/test-sameoriginpolicy-debug.patch

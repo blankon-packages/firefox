@@ -52,9 +52,11 @@ def main():
     if not options.noCloseWhenDone:
       sys.argv.append('--close-when-done')
     if '--test-manifest' not in sys.argv:
-      if '--a11y' in sys.argv or \
-         '--browser-chrome' in sys.argv or \
-         '--chrome' in sys.argv:
+      if '--a11y' in sys.argv:
+        manifest = 'mochitest-a11y.json'
+      elif '--browser-chrome' in sys.argv:
+        manifest = 'mochitest-browser-chrome.json'
+      elif '--chrome' in sys.argv:
         manifest = 'mochitest-chrome.json'
       else:
         manifest = 'mochitest.json'

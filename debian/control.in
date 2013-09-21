@@ -4,7 +4,6 @@ Section: web
 Priority: optional
 Maintainer: BlankOn Developers <blankon-dev@googlegaroups.com>
 XSBC-Original-Maintainer: Ubuntu Mozilla Team <ubuntu-mozillateam@lists.ubuntu.com>
-
 Vcs-Bzr: https://code.launchpad.net/~mozillateam/firefox/firefox-beta.saucy
 Build-Depends: cdbs,
 	locales,
@@ -27,6 +26,8 @@ Build-Depends: cdbs,
 	libasound2-dev,
 	libcurl4-openssl-dev,
 	libdbus-glib-1-dev (>= 0.60),
+	libgstreamer0.10-dev,
+	libgstreamer-plugins-base0.10-dev,
 	hardening-wrapper,
 	lsb-release,
 	libiw-dev,
@@ -55,8 +56,7 @@ Recommends: xul-ext-ubufox,
 Provides: www-browser,
 	iceweasel,
 	gnome-www-browser,
-	${app:Provides},
-	${transitional:Provides}
+	${app:Provides}
 Suggests: ttf-lyx,
 	${support:Suggests}
 Breaks: ${transitional:Breaks}
@@ -77,10 +77,7 @@ Depends: ${shlibs:Depends},
 	${misc:Depends}, 
 	@MOZ_PKG_NAME@ (= ${binary:Version})
 Provides: ${app:Provides}
-	${transitional:Provides}
-Replaces: ${transitional:Replaces}
 Conflicts: ${app:Conflicts},
-	${transitional:Conflicts}
 Description: Safe and easy web browser from Mozilla - debug symbols
  Firefox delivers safe, easy web browsing. A familiar user interface,
  enhanced security features including protection from online identity theft,
@@ -97,13 +94,10 @@ Depends: ${shlibs:Depends},
 	${misc:Depends},
 	@MOZ_PKG_NAME@ (= ${binary:Version})
 Provides: ${app:Provides}
-	${transitional:Provides}
-Replaces: ${transitional:Replaces}
 Conflicts: xulrunner-2.0-dev,
 	xulrunner-1.9.2-dev,
 	xulrunner-1.9-dev,
-	${app:Conflicts},
-	${transitional:Conflicts}
+	${app:Conflicts}
 Description: Safe and easy web browser from Mozilla - development files
  Firefox delivers safe, easy web browsing. A familiar user interface,
  enhanced security features including protection from online identity theft,
@@ -135,11 +129,10 @@ Priority: extra
 Depends: ${shlibs:Depends},
 	${misc:Depends},
 	@MOZ_PKG_NAME@ (= ${binary:Version}),
-	@MOZ_LOCALE_PKGS@,
+	@MOZ_LOCALE_PKGS@
 	python,
 	dbus-x11,
 	xvfb,
-	libgl1-mesa-dri,
 	make,
 	notify-osd,
 	metacity,
@@ -157,13 +150,14 @@ Depends: ${shlibs:Depends},
 	fonts-nanum,
 	fonts-nanum-coding,
 	fonts-unfonts-core,
-	ttf-liberation,
+	fonts-liberation,
 	gnome-session,
 	gnome-settings-daemon,
 	ubuntu-settings,
 	light-themes,
 	unzip,
-	hunspell-en-us
+	hunspell-en-us,
+	libgl1-mesa-dri
 Provides: ${app:Provides}
 Conflicts: ${app:Conflicts}
 Description: Safe and easy web browser from Mozilla - testsuite
@@ -180,7 +174,8 @@ Package: @MOZ_PKG_NAME@-globalmenu
 Architecture: any
 Section: oldlibs
 Priority: extra
-Depends: ${misc:Depends}
+Depends: @MOZ_PKG_NAME@,
+	${misc:Depends}
 Description: Safe and easy web browser from Mozilla (transitional package)
  This is a transitional package to ensure that upgrades work correctly.
  It can be safely removed

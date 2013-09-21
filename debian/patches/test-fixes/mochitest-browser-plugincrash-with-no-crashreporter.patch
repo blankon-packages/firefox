@@ -3,11 +3,11 @@ Description: Skip browser_pluginCrashCommentAndURL.js when the crash reporter
 Author: Chris Coulson <chris.coulson@canonical.com>
 Forwarded: no
 
-Index: firefox-trunk-23.0~a1~hg20130511r131518/browser/base/content/test/Makefile.in
+Index: firefox-trunk-24.0~a1~hg20130623r136205/browser/base/content/test/Makefile.in
 ===================================================================
---- firefox-trunk-23.0~a1~hg20130511r131518.orig/browser/base/content/test/Makefile.in	2013-05-11 03:06:44.000000000 +0100
-+++ firefox-trunk-23.0~a1~hg20130511r131518/browser/base/content/test/Makefile.in	2013-05-11 23:34:28.174256706 +0100
-@@ -321,14 +321,19 @@
+--- firefox-trunk-24.0~a1~hg20130623r136205.orig/browser/base/content/test/Makefile.in	2013-06-24 11:07:46.684414428 +0100
++++ firefox-trunk-24.0~a1~hg20130623r136205/browser/base/content/test/Makefile.in	2013-06-24 11:08:54.980415525 +0100
+@@ -327,8 +327,6 @@
                   browser_pageInfo_plugins.js \
                   browser_pageInfo.js \
                   feed_tab.html \
@@ -16,11 +16,12 @@ Index: firefox-trunk-23.0~a1~hg20130511r131518/browser/base/content/test/Makefil
                   browser_private_no_prompt.js \
                   browser_blob-channelname.js \
                   browser_aboutHealthReport.js \
-                  healthreport_testRemoteCommands.html \
+@@ -338,6 +336,13 @@
+                  offlineQuotaNotification.cacheManifest \
                   $(NULL)
  
 +ifdef MOZ_CRASHREPORTER
-+_BROWSER_FILES += \
++MOCHITEST_BROWSER_FILES += \
 +                browser_pluginCrashCommentAndURL.js \
 +                pluginCrashCommentAndURL.html \
 +				$(NULL)
@@ -28,4 +29,4 @@ Index: firefox-trunk-23.0~a1~hg20130511r131518/browser/base/content/test/Makefil
 +
  # Disable tests on Windows due to frequent failures (bugs 825739, 841341)
  ifneq (windows,$(MOZ_WIDGET_TOOLKIT))
- _BROWSER_FILES += \
+ MOCHITEST_BROWSER_FILES += \

@@ -142,14 +142,21 @@ class TestRunHelper(OptionParser):
     if self._xredir != None:
       return self._xredir
 
-    # The harness root was objdir/dist (which should contain the testsuite zip file)
-    # Note, our install layout mimics this
-    if self.root != self._orig_root and os.path.exists(os.path.join(self._orig_root, 'bin', 'libxul.so')):
-      self._xredir = os.path.join(self._orig_root, 'bin')
+    if self.root != self._orig_root:
+      # This allows us to run with the harness root set to objdir/dist (which should contain
+      # a testsuite tarball)
+      # Note, our install layout mimics this
+      libxul = os.path.join(self._orig_root, 'bin', 'libxul.so')
+    else:
+      # This allows us to run with the harness root set to objdir/dist/test-package-stage
+      libxul = os.path.join(self.root, os.pardir, 'bin', 'libxul.so')
 
-    # The harness root is testsuite staging directory (objdir/dist/test-package-stage)
-    if self._xredir == None and os.path.exists(os.path.join(self.root, os.pardir, 'bin', 'libxul.so')):
-      self._xredir = os.path.join(self.root, os.pardir, 'bin')
+    if os.path.exists(libxul):
+      self._xredir = os.path.dirname(libxul)
+    else:
+      libxul = os.path.join(os.path.dirname(__file__), os.pardir, 'libxul.so')
+      if os.path.exists(libxul):
+        self._xredir = os.path.dirname(libxul)
 
     return self._xredir
 

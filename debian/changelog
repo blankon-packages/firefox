@@ -1,15 +1,71 @@
-firefox (23.0+build2-0ubuntu2+blankon1) suroboyo; urgency=low
+firefox (24.0+build1-0ubuntu1blankon1) suroboyo; urgency=low
 
   * Upload to suroboyo 
 
- -- Rahman Yusri Aftian <aftian@di.blankon.in>  Thu, 12 Sep 2013 22:46:34 +0700
+ -- Rahman Yusri Aftian <aftian@di.blankon.in>  Sat, 21 Sep 2013 22:55:15 +0700
 
-firefox (23.0+build2-0ubuntu2) saucy; urgency=low
+firefox (24.0+build1-0ubuntu1) saucy; urgency=low
 
-  * debian/control.in: Add missing libgl1-mesa-dri dependency to -testsuite,
-    to fix the autopkgtest.
+  * New upstream stable release (FIREFOX_24_0_BUILD1)
+    - see LP: #1223826 for USN information
 
- -- Martin Pitt <martin.pitt@ubuntu.com>  Tue, 10 Sep 2013 14:21:36 -0400
+  * Make sure bindings are always attached for menu popups, even if they
+    already have a wrapper when the menu opens
+    - update debian/patches/unity-menubar.patch
+  * Make sure bindings are attached for menu's too, so that menu.open
+    always works (finally fixes livemarks when running in Unity)
+    - update debian/patches/unity-menubar.patch
+  * Refresh patches
+    - update d/p/test-fixes/mochitest-browser-plugincrash-with-no-crashreporter.patch
+    - update d/p/test-fixes/xpcshell-docshell-no-writes-to-appdir.patch
+    - update d/p/test-integration/automation-output-junit-xml.patch
+    - update debian/patches/ubuntu-bookmarks.patch
+    - update debian/patches/unity-menubar.patch
+  * Make the debian/control autogeneration a bit cleaner
+    - update debian/build/config.mk
+    - update debian/build/dump-langpack-control-entries.pl
+    - update debian/build/rules.mk
+    - update debian/control.in
+  * Don't set stuff that is set by dpkg-buildpackage
+    - update debian/build/config.mk
+    - update debian/build/rules.mk
+  * Remove the executable bit from more file types
+    - update debian/build/rules.mk
+  * The upstream mochitest harness now supports a manifest file for all tests
+    except for browser-chrome, but we need a separate manifest for each now
+    - update d/p/test-integration/mochitest-allow-test-manifest-for-chrome.patch
+    - rename d/p/test-integration/mochitest-allow-test-manifest-for-chrome.patch =>
+        d/p/test-integration/mochitest-allow-test-manifest-for-browser-chrome.patch
+    - update debian/patches/series
+    - add debian/testing/extra/mochitest/mochitest-a11y.json
+    - add debian/testing/extra/mochitest/mochitest-browser-chrome.json
+    - update debian/testing/extra/mochitest/mochitest-chrome.json
+    - update debian/testing/run_mochitest.in
+  * Support running unit tests from an unpacked testsuite tarball anywhere on the
+    filesystem
+    - update debian/testing/testrunhelper.py
+  * Include toolkit/components/mediasniffer/test/unit/data/ff-inst.exe in the
+    tarball, as it's required for a mimetype sniffing test that we run
+    - update debian/config/tarball.conf
+  * Temporary debug patch
+    - add d/p/test-integration/test-sameoriginpolicy-debug.patch
+    - update debian/patches/series
+  * Fix failing test_addEngine_callback.js search xpcshell test
+    - rename d/p/test-fixes/xpcshell-search-fix-json-cache-test.patch =>
+        d/p/test-fixes/xpcshell-search-fix-tests-when-plugins-are-not-in-appdir.patch
+    - update d/p/test-fixes/xpcshell-search-fix-tests-when-plugins-are-not-in-appdir.patch
+    - update debian/patches/series
+  * Fix broken Bulgarian language pack
+  * Blacklist Mongolian for now
+    - update debian/config/locales.blacklist
+  * Add GStreamber build-depends
+    - update debian/control.in
+  * Fix LP: #1223502 - firefox-testsuite should depend on fonts-liberation
+    rather than ttf-liberation
+  * Add libgl1-mesa-dri to firefox-testsuite depends so that gnome-session
+    starts correctly in saucy
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Wed, 11 Sep 2013 12:32:22 +0100
 
 firefox (23.0+build2-0ubuntu1) saucy; urgency=low
 

@@ -26,6 +26,8 @@ Build-Depends: cdbs,
 	libasound2-dev,
 	libcurl4-openssl-dev,
 	libdbus-glib-1-dev (>= 0.60),
+	libgstreamer0.10-dev,
+	libgstreamer-plugins-base0.10-dev,
 	hardening-wrapper,
 	lsb-release,
 	libiw-dev,
@@ -54,8 +56,7 @@ Recommends: xul-ext-ubufox,
 Provides: www-browser,
 	iceweasel,
 	gnome-www-browser,
-	${app:Provides},
-	${transitional:Provides}
+	${app:Provides}
 Suggests: ttf-lyx,
 	${support:Suggests}
 Breaks: ${transitional:Breaks}
@@ -76,10 +77,7 @@ Depends: ${shlibs:Depends},
 	${misc:Depends}, 
 	firefox (= ${binary:Version})
 Provides: ${app:Provides}
-	${transitional:Provides}
-Replaces: ${transitional:Replaces}
 Conflicts: ${app:Conflicts},
-	${transitional:Conflicts}
 Description: Safe and easy web browser from Mozilla - debug symbols
  Firefox delivers safe, easy web browsing. A familiar user interface,
  enhanced security features including protection from online identity theft,
@@ -96,13 +94,10 @@ Depends: ${shlibs:Depends},
 	${misc:Depends},
 	firefox (= ${binary:Version})
 Provides: ${app:Provides}
-	${transitional:Provides}
-Replaces: ${transitional:Replaces}
 Conflicts: xulrunner-2.0-dev,
 	xulrunner-1.9.2-dev,
 	xulrunner-1.9-dev,
-	${app:Conflicts},
-	${transitional:Conflicts}
+	${app:Conflicts}
 Description: Safe and easy web browser from Mozilla - development files
  Firefox delivers safe, easy web browsing. A familiar user interface,
  enhanced security features including protection from online identity theft,
@@ -134,11 +129,10 @@ Priority: extra
 Depends: ${shlibs:Depends},
 	${misc:Depends},
 	firefox (= ${binary:Version}),
-	firefox-locale-af (= ${binary:Version}), firefox-locale-ar (= ${binary:Version}), firefox-locale-as (= ${binary:Version}), firefox-locale-ast (= ${binary:Version}), firefox-locale-be (= ${binary:Version}), firefox-locale-bg (= ${binary:Version}), firefox-locale-bn (= ${binary:Version}), firefox-locale-br (= ${binary:Version}), firefox-locale-bs (= ${binary:Version}), firefox-locale-ca (= ${binary:Version}), firefox-locale-cs (= ${binary:Version}), firefox-locale-csb (= ${binary:Version}), firefox-locale-cy (= ${binary:Version}), firefox-locale-da (= ${binary:Version}), firefox-locale-de (= ${binary:Version}), firefox-locale-el (= ${binary:Version}), firefox-locale-en (= ${binary:Version}), firefox-locale-eo (= ${binary:Version}), firefox-locale-es (= ${binary:Version}), firefox-locale-et (= ${binary:Version}), firefox-locale-eu (= ${binary:Version}), firefox-locale-fa (= ${binary:Version}), firefox-locale-fi (= ${binary:Version}), firefox-locale-fr (= ${binary:Version}), firefox-locale-fy (= ${binary:Version}), firefox-locale-ga (= ${binary:Version}), firefox-locale-gd (= ${binary:Version}), firefox-locale-gl (= ${binary:Version}), firefox-locale-gu (= ${binary:Version}), firefox-locale-he (= ${binary:Version}), firefox-locale-hi (= ${binary:Version}), firefox-locale-hr (= ${binary:Version}), firefox-locale-hu (= ${binary:Version}), firefox-locale-hy (= ${binary:Version}), firefox-locale-id (= ${binary:Version}), firefox-locale-is (= ${binary:Version}), firefox-locale-it (= ${binary:Version}), firefox-locale-ja (= ${binary:Version}), firefox-locale-ka (= ${binary:Version}), firefox-locale-kk (= ${binary:Version}), firefox-locale-km (= ${binary:Version}), firefox-locale-kn (= ${binary:Version}), firefox-locale-ko (= ${binary:Version}), firefox-locale-ku (= ${binary:Version}), firefox-locale-lg (= ${binary:Version}), firefox-locale-lt (= ${binary:Version}), firefox-locale-lv (= ${binary:Version}), firefox-locale-mai (= ${binary:Version}), firefox-locale-mk (= ${binary:Version}), firefox-locale-ml (= ${binary:Version}), firefox-locale-mn (= ${binary:Version}), firefox-locale-mr (= ${binary:Version}), firefox-locale-nb (= ${binary:Version}), firefox-locale-nl (= ${binary:Version}), firefox-locale-nn (= ${binary:Version}), firefox-locale-nso (= ${binary:Version}), firefox-locale-oc (= ${binary:Version}), firefox-locale-or (= ${binary:Version}), firefox-locale-pa (= ${binary:Version}), firefox-locale-pl (= ${binary:Version}), firefox-locale-pt (= ${binary:Version}), firefox-locale-ro (= ${binary:Version}), firefox-locale-ru (= ${binary:Version}), firefox-locale-si (= ${binary:Version}), firefox-locale-sk (= ${binary:Version}), firefox-locale-sl (= ${binary:Version}), firefox-locale-sq (= ${binary:Version}), firefox-locale-sr (= ${binary:Version}), firefox-locale-sv (= ${binary:Version}), firefox-locale-sw (= ${binary:Version}), firefox-locale-ta (= ${binary:Version}), firefox-locale-te (= ${binary:Version}), firefox-locale-th (= ${binary:Version}), firefox-locale-tr (= ${binary:Version}), firefox-locale-uk (= ${binary:Version}), firefox-locale-vi (= ${binary:Version}), firefox-locale-zh-hans (= ${binary:Version}), firefox-locale-zh-hant (= ${binary:Version}), firefox-locale-zu (= ${binary:Version}) ,
+	firefox-locale-af (= ${binary:Version}), firefox-locale-ar (= ${binary:Version}), firefox-locale-as (= ${binary:Version}), firefox-locale-ast (= ${binary:Version}), firefox-locale-be (= ${binary:Version}), firefox-locale-bg (= ${binary:Version}), firefox-locale-bn (= ${binary:Version}), firefox-locale-br (= ${binary:Version}), firefox-locale-bs (= ${binary:Version}), firefox-locale-ca (= ${binary:Version}), firefox-locale-cs (= ${binary:Version}), firefox-locale-csb (= ${binary:Version}), firefox-locale-cy (= ${binary:Version}), firefox-locale-da (= ${binary:Version}), firefox-locale-de (= ${binary:Version}), firefox-locale-el (= ${binary:Version}), firefox-locale-en (= ${binary:Version}), firefox-locale-eo (= ${binary:Version}), firefox-locale-es (= ${binary:Version}), firefox-locale-et (= ${binary:Version}), firefox-locale-eu (= ${binary:Version}), firefox-locale-fa (= ${binary:Version}), firefox-locale-fi (= ${binary:Version}), firefox-locale-fr (= ${binary:Version}), firefox-locale-fy (= ${binary:Version}), firefox-locale-ga (= ${binary:Version}), firefox-locale-gd (= ${binary:Version}), firefox-locale-gl (= ${binary:Version}), firefox-locale-gu (= ${binary:Version}), firefox-locale-he (= ${binary:Version}), firefox-locale-hi (= ${binary:Version}), firefox-locale-hr (= ${binary:Version}), firefox-locale-hu (= ${binary:Version}), firefox-locale-hy (= ${binary:Version}), firefox-locale-id (= ${binary:Version}), firefox-locale-is (= ${binary:Version}), firefox-locale-it (= ${binary:Version}), firefox-locale-ja (= ${binary:Version}), firefox-locale-ka (= ${binary:Version}), firefox-locale-kk (= ${binary:Version}), firefox-locale-km (= ${binary:Version}), firefox-locale-kn (= ${binary:Version}), firefox-locale-ko (= ${binary:Version}), firefox-locale-ku (= ${binary:Version}), firefox-locale-lg (= ${binary:Version}), firefox-locale-lt (= ${binary:Version}), firefox-locale-lv (= ${binary:Version}), firefox-locale-mai (= ${binary:Version}), firefox-locale-mk (= ${binary:Version}), firefox-locale-ml (= ${binary:Version}), firefox-locale-mn (= ${binary:Version}), firefox-locale-mr (= ${binary:Version}), firefox-locale-nb (= ${binary:Version}), firefox-locale-nl (= ${binary:Version}), firefox-locale-nn (= ${binary:Version}), firefox-locale-nso (= ${binary:Version}), firefox-locale-oc (= ${binary:Version}), firefox-locale-or (= ${binary:Version}), firefox-locale-pa (= ${binary:Version}), firefox-locale-pl (= ${binary:Version}), firefox-locale-pt (= ${binary:Version}), firefox-locale-ro (= ${binary:Version}), firefox-locale-ru (= ${binary:Version}), firefox-locale-si (= ${binary:Version}), firefox-locale-sk (= ${binary:Version}), firefox-locale-sl (= ${binary:Version}), firefox-locale-sq (= ${binary:Version}), firefox-locale-sr (= ${binary:Version}), firefox-locale-sv (= ${binary:Version}), firefox-locale-sw (= ${binary:Version}), firefox-locale-ta (= ${binary:Version}), firefox-locale-te (= ${binary:Version}), firefox-locale-th (= ${binary:Version}), firefox-locale-tr (= ${binary:Version}), firefox-locale-uk (= ${binary:Version}), firefox-locale-vi (= ${binary:Version}), firefox-locale-zh-hans (= ${binary:Version}), firefox-locale-zh-hant (= ${binary:Version}), firefox-locale-zu (= ${binary:Version}),
 	python,
 	dbus-x11,
 	xvfb,
-	libgl1-mesa-dri,
 	make,
 	notify-osd,
 	metacity,
@@ -156,13 +150,14 @@ Depends: ${shlibs:Depends},
 	fonts-nanum,
 	fonts-nanum-coding,
 	fonts-unfonts-core,
-	ttf-liberation,
+	fonts-liberation,
 	gnome-session,
 	gnome-settings-daemon,
 	ubuntu-settings,
 	light-themes,
 	unzip,
-	hunspell-en-us
+	hunspell-en-us,
+	libgl1-mesa-dri
 Provides: ${app:Provides}
 Conflicts: ${app:Conflicts}
 Description: Safe and easy web browser from Mozilla - testsuite
@@ -179,7 +174,8 @@ Package: firefox-globalmenu
 Architecture: any
 Section: oldlibs
 Priority: extra
-Depends: ${misc:Depends}
+Depends: firefox,
+	${misc:Depends}
 Description: Safe and easy web browser from Mozilla (transitional package)
  This is a transitional package to ensure that upgrades work correctly.
  It can be safely removed

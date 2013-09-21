@@ -82,44 +82,29 @@ install/firefox::
 endif
 endif
 
-$(patsubst %,binary-post-install/$(MOZ_PKG_NAME)-locale-%,$(MOZ_LANGPACK_TARGETS)):: binary-post-install/$(MOZ_PKG_NAME)-locale-%: install-webapprt-langpack-links-%
+$(patsubst %,binary-post-install/%,$(MOZ_LOCALE_PKGS)) :: binary-post-install/%:
+	$(foreach xpi,$($(notdir $(wildcard debian/$*/$(MOZ_ADDONDIR)/extensions/*.xpi))), \
+		dh_link -p$* $(MOZ_ADDONDIR)/extensions/$(xpi) $(MOZ_LIBDIR)/webapprt/extensions/$(xpi);)
 
-install-webapprt-langpack-links-%: XPIS = $(notdir $(wildcard debian/$(MOZ_PKG_NAME)-locale-$*/$(MOZ_ADDONDIR)/extensions/*.xpi))
-install-webapprt-langpack-links-%:
-	$(foreach xpi,$(XPIS),dh_link -p$(MOZ_PKG_NAME)-locale-$* $(MOZ_ADDONDIR)/extensions/$(xpi) $(MOZ_LIBDIR)/webapprt/extensions/$(xpi);)
-
-make-langpack-preinsts::
-	@while read line ; \
-	do \
-		line=`echo $$line | sed 's/#.*//' | sed '/^$$/d'` ; \
-		if [ ! -z "$$line" ] ; \
-		then \
-		pkgname=`echo $$line | sed 's/\([^:]*\):*\([^:]*\)/\2/'` ; \
-			cp $(CURDIR)/debian/$(MOZ_PKG_NAME)-locale.preinst $(CURDIR)/debian/$(MOZ_PKG_NAME)-locale-$${pkgname}.preinst ; \
-		fi \
-	done < $(CURDIR)/debian/config/locales.shipped
+make-langpack-preinsts:: $(foreach langpack,$(MOZ_LOCALE_PKGS),debian/$(langpack).preinst)
+$(patsubst %,debian/%.preinst,$(MOZ_LOCALE_PKGS)) :: debian/%.preinst : debian/$(MOZ_PKG_NAME)-locale.preinst
+	cp $< $@
 
 pre-build:: make-langpack-preinsts
+
+monkey-patch-upstream-files::
 ifneq ($(MOZ_APP_BASENAME),$(MOZ_DEFAULT_APP_BASENAME))
 	@echo "Setting MOZ_APP_UA_NAME to $(MOZ_DEFAULT_APP_BASENAME)"
-	@cp $(DEB_SRCDIR)/$(MOZ_BRANDING_DIR)/configure.sh $(DEB_SRCDIR)/$(MOZ_BRANDING_DIR)/configure.sh.bak; \
-		echo "MOZ_APP_UA_NAME=$(MOZ_DEFAULT_APP_BASENAME)" >> $(DEB_SRCDIR)/$(MOZ_BRANDING_DIR)/configure.sh
+	$(call moz_monkey_patch_file,$(DEB_SRCDIR)/$(MOZ_BRANDING_DIR)/configure.sh, \
+		echo "MOZ_APP_UA_NAME=$(MOZ_DEFAULT_APP_BASENAME)" >>)
 
 	@echo "Setting UAName to $(MOZ_DEFAULT_APP_BASENAME)"
-	@cp $(DEB_SRCDIR)/webapprt/application.ini.in $(DEB_SRCDIR)/webapprt/application.ini.in.bak; \
-		sed -ri 's/@MOZ_APP_BASENAME@/$(MOZ_DEFAULT_APP_BASENAME)/g' $(DEB_SRCDIR)/webapprt/application.ini.in
-endif
-ifneq ($(MOZ_APP_NAME),$(MOZ_DEFAULT_APP_NAME))
-	@echo "Replacing instances of \"%APP%\" with \"firefox\" in firefox-branding.js"
-	@cp $(DEB_SRCDIR)/$(MOZ_BRANDING_DIR)/pref/firefox-branding.js $(DEB_SRCDIR)/$(MOZ_BRANDING_DIR)/pref/firefox-branding.js.bak; \
-		sed -ri 's/%APP%/firefox/g' $(DEB_SRCDIR)/$(MOZ_BRANDING_DIR)/pref/firefox-branding.js
+	$(call moz_monkey_patch_file,$(DEB_SRCDIR)/webapprt/application.ini.in, \
+		sed -ri 's/@MOZ_APP_BASENAME@/$(MOZ_DEFAULT_APP_BASENAME)/g')
 endif
 
 clean::
 	rm -f debian/$(MOZ_PKG_NAME)-locale-*.preinst
 	rm -f debian/usr.bin.firefox.in
-	$(call RESTORE_BACKUP, $(DEB_SRCDIR)/$(MOZ_BRANDING_DIR)/configure.sh)
-	$(call RESTORE_BACKUP, $(DEB_SRCDIR)/$(MOZ_BRANDING_DIR)/pref/firefox-branding.js)
-	$(call RESTORE_BACKUP, $(DEB_SRCDIR)/webapprt/application.ini.in)
 
 .PHONY: make-langpack-preinsts
