@@ -14,14 +14,25 @@
 /@MOZ_LIBDIR@/firefox{,*[^s][^h]} {
   #include <abstractions/audio>
   #include <abstractions/cups-client>
-  #include <abstractions/dbus-session>
+  #include <abstractions/dbus-strict>
+  #include <abstractions/dbus-session-strict>
+  #include <abstractions/dconf>
   #include <abstractions/gnome>
   #include <abstractions/ibus>
   #include <abstractions/nameservice>
   #include <abstractions/p11-kit>
+  #include <abstractions/ubuntu-unity7-base>
+  #include <abstractions/ubuntu-unity7-launcher>
 
-  # Addons
-  #include <abstractions/ubuntu-browsers.d/firefox>
+  #include <abstractions/dbus-accessibility-strict>
+  dbus (send)
+       bus=session
+       peer=(name=org.a11y.Bus),
+  dbus (receive)
+       bus=session
+       interface=org.a11y.atspi**,
+  dbus (receive, send)
+       bus=accessibility,
 
   # for networking
   network inet stream,
@@ -30,6 +41,13 @@
   @{PROC}/[0-9]*/net/ipv6_route r,
   @{PROC}/[0-9]*/net/dev r,
   @{PROC}/[0-9]*/net/wireless r,
+  dbus (send)
+       bus=system
+       path=/org/freedesktop/NetworkManager
+       member=state,
+  dbus (receive)
+       bus=system
+       path=/org/freedesktop/NetworkManager,
 
   # should maybe be in abstractions
   /etc/ r,
@@ -49,6 +67,11 @@
   # Doesn't seem to be required, but noisy. Maybe allow 'r' for 'b*' if needed.
   # Possibly move to an abstraction if anything else needs it.
   deny /run/udev/data/** r,
+  # let the shell know we launched something
+  dbus (send)
+     bus=session
+     interface=org.gtk.gio.DesktopAppInfo
+     member=Launched,
 
   /etc/timezone r,
   /etc/wildmidi/wildmidi.cfg r,
@@ -95,7 +118,7 @@
   /sys/devices/pci[0-9]*/**/uevent r,
   /sys/devices/platform/**/uevent r,
   /sys/devices/pci*/**/{busnum,idVendor,idProduct} r,
-  owner @{HOME}/.thumbnails/*/*.png r,
+  owner @{HOME}/.cache/thumbnails/** rw,
 
   /etc/mtab r,
   /etc/fstab r,
@@ -139,10 +162,21 @@
   owner @{HOME}/.{firefox,mozilla}/**/*.{db,parentlock,sqlite}* k,
   owner @{HOME}/.{firefox,mozilla}/plugins/** rm,
   owner @{HOME}/.{firefox,mozilla}/**/plugins/** rm,
-  owner @{HOME}/.gnome2/firefox*-bin-* rw,
+  owner @{HOME}/.gnome2/firefox* rwk,
   owner @{HOME}/.cache/mozilla/{,@MOZ_APP_NAME@/} rw,
   owner @{HOME}/.cache/mozilla/@MOZ_APP_NAME@/** rw,
   owner @{HOME}/.cache/mozilla/@MOZ_APP_NAME@/**/*.sqlite k,
+  owner @{HOME}/.config/gtk-3.0/bookmarks r,
+  owner @{HOME}/.config/dconf/user w,
+  owner /{,var/}run/user/*/dconf/user w,
+  dbus (send)
+       bus=session
+       path=/org/gnome/GConf/Server
+       member=GetDefaultDatabase,
+  dbus (send)
+       bus=session
+       path=/org/gnome/GConf/Database/*
+       member={AddMatch,AddNotify,AllEntries,LookupExtended,RemoveNotify},
 
   #
   # Extensions
@@ -163,6 +197,29 @@
   /usr/bin/mkfifo Uxr,  # investigate
   /bin/ps Uxr,
   /bin/uname Uxr,
+
+  /usr/bin/lsb_release Cxr -> lsb_release,
+  profile lsb_release {
+    #include <abstractions/base>
+    #include <abstractions/python>
+    /usr/bin/lsb_release r,
+    /bin/dash ixr,
+    /usr/bin/dpkg-query ixr,
+    /usr/include/python2.[4567]/pyconfig.h r,
+    /etc/lsb-release r,
+    /etc/debian_version r,
+    /var/lib/dpkg/** r,
+
+    /usr/local/lib/python3.[0-4]/dist-packages/ r,
+    /usr/bin/ r,
+    /usr/bin/python3.[0-4] r,
+
+    # file_inherit
+    deny /tmp/gtalkplugin.log w,
+  }
+
+  # Addons
+  #include <abstractions/ubuntu-browsers.d/firefox>
 
   # Site-specific additions and overrides. See local/README for details.
   #include <local/usr.bin.firefox>

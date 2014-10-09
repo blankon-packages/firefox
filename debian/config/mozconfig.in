@@ -7,6 +7,7 @@ ac_add_options --libexecdir=/@MOZ_LIBDIR@
 ac_add_options --with-l10n-base=@TOPSRCDIR@/@DEB_BUILDDIR@/l10n
 ac_add_options --srcdir=@TOPSRCDIR@/@DEB_BUILDDIR@
 mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/@MOZ_OBJDIR@
+ac_add_options --enable-release
 ac_add_options --disable-install-strip
 ac_add_options --disable-updater
 ac_add_options --enable-application=browser
@@ -57,10 +58,9 @@ ac_add_options --disable-debug
 ac_add_options --disable-elf-hack
 %%if MOZ_APP_BASENAME != MOZ_DEFAULT_APP_BASENAME
 ac_add_options --with-app-basename=@MOZ_APP_BASENAME@
-%%else
+%%endif
 %%if MOZ_APP_NAME != MOZ_DEFAULT_APP_NAME
 ac_add_options --with-app-name=@MOZ_APP_NAME@
-%%endif
 %%endif
 %%if MOZ_UPDATE_CHANNEL == nightly
 ac_add_options --enable-profiling
@@ -68,5 +68,18 @@ ac_add_options --enable-profiling
 %%if DEB_HOST_ARCH != i386
 %%if DEB_HOST_ARCH != amd64
 ac_add_options --disable-webrtc
+%%endif
+%%endif
+%%if DEB_HOST_ARCH == arm64
+ac_add_options --enable-system-ffi
+%%endif
+%%if DISTRIB_VERSION >= 1310
+ac_add_options --enable-gstreamer=1.0
+%%endif
+ac_add_options --with-google-api-keyfile=@TOPSRCDIR@/debian/g
+%%if DISTRIB_VERSION >= 1310
+%%if DEB_HOST_ARCH == i386
+# Work around for https://launchpad.net/bugs/1348333
+ac_add_options --enable-unified-compilation
 %%endif
 %%endif

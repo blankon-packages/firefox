@@ -10,6 +10,7 @@ class MochitestHelper(TestRunHelper):
       '--a11y',
       '--browser-chrome',
       '--chrome',
+      '--chunk-by-dir',
       '--console-level',
       '--ipcplugins',
       '--install-extension',
@@ -18,7 +19,9 @@ class MochitestHelper(TestRunHelper):
       '--setpref',
       '--test-manifest',
       '--test-path',
+      '--this-chunk',
       '--timeout',
+      '--total-chunks',
       '--xunit-file',
       '--xunit-name',
       '--debugger',
@@ -27,7 +30,7 @@ class MochitestHelper(TestRunHelper):
     ]
 
     TestRunHelper.__init__(self, 'mochitest/runtests.py',
-                           lambda g: g['MochitestOptions'](g['Automation'](), g['__file__']),
+                           lambda g: g['MochitestOptions'](g['Automation']()),
                            pass_args=PASSTHROUGH_ARGS,
                            need_x=True)
 

@@ -1,12 +1,51 @@
 #!/usr/bin/python
 
-from optparse import OptionParser
 from glob import glob
+import json
+from optparse import OptionParser
+import os.path
+import re
 import sys
 import xml.dom.minidom
-import os.path
-import json
-import re
+
+class ReadOnlyDict(dict):
+  def __init__(self, d = {}):
+    dict.__init__(self, d)
+
+  def __setitem__(self, key, value):
+    raise TypeError('ReadOnlyDict does not support assignment')
+
+class SandboxGlobal(ReadOnlyDict):
+
+  builtins = ReadOnlyDict({'None': None, 'False': False, 'True': True})
+
+  def __init__(self, d = {}):
+    ReadOnlyDict.__init__(self, {
+        '__builtins__': self.builtins,
+        'reftest_fuzzy_pass': self.reftest_fuzzy_pass})
+
+    self._vars = d
+
+  def __getitem__(self, key):
+    if key in self._vars:
+      return self._vars[key]
+
+    return ReadOnlyDict.__getitem__(self, key)
+
+  def reftest_fuzzy_pass(self, max_diff, diff_count):
+    m = re.match('image comparison \(==\), max difference: ([0-9]*), '
+                 'number of differing pixels: ([0-9]*)',
+                 self._vars['message'])
+    if m == None:
+      return False
+    return int(m.groups()[0]) <= max_diff and int(m.groups()[1]) <= diff_count
+
+class Sandbox(object):
+  def __init__(self, type, message):
+    self._global = SandboxGlobal({'type': type, 'message': message})
+
+  def eval(self, str):
+    return eval(str, self._global, {})
 
 class FilterOptions(OptionParser):
   def __init__(self):
@@ -17,8 +56,11 @@ class FilterOptions(OptionParser):
     self.add_option('-m', '--manifest', dest='manifest',
                     help='Specify the manifest file')
     self.add_option('-o', '--output-dir', dest='output',
-                    help='Specify the directory in which to store the filtered results')
-
+                    help='Specify the directory in which to store the '
+                         'filtered results')
+    self.add_option('-x', '--xunit-file', dest='xunit_file',
+                    help='Specify a filename to store xunit results from '
+                         'this script')
 
 def main():
   parser = FilterOptions()
@@ -34,56 +76,36 @@ def main():
   if options.output == None:
     options.output = options.input
 
-  config = {}
+  if options.xunit_file != None and not os.path.isabs(options.xunit_file):
+    options.xunit_file = os.path.join(options.output, options.xunit_file)
 
+  config = []
   with open(options.manifest, 'r') as f:
-    m = json.load(f)
-    for i in m:
-      if 'testsuite' not in i or 'classname' not in i:
-        print >> sys.stderr, 'Manifest entry missing mandatory entries'
-        continue
+    config = json.load(f)
 
-      testsuite = i['testsuite']
-      classname = i['classname']
-      name = i['name'] if 'name' in i else '__all__'
-
-      if testsuite not in config:
-        config[testsuite] = {}
-      if classname not in config[testsuite]:
-        config[testsuite][classname] = {}
-      if name in config[testsuite][classname]:
-        print >> sys.stderr, 'Already got entry for %s.%s.%s' % (testsuite, classname, name)
-        continue
-
-      if 'pass-ok' not in i:
-        i['pass-ok'] = False
-      if 'condition' in i or 'type' in i or 'message' in i:
-        if 'matches' in i:
-          print >> sys.stderr, 'Invalid entry for %s.%s.%s' % (testsuite, classname, name)
-          continue
-        i['matches'] = []
-        i['matches'].append({ 'type': i['type'] if 'type' in i else '.*',
-                              'message': i['message'] if 'message' in i else '.*',
-                              'condition': i['condition'] if 'condition' in i else None })
+  for i in config:
+    for f in ['id', 'type', 'message']:
+      if f in i:
+        i[f] = re.compile(i[f])
       else:
-        if 'matches' not in i:
-          i['matches'] = []
-        if len(i['matches']) == 0:
-          i['matches'].append({})
-        for m in i['matches']:
-          if 'type' not in m:
-            m['type'] = '.*'
-          if 'message' not in m:
-            m['message'] = '.*'
+        i[f] = re.compile('.*')
+    if 'random' not in i:
+      i['random'] = False
+    if 'expected_count' in i:
+      i['max_expected_count'] = i['min_expected_count'] = i['expected_count']
+    if 'min_expected_count' not in i or i['random'] == True:
+      i['min_expected_count'] = 0
+    if 'max_expected_count' not in i:
+      i['max_expected_count'] = sys.maxint
+    i['count'] = 0
 
-      config[testsuite][classname][name] = i
-
-  for f in glob(os.path.join(options.input, '*.xml')):
-    print 'Processing file %s' % f
-    doc = xml.dom.minidom.parse(f)
+  for file in glob(os.path.join(options.input, '*.xml')):
+    print 'Processing file %s' % file
+    doc = xml.dom.minidom.parse(file)
     doc.normalize()
     if doc.documentElement.tagName != 'testsuite':
-      print >> sys.stderr, "Skipping invalid result file %s with document element '%s'" % (f, doc.documentElement.tagName)
+      print >> sys.stderr, "Skipping invalid result file %s with document " + \
+                           "element '%s'" % (f, doc.documentElement.tagName)
       continue
 
     testsuite = doc.documentElement.getAttribute('name')
@@ -92,61 +114,59 @@ def main():
     adjust = 0
     testcases = doc.getElementsByTagName('testcase')
     for t in testcases:
-      classname = t.getAttribute('classname')
-      name = t.getAttribute('name')
+      t_id = testsuite + '.' + t.getAttribute('classname') + \
+             '.' + t.getAttribute('name')
+      failures = t.getElementsByTagName('failure')
 
-      for n in [name, '__all__']:
-        c = None
-        try:
-          c = config[testsuite][classname][n]
-        except:
-          pass
-
-        if c == None:
+      for c in config:
+        if not c['id'].match(t_id):
           continue
 
-        filters = c['matches']
-        pass_ok = c['pass-ok']
-        seen = False
+        match = False
+        for f in failures:
+          type = f.getAttribute('type')
+          message = f.getAttribute('message')
 
-        failures = t.getElementsByTagName('failure')
-        for failure in failures:
-          for flt in filters:
-            type_match = re.match(flt['type'], failure.getAttribute('type'))
-            message_match = re.match(flt['message'], failure.getAttribute('message'))
+          if not c['type'].match(type):
+            continue
 
-            condition = True
-            if 'condition' in flt and flt['condition'] != None:
+          if not c['message'].match(message):
+            continue
 
-              def reftest_fuzzy(maxDiff, diffCount):
-                m = re.match('image comparison \(==\), max difference: ([0-9]*), number of differing pixels: ([0-9]*)',
-                             failure.getAttribute('message'))
-                if m == None:
-                  return False
-                return int(m.groups()[0]) <= maxDiff and int(m.groups()[1]) <= diffCount
+          if 'condition' in c:
+            s = Sandbox(type, message)
+            if not s.eval(c['condition']):
+              continue
 
-              sandbox_global = {}
-              sandbox_global['__builtins__'] = { 'None': None }
-              sandbox_global['type_match'] = type_match.groups() if type_match != None else None
-              sandbox_global['message_match'] = message_match.groups() if message_match != None else None
-              sandbox_global['message'] = failure.getAttribute('message')
-              sandbox_global['type'] = failure.getAttribute('type')
-              sandbox_global['reftest_fuzzy'] = reftest_fuzzy
-              condition = eval(flt['condition'], sandbox_global)
+          match = True
 
-            if type_match and message_match and condition:
-              print 'Removing expected failure from %s.%s%s' % (classname, name, ' (%s)' % c['note'] if 'note' in c else '')
-              t.removeChild(failure)
-              seen = True
-              adjust -= 1
+          print 'Removing expected failure from %s%s' % \
+                (t_id, ' (%s)' % c['note'] if 'note' in c else '')
+          adjust -= 1
+          t.removeChild(f)
 
-        if seen == False and len(failures) == 0 and pass_ok == False:
-          print 'Adding unexpected pass to %s.%s' % (classname, name)
-          adjust += 1
+        if match:
+          c['count'] += 1
+        elif c['random'] == False:
           failure = doc.createElement('failure')
-          t.appendChild(failure)
           failure.setAttribute('type', 'TEST-UNEXPECTED-PASS')
-          failure.setAttribute('message', 'This test should have failed (inserted by filter_results)')
+          failure.setAttribute('message',
+              'A failure was expected here (inserted by filter_results)')
+          cdata = doc.createCDATASection(
+              "Filter parameters:\n"
+              "'id': %s\n'type': %s\n"
+              "'message': %s\n"
+              "'condition': %s\n"
+              "'min_expected_count': %d\n"
+              "'max_expected_count': %d" %
+              (c['id'].pattern, c['type'].pattern, c['message'].pattern,
+               (c['condition'] if 'condition' in c else "None"),
+               c['min_expected_count'], c['max_expected_count']))
+          failure.appendChild(cdata)
+
+          print 'Adding unexpected pass to %s' % t_id
+          t.appendChild(failure)
+          adjust += 1
 
     if adjust != 0:
       old_count = int(doc.documentElement.getAttribute("failures"))
@@ -166,11 +186,59 @@ def main():
 
     remove_empty_text_nodes(doc)
 
-    with open(os.path.join(options.output, os.path.basename(f)), 'w+') as f:
-      doc.writexml(f, addindent='  ', newl='\n', encoding='utf-8')
+    with open(os.path.join(options.output, os.path.basename(file)), 'w+') as fd:
+      doc.writexml(fd, addindent='  ', newl='\n', encoding='utf-8')
 
-    print 'Finished processing file %s' % f
+    print 'Finished processing file %s' % file
 
+  if options.xunit_file == None:
+    return
+
+  result_doc = xml.dom.minidom.Document()
+  testsuite = result_doc.createElement('testsuite')
+  testsuite.setAttribute('name', 'filter-results')
+  result_doc.appendChild(testsuite)
+
+  testcase = result_doc.createElement('testcase')
+  testcase.setAttribute('classname', 'root')
+  testcase.setAttribute('name', 'filter-results')
+  testsuite.appendChild(testcase)
+
+  for c in config:
+    if (c['count'] > c['max_expected_count'] or
+        c['count'] < c['min_expected_count']):
+      failure = result_doc.createElement('failure')
+      failure.setAttribute('type', 'TEST-UNEXPECTED-FAIL')
+      failure.setAttribute('message',
+          'Unexpected number of test failure matches ' +
+          '(got %d, expected %s)' %
+          (c['count'],
+           (('%d' % c['min_expected_count'])
+            if c['min_expected_count'] == c['max_expected_count'] else
+            ('between %d and %d' % (c['min_expected_count'],
+             c['max_expected_count'])))))
+      cdata = result_doc.createCDATASection(
+          "Filter parameters:\n"
+          "'id': %s\n"
+          "'type': %s\n"
+          "'message': %s\n"
+          "'condition': %s\n"
+          "'random': %s\n"
+          "'min_expected_count': %s\n"
+          "'max_expected_count': %s" %
+          (c['id'].pattern, c['type'].pattern, c['message'].pattern,
+           c['condition'] if 'condition' in c else 'None',
+           str(c['random']),
+           str(c['min_expected_count']),
+           str(c['max_expected_count'])))
+      failure.appendChild(cdata)
+      testcase.appendChild(failure)
+
+  testsuite.setAttribute('tests', '1')
+  testsuite.setAttribute('failures', str(len(testcase.childNodes)))
+
+  with open(options.xunit_file, 'w+') as fd:
+    result_doc.writexml(fd, addindent='  ', newl='\n', encoding='utf-8')
 
 if __name__ == '__main__':
   main()

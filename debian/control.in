@@ -2,9 +2,9 @@
 Source: @MOZ_PKG_NAME@
 Section: web
 Priority: optional
-Maintainer: BlankOn Developers <blankon-dev@googlegaroups.com>
+Maintainer: BlankOn Developers <blankon-dev@googlegroups.com>
 XSBC-Original-Maintainer: Ubuntu Mozilla Team <ubuntu-mozillateam@lists.ubuntu.com>
-Vcs-Bzr: https://code.launchpad.net/~mozillateam/firefox/firefox-beta.saucy
+Vcs-Bzr: https://code.launchpad.net/~mozillateam/firefox/firefox-beta.utopic
 Build-Depends: cdbs,
 	locales,
 	debhelper (>= 7),
@@ -26,23 +26,23 @@ Build-Depends: cdbs,
 	libasound2-dev,
 	libcurl4-openssl-dev,
 	libdbus-glib-1-dev (>= 0.60),
-	libgstreamer0.10-dev,
-	libgstreamer-plugins-base0.10-dev,
+	libgstreamer1.0-dev | libgstreamer0.10-dev,
+	libgstreamer-plugins-base1.0-dev | libgstreamer-plugins-base0.10-dev,
 	hardening-wrapper,
 	lsb-release,
 	libiw-dev,
 	mesa-common-dev,
 	libnotify-dev (>= 0.4),
 	libxrender-dev,
+	libpulse-dev,
 	yasm (>= 1.1),
 	unzip,
 	dbus-x11,
-                    xauth,  
 	xvfb,
-	python (>= 2.7)
-Build-Conflicts: python-progressbar
+	python (>= 2.7),
+	libffi-dev (>= 3.0.9) [arm64]
 Standards-Version: 3.9.1
-XS-Testsuite: autopkgtest
+#XS-Testsuite: autopkgtest
 
 Package: @MOZ_PKG_NAME@
 Architecture: any
@@ -58,7 +58,7 @@ Provides: www-browser,
 	iceweasel,
 	gnome-www-browser,
 	${app:Provides}
-Suggests: ttf-lyx,
+Suggests: fonts-lyx,
 	${support:Suggests}
 Breaks: ${transitional:Breaks}
 Replaces: ${transitional:Replaces}
@@ -145,9 +145,9 @@ Depends: ${shlibs:Depends},
 	fonts-kacst,
 	fonts-takao-mincho,
 	fonts-takao-gothic,
-	ttf-wqy-zenhei,
+	fonts-wqy-zenhei | ttf-wqy-zenhei,
 	fonts-arphic-uming,
-	ttf-arphic-ukai,
+	fonts-arphic-ukai | ttf-arphic-ukai,
 	fonts-nanum,
 	fonts-nanum-coding,
 	fonts-unfonts-core,

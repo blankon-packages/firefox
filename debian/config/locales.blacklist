@@ -1,5 +1,6 @@
 ach # Not supported on Ubuntu
 ak # Not supported on Ubuntu
+dsb # Not supported on Ubuntu
 lij # Not supported on Ubuntu
 ff # Not supported on Ubuntu
 mn # Missing MOZ_LANG_TITLE from toolkit/defines.inc

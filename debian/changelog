@@ -1,9 +1,316 @@
-firefox (24.0+build1-0ubuntu1blankon1) suroboyo; urgency=low
+firefox (33.0~b9+build1-0ubuntu0.14.0.1blankon1) Utambora; urgency=medium
 
-  * Upload to suroboyo 
-  * Added dependensi xauth
+  * Upload to tambora 
 
- -- Rahman Yusri Aftian <aftian@di.blankon.in>  Sun, 22 Sep 2013 00:52:11 +0700
+ -- Rahman Yusri Aftian <aftian@di.blankon.in>  Thu, 09 Oct 2014 22:24:07 +0700
+
+firefox (33.0~b9+build1-0ubuntu0.14.04.1~ricotz1) trusty; urgency=medium
+
+  * New upstream release from the beta channel (FIREFOX_33_0b9_BUILD1)
+
+ -- Rico Tzschichholz <ricotz@ubuntu.com>  Fri, 03 Oct 2014 08:29:15 +0200
+
+firefox (33.0~b8+build1-0ubuntu0.14.10.1~ricotz1) utopic; urgency=medium
+
+  * New upstream release from the beta channel (FIREFOX_33_0b8_BUILD1)
+
+ -- Rico Tzschichholz <ricotz@ubuntu.com>  Tue, 30 Sep 2014 08:39:03 +0200
+
+firefox (33.0~b7+build1-0ubuntu1) utopic; urgency=medium
+
+  * New upstream release from the beta channel (FIREFOX_33_0b7_BUILD1)
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Wed, 24 Sep 2014 11:26:51 +0100
+
+firefox (33.0~b5+build1-0ubuntu1) utopic; urgency=medium
+
+  * New upstream release from the beta channel (FIREFOX_33_0b5_BUILD1)
+
+  [ Chris Coulson <chris.coulson@canonical.com> ]
+  * Refresh patches
+    - update debian/patches/unity-menubar.patch
+    - update d/p/test-integration/automation-output-junit-xml.patch
+    - update debian/patches/dont-override-general-useragent-locale.patch
+  * Remove fix-broken-langpack-install-manifests.patch - not needed now
+  * Add Lower Sorbian to locale blacklist
+  * Add temporary workaround for bug 1348333 - build with
+    --enable-unified-compilation on gcc-4.8 x86 builds
+  * Add debian/patches/fix-compile-in-unified-mode.patch - backported from
+    mozilla-central
+  * Add language pack for Azerbaijani
+
+  [ Jamie Strandboge <jamie@ubuntu.com> ]
+  * update 12.04 and 13.10 AppArmor profiles for new accesses
+  * add 14.10 profile with more fine-grained DBus access
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Wed, 30 Jul 2014 09:19:28 +0100
+
+firefox (32.0~b1+build1-0ubuntu1) utopic; urgency=medium
+
+  * New upstream release from the beta channel (FIREFOX_32_0b1_BUILD1)
+
+  * Refresh patches
+    - update debian/patches/unity-menubar.patch
+    - update d/p/test-integration/xpcshell-disable-addon-select-dialog-test-for-adt.patch
+    - update d/p/test-integration/automation-output-junit-xml.patch
+  * Add Lower Sorbian to locale blacklist
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Mon, 21 Jul 2014 19:38:18 +0100
+
+firefox (31.0~b9+build1-0ubuntu1) utopic; urgency=medium
+
+  * New upstream release from the beta channel (FIREFOX_31_0b9_BUILD1)
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Tue, 15 Jul 2014 12:44:51 +0100
+
+firefox (31.0~b6+build2-0ubuntu1) utopic; urgency=medium
+
+  * New upstream release from the beta channel (FIREFOX_31_0b6_BUILD2)
+
+  [ Chris Coulson <chris.coulson@canonical.com> ]
+  * Refresh patches
+    - update d/p/test-integration/automation-output-junit-xml.patch
+    - update debian/patches/unity-menubar.patch
+  * Don't include python pyc files in the diff
+    - update debian/source/options
+  * Add Upper Sorbian language pack
+  * Add patch to fix a build issue on architectures where WebRTC isn't enabled
+
+  [ Jamie Strandboge <jamie@canonical.com> ]
+  * debian/usr.bin.firefox.apparmor.*: allow read of /etc/xfce4/defaults.list
+    (LP: #1325048)
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Sun, 08 Jun 2014 21:36:51 +0100
+
+firefox (30.0~b9+build1-0ubuntu2) utopic; urgency=medium
+
+  * Running "make package-tests" currently fails when WebRTC is disabled.
+    This is an upstream build-system bug, but we should probably just try
+    reenabling this on armhf anyway
+    - update debian/config/mozconfig.in
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Fri, 06 Jun 2014 12:21:50 +0100
+
+firefox (30.0~b9+build1-0ubuntu1) utopic; urgency=medium
+
+  * New upstream release from the beta channel (FIREFOX_30_0b9_BUILD1)
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Thu, 05 Jun 2014 01:35:13 +0100
+
+firefox (30.0~b2+build1-0ubuntu1) utopic; urgency=medium
+
+  * New upstream release from the beta channel (FIREFOX_30_0b2_BUILD1)
+
+  * Switch to the beta channel
+  * Refresh patches
+    - update d/p/test-integration/xpcshell-disable-tests-which-need-appdir-write-access.patch
+    - update debian/patches/unity-menubar.patch
+  * Drop patches, fixed upstream
+    - remove debian/patches/aarch64-support.patch
+    - remove debian/patches/fix-armhf-build.patch
+  * Build with --enable-gstreamer=1.0 on 14.04 and later
+  * Correctly override the duckduckgo plugin for the gd locale
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Wed, 07 May 2014 19:57:06 +0100
+
+firefox (29.0+build1-0ubuntu0.14.04.2) trusty-security; urgency=medium
+
+  * New upstream stable release (FIREFOX_29_0_BUILD1)
+    - see LP: #1313464 for USN information
+
+  * Refresh patches
+    - update debian/patches/unity-menubar.patch
+    - update debian/patches/no_neon_on_arm.patch
+  * Add Malay language pack
+  * Backport changeset from aurora to fix armhf build
+    - add debian/patches/fix-armhf-build.patch
+    - update debian/patches/series
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Mon, 28 Apr 2014 00:38:31 +0100
+
+firefox (28.0+build2-0ubuntu2) trusty; urgency=medium
+
+  * debian/control{,.in}: Switch from old ttf- packages to font- packages.
+    (LP: #1296663)
+
+ -- Adam Conrad <adconrad@ubuntu.com>  Sat, 22 Mar 2014 20:10:18 -0600
+
+firefox (28.0+build2-0ubuntu1) trusty; urgency=medium
+
+  * New upstream stable release (FIREFOX_28_0_BUILD2)
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Mon, 17 Mar 2014 13:07:43 +0000
+
+firefox (28.0+build1-0ubuntu1) trusty; urgency=medium
+
+  * New upstream stable release (FIREFOX_28_0_BUILD1)
+
+  [ Jamie Strandboge <jamie@canonical.com> ]
+  * usr.bin.firefox.apparmor*: updates for new firefox releases (LP: #1288260)
+    - allow read of /sys/devices/pci[0-9]*/**/uevent
+    - allow read of /etc/udev/udev.conf
+    - explicityly deny /run/udev/data/**, like we do with evince
+
+  [ Chris Coulson <chris.coulson@canonical.com> ]
+  * Make geolocation work
+  * Backport changeset from mozilla-central for aarch64 support
+    - add debian/patches/aarch64-support.patch
+    - update debian/patches/series
+  * Use --enable-system-libffi on arm64, as the bundled libffi doesn't
+    support this yet
+  * Switch to the release channel
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Wed, 05 Mar 2014 08:11:10 -0600
+
+firefox (28.0~b2+build1-0ubuntu2) trusty; urgency=medium
+
+  * Build with --enable-release option to use "more conservative, release
+    engineering-oriented options" as recommended by upstream for distros:
+    - Fixes FTBFS on powerpc and may improve stability on other arches.
+
+ -- Adam Conrad <adconrad@ubuntu.com>  Wed, 26 Feb 2014 00:40:24 -0700
+
+firefox (28.0~b2+build1-0ubuntu1) trusty; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_28_0b2_BUILD1)
+
+  * Disable Ganda and Northern Sotho locales
+  * Refresh patches
+    - update d/p/test-integration/mochitest-allow-test-manifest-for-browser-chrome.patch
+    - update d/p/test-integration/automation-output-junit-xml.patch
+    - update debian/patches/unity-menubar.patch
+    - update debian/patches/ubuntu-ua-string-changes.patch
+  * Add pulseaudio dependency
+    - update debian/control
+  * Disable autopkgtest for now, they've been failing for ages and not of much
+    use running on the devel release anyway. We really need these running in the
+    security PPA instead
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Thu, 30 Jan 2014 11:22:57 +0000
+
+firefox (27.0~b6+build1-0ubuntu1) trusty; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_27_0b6_BUILD1)
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Wed, 15 Jan 2014 12:50:03 +0000
+
+firefox (27.0~b2+build1-0ubuntu1) trusty; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_27_0b2_BUILD1)
+
+  * Add Aragonese and Xhosa language packs
+    - update debian/control
+    - update debian/locales.shipped
+    - update debian/locales.all
+    - add debian/searchplugins/an/list.txt
+    - add debian/searchplugins/xh/list.txt
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Fri, 03 Jan 2014 10:19:56 +0000
+
+firefox (27.0~b1+build1-0ubuntu1) trusty; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_27_0b1_BUILD1)
+
+  * Refresh patches
+    - update debian/patches/allow-lockPref-everywhere.patch
+    - update debian/patches/ubuntu-ua-string-changes.patch
+    - update d/p/test-integration/automation-output-junit-xml.patch
+    - update d/p/test-integration/xpcshell-disable-tests-which-need-appdir-write-access.patch
+    - update debian/patches/unity-menubar.patch
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Fri, 06 Dec 2013 14:09:25 +0000
+
+firefox (26.0~b10+build1-0ubuntu1) trusty; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_26_0b10_BUILD1)
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Fri, 06 Dec 2013 11:33:55 +0000
+
+firefox (26.0~b6+build1-0ubuntu1) trusty; urgency=low
+
+  * New upstream release from the beta channel (FIREFOX_26_0b6_BUILD1)
+
+  * Switch to beta
+  * Refresh patches
+    - update d/p/test-integration/automation-output-junit-xml.patch
+    - update d/p/test-integration/mochitest-allow-test-manifest-for-browser-chrome.patch
+    - update d/p/test-fixes/xpcshell-exthandler-no-writes-to-appdir.patch
+    - update d/p/test-integration/xpcshell-disable-tests-which-need-appdir-write-access.patch
+    - update d/p/test-integration/xpcshell-dont-return-nonzero-on-test-failure.patch
+    - update d/p/test-integration/xpcshell-write-time-for-failed-test.patch
+    - update debian/patches/unity-menubar.patch
+    - update debian/patches/ubuntu-ua-string-changes.patch
+    - update debian/patches/no_neon_on_arm.patch
+  * Drop patches
+    - remove d/p/test-fixes/mochitest-browser-plugincrash-with-no-crashreporter.patch
+    - remove d/p/test-fixes/mochitest-dont-ship-browser-postupdate-test.patch
+    - remove d/p/test-fixes/mochitest-tests-jar-fix.patch
+    - update debian/patches/series
+  * Update for mochitest/runtests.py changes
+    - update debian/testing/testrunhelper.py
+  * MOZILLA_OFFICIAL no longer controls whether the crashreporter is enabled,
+    so just build with --disable-crashreporter to turn it off
+    - update debian/apport/blacklist.in
+    - update debian/build/config.mk
+    - update debian/build/rules.mk
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Fri, 15 Nov 2013 09:41:36 +0000
+
+firefox (25.0+build3-0ubuntu0.13.10.1) saucy-security; urgency=low
+
+  * New upstream stable release (FIREFOX_25_0_BUILD3)
+    - see LP: #1245414 for USN information
+
+  [ Chris Coulson <chris.coulson@canonical.com> ]
+  * Refresh patches
+    - update d/p/test-fixes/xpcshell-docshell-no-writes-to-appdir.patch
+    - update d/p/test-integration/xpcshell-write-time-for-failed-test.patch
+    - update debian/patches/ubuntu-ua-string-changes.patch
+    - update d/p/test-fixes/xpcshell-exthandler-no-writes-to-appdir.patch
+    - update d/p/test-integration/automation-output-junit-xml.patch
+    - update d/p/test-integration/mochitest-allow-test-manifest-for-browser-chrome.patch
+    - update d/p/test-integration/xpcshell-disable-tests-which-need-appdir-write-access.patch
+    - update debian/patches/unity-menubar.patch
+  * Drop patches
+    - remove d/p/test-fixes/xpcshell-docshell-no-writes-to-appdir.patch
+    - remove d/p/test-fixes/xpcshell-contentprefs-no-writes-to-appdir.patch
+    - remove d/p/test-fixes/mochitest-browser-plugincrash-with-no-crashreporter.patch
+    - update debian/patches/series
+  * Refactor the test results post-process script a bit so that it can use
+    regular expressions in the configuration
+    - update debian/testing/filter_results
+    - update debian/testing/results-filter-manifest.json
+    - update debian/tests/post-process
+  * Run mochitest-plain in 5 chunks, similar to upstream. This should fix
+    some test failures we see that seem to be caused by some tests not
+    cleaning up properly (seems to fix LP: #1158781 and LP: #1194448)
+    - update debian/testing/run_mochitest.in
+    - update debian/tests/control
+    - move debian/tests/mochitest => debian/tests/mochitest-1
+    - add debian/tests/mochitest-2
+    - add debian/tests/mochitest-3
+    - add debian/tests/mochitest-4
+    - add debian/tests/mochitest-5
+  * Drop d/p/test-integration/test-sameoriginpolicy-debug.patch now that
+    we run mochitest-plain in chunks
+  * Add OCSPStaplingServer binary to testsuite
+    - update debian/firefox-testsuite.install.in
+    - update debian/build/rules.mk
+  * Don't let make check failures fail the build for now, as there are some
+    jit test failures
+    - update debian/build/testsuite.mk
+  * Try to stop the buildd's from terminating the build during long links
+    (use a hack based on the one for the Chromium package)
+    - add debian/build/keepalive-wrapper.py
+    - update debian/build/rules.mk
+
+  [ Jamie Strandboge <jamie@canonical.com> ]
+  * add debian/usr.bin.firefox.apparmor.13.10 for dbus policy
+  * debian/rules: conditionally use usr.bin.firefox.apparmor.13.10 on saucy
+    and higher, otherwise usr.bin.firefox.apparmor.12.04
+  * debian/usr.bin.firefox.apparmor.12.04: use ibus abstraction
+
+ -- Chris Coulson <chris.coulson@canonical.com>  Mon, 28 Oct 2013 10:16:16 +0000
 
 firefox (24.0+build1-0ubuntu1) saucy; urgency=low
 

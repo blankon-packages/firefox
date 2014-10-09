@@ -198,7 +198,7 @@ class TarballCreator(OptionParser):
 
         checkout_source(repo, cache, '', tag=tag)
 
-        need_moz = get_setting(settings, 'need-post-checkout', False)
+        need_moz = get_setting(settings, 'run-client-script', False)
         if need_moz:
           print '\n'
           print '*** Running checkout script ***'
@@ -220,7 +220,7 @@ class TarballCreator(OptionParser):
 
         # XXX: In the future we may have an additional l10n source from Launchpad
         if l10nbase != None:
-          got_locales = {}
+          got_locales = set()
           shipped_locales = os.path.join(application, 'locales/shipped-locales')
           all_locales = os.path.join(application, 'locales/all-locales')
           blacklist_file = get_setting(settings, 'l10n-blacklist')
@@ -233,15 +233,12 @@ class TarballCreator(OptionParser):
             os.makedirs(l10ndir)
 
           with open(os.path.join(l10ndir, 'changesets'), 'w') as changesets:
-            for l10nlist in [all_locales, shipped_locales]:
+            for l10nlist in [shipped_locales, all_locales]:
               with open(l10nlist, 'r') as fd:
                 for line in fd:
                   locale = line.split(' ')[0].strip()
                   if locale.startswith('#') or locale in got_locales or locale == 'en-US':
                     continue
-
-                  if l10nlist != all_locales:
-                    print 'WARNING: Locale %s is not in all-locales. This is an upstream oversight' % locale
 
                   try:
                     checkout_source(os.path.join(l10nbase, locale), os.path.join(cache, 'l10n') if cache != None else None, 'l10n/' + locale, tag=tag)
@@ -252,7 +249,7 @@ class TarballCreator(OptionParser):
                         print 'Got changeset %s' % line.split()[1].strip()
                         break
 
-                    got_locales[locale] = 1
+                    got_locales.add(locale)
 
                   except Exception as e:
                     # checkout_locale will throw if the specified revision isn't found
@@ -267,15 +264,15 @@ class TarballCreator(OptionParser):
           print '\n\n'
           print '*** Checking that required locales are present ***'
 
-          blacklist = {}
+          blacklist = set()
           if blacklist_file:
             with open(os.path.join(saved_wd, blacklist_file), 'r') as fd:
               for line in fd:
-                locale = line.strip()
-                if locale.startswith('#'):
+                locale = re.sub(r'([^#]*)#?.*', r'\1', line).strip()
+                if locale is '':
                   continue
 
-                blacklist[locale] = 1
+                blacklist.add(locale)
 
           with open(shipped_locales, 'r') as fd:
             for line in fd:
@@ -290,7 +287,7 @@ class TarballCreator(OptionParser):
               locale = line.split(' ')[0].strip()
               platforms = line.split(' ')[1:]
 
-              if blacklist.has_key(locale):
+              if locale in blacklist:
                 print 'Ignoring blacklisted locale %s' % locale
                 continue
 
@@ -304,7 +301,7 @@ class TarballCreator(OptionParser):
                   print 'Ignoring %s (not for linux)' % locale
                   continue
 
-              if not got_locales.has_key(locale):
+              if not locale in got_locales:
                 raise Exception("Locale %s is missing from the source tarball" % locale)
 
               print '%s - Yes' % locale

@@ -1,22 +1,22 @@
-Index: firefox-trunk-23.0~a1~hg20130411r128458/browser/app/profile/firefox.js
+Index: firefox-trunk-34.0~a1~hg20140722r195370/browser/locales/en-US/firefox-l10n.js
 ===================================================================
---- firefox-trunk-23.0~a1~hg20130411r128458.orig/browser/app/profile/firefox.js	2013-04-12 10:33:18.539345566 +0100
-+++ firefox-trunk-23.0~a1~hg20130411r128458/browser/app/profile/firefox.js	2013-04-12 10:33:18.535345566 +0100
-@@ -211,7 +211,6 @@
- 
- pref("keyword.enabled", true);
- 
--pref("general.useragent.locale", "@AB_CD@");
- pref("general.skins.selectedSkin", "classic/1.0");
- 
- pref("general.smoothScroll", true);
-Index: firefox-trunk-23.0~a1~hg20130411r128458/browser/locales/en-US/firefox-l10n.js
-===================================================================
---- firefox-trunk-23.0~a1~hg20130411r128458.orig/browser/locales/en-US/firefox-l10n.js	2013-04-12 10:33:18.539345566 +0100
-+++ firefox-trunk-23.0~a1~hg20130411r128458/browser/locales/en-US/firefox-l10n.js	2013-04-12 10:33:18.535345566 +0100
+--- firefox-trunk-34.0~a1~hg20140722r195370.orig/browser/locales/en-US/firefox-l10n.js	2014-07-22 11:23:21.006553200 +0100
++++ firefox-trunk-34.0~a1~hg20140722r195370/browser/locales/en-US/firefox-l10n.js	2014-07-22 11:23:21.002553200 +0100
 @@ -3,5 +3,3 @@
  # file, You can obtain one at http://mozilla.org/MPL/2.0/.
  
  #filter substitution
 -
 -pref("general.useragent.locale", "@AB_CD@");
+Index: firefox-trunk-34.0~a1~hg20140722r195370/browser/app/profile/firefox.js
+===================================================================
+--- firefox-trunk-34.0~a1~hg20140722r195370.orig/browser/app/profile/firefox.js	2014-07-22 11:18:38.414554807 +0100
++++ firefox-trunk-34.0~a1~hg20140722r195370/browser/app/profile/firefox.js	2014-07-22 11:23:51.518553026 +0100
+@@ -263,7 +263,6 @@
+ pref("keyword.enabled", true);
+ pref("browser.fixup.domainwhitelist.localhost", true);
+ 
+-pref("general.useragent.locale", "@AB_CD@");
+ pref("general.skins.selectedSkin", "classic/1.0");
+ 
+ pref("general.smoothScroll", true);

@@ -51,6 +51,8 @@ DEB_DH_STRIP_ARGS		:= --dbg-package=$(MOZ_PKG_NAME)-dbg
 DEB_INSTALL_DOCS_ALL 	:= $(NULL)
 # scour breaks the testsuite
 DEB_DH_SCOUR_ARGS		:= -N$(MOZ_PKG_NAME)-testsuite
+# Stop the buildd from timing out during long links
+MAKE					:= python $(CURDIR)/debian/build/keepalive-wrapper.py 1440 $(MAKE)
 
 MOZ_VERSION		:= $(shell cat $(DEB_SRCDIR)/$(MOZ_APP)/config/version.txt)
 MOZ_LIBDIR		:= usr/lib/$(MOZ_APP_NAME)
@@ -99,7 +101,7 @@ endif
 
 # Ensure the crash reporter gets disabled for derivatives
 ifneq (Ubuntu, $(DISTRIB))
-MOZ_BUILD_OFFICIAL = 0
+MOZ_ENABLE_BREAKPAD = 0
 endif
 
 MOZ_DISPLAY_NAME = $(shell cat $(DEB_SRCDIR)/$(MOZ_BRANDING_DIR)/locales/en-US/brand.properties \
@@ -119,10 +121,6 @@ export LDFLAGS
 export DEB_BUILD_HARDENING=1
 ifeq (Ubuntu, $(DISTRIB))
 export MOZ_UA_VENDOR=Ubuntu
-endif
-ifeq (1,$(MOZ_BUILD_OFFICIAL))
-# Needed to enable crashreported in application.ini
-export MOZILLA_OFFICIAL=1
 endif
 
 ifeq (linux-gnu, $(DEB_HOST_GNU_SYSTEM))
@@ -146,9 +144,6 @@ MOZ_DEFINES += 	-DMOZ_LIBDIR="$(MOZ_LIBDIR)" -DMOZ_APP_NAME="$(MOZ_APP_NAME)" -D
 
 ifeq (1, $(MOZ_ENABLE_BREAKPAD))
 MOZ_DEFINES += -DMOZ_ENABLE_BREAKPAD
-endif
-ifeq (1, $(MOZ_BUILD_OFFICIAL))
-MOZ_DEFINES += -DMOZ_BUILD_OFFICIAL
 endif
 ifeq (1, $(MOZ_VALGRIND))
 MOZ_DEFINES += -DMOZ_VALGRIND
@@ -246,6 +241,7 @@ endif
 
 install-testsuite: debian/stamp-installtestsuite
 debian/stamp-installtestsuite: debian/stamp-maketestsuite debian/stamp-makefile-install
+	install $(MOZ_DISTDIR)/bin/OCSPStaplingServer debian/tmp/$(MOZ_LIBDIR)
 	install $(MOZ_DISTDIR)/bin/xpcshell debian/tmp/$(MOZ_LIBDIR)
 	install $(MOZ_DISTDIR)/bin/components/httpd.js debian/tmp/$(MOZ_LIBDIR)/components
 	install $(MOZ_DISTDIR)/bin/components/httpd.manifest debian/tmp/$(MOZ_LIBDIR)/components

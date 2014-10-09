@@ -1,0 +1,18 @@
+Index: firefox-trunk-32.0~a1~hg20140608r187406/testing/testsuite-targets.mk
+===================================================================
+--- firefox-trunk-32.0~a1~hg20140608r187406.orig/testing/testsuite-targets.mk	2014-06-08 03:20:19.000000000 +0100
++++ firefox-trunk-32.0~a1~hg20140608r187406/testing/testsuite-targets.mk	2014-06-08 21:32:06.129770223 +0100
+@@ -402,8 +402,12 @@
+   stage-marionette \
+   stage-cppunittests \
+   stage-jittest \
+-  stage-steeplechase \
+   $(NULL)
++
++ifdef MOZ_WEBRTC
++package-tests: stage-steeplechase
++endif
++
+ else
+ # This staging area has been built for us by universal/flight.mk
+ PKG_STAGE = $(DIST)/universal/test-stage

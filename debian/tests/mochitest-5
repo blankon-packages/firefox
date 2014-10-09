@@ -9,4 +9,4 @@ export LC_ALL=en_US.UTF-8
 
 mkdir -p $TESTRESULTS_DIR
 
-$TESTSUITE_DIR/run_mochitest --own-session --xunit-file $TESTRESULTS_DIR/mochitest-plain.xml
+$TESTSUITE_DIR/run_mochitest --own-session --xunit-file $TESTRESULTS_DIR/mochitest-plain-5.xml --chunk-by-dir 4 --total-chunks 5 --this-chunk 5 --xunit-name 'mochitest.plain.5'

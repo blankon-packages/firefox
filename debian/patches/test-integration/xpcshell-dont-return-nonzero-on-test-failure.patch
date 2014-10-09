@@ -5,20 +5,18 @@ Description: Don't return a non-zero exit status from runxpcshelltests.py if
 Author: Chris Coulson <chris.coulson@canonical.com>
 Forwarded: no
 
-Index: firefox-trunk-22.0~a1~hg20130325r126106/testing/xpcshell/runxpcshelltests.py
+Index: firefox-trunk-26.0~a1~hg20130902r145224/testing/xpcshell/runxpcshelltests.py
 ===================================================================
---- firefox-trunk-22.0~a1~hg20130325r126106.orig/testing/xpcshell/runxpcshelltests.py	2013-03-26 09:47:08.000000000 +0000
-+++ firefox-trunk-22.0~a1~hg20130325r126106/testing/xpcshell/runxpcshelltests.py	2013-03-26 10:10:42.232833422 +0000
-@@ -729,6 +729,8 @@
-         self.testingModulesDir = testingModulesDir
+--- firefox-trunk-26.0~a1~hg20130902r145224.orig/testing/xpcshell/runxpcshelltests.py	2013-09-03 11:03:29.214476586 +0100
++++ firefox-trunk-26.0~a1~hg20130902r145224/testing/xpcshell/runxpcshelltests.py	2013-09-03 11:03:29.382476587 +0100
+@@ -1208,12 +1208,13 @@
          self.pluginsPath = pluginsPath
+         self.sequential = sequential
  
 +        self.testCount = 0
 +
-         # If we have an interactive debugger, disable ctrl-c.
-         if self.debuggerInfo and self.debuggerInfo["interactive"]:
-             signal.signal(signal.SIGINT, lambda signum, frame: None)
-@@ -738,7 +740,6 @@
+         if not testdirs and not manifest:
+             # nothing to test!
              self.log.error("Error: No test dirs or test manifest specified!")
              return False
  
@@ -26,8 +24,8 @@ Index: firefox-trunk-22.0~a1~hg20130325r126106/testing/xpcshell/runxpcshelltests
          self.passCount = 0
          self.failCount = 0
          self.todoCount = 0
-@@ -1087,6 +1088,8 @@
-                              "dom.basic.foo")
+@@ -1525,6 +1526,8 @@
+                         help="path to file where failure manifest will be written.")
  
  def main():
 +    global gotSIGINT
@@ -35,7 +33,7 @@ Index: firefox-trunk-22.0~a1~hg20130325r126106/testing/xpcshell/runxpcshelltests
      parser = XPCShellOptions()
      options, args = parser.parse_args()
  
-@@ -1103,7 +1106,7 @@
+@@ -1541,7 +1544,7 @@
          print >>sys.stderr, "Error: You must specify a test filename in interactive mode!"
          sys.exit(1)
  

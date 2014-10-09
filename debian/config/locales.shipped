@@ -1,8 +1,10 @@
 # List of shipped locales. This list is automatically generated. Do not edit by hand
 af:af
+an:an
 ar:ar
 as:as
 ast:ast
+az:az
 be:be
 bg:bg
 bn-BD:bn
@@ -36,6 +38,7 @@ gu-IN:gu
 he:he
 hi-IN:hi
 hr:hr
+hsb:hsb
 hu:hu
 hy-AM:hy
 id:id
@@ -47,17 +50,16 @@ km:km
 kn:kn
 ko:ko
 ku:ku
-lg:lg
 lt:lt
 lv:lv
 mai:mai
 mk:mk
 ml:ml
 mr:mr
+ms:ms
 nb-NO:nb
 nl:nl
 nn-NO:nn
-nso:nso
 or:or
 pa-IN:pa
 pl:pl
@@ -71,12 +73,14 @@ sl:sl
 sq:sq
 sr:sr
 sv-SE:sv
+sw:sw
 ta:ta
 te:te
 th:th
 tr:tr
 uk:uk
 vi:vi
+xh:xh
 zh-CN:zh-hans
 zh-TW:zh-hant
 zu:zu

@@ -8,4 +8,5 @@ TESTRESULTS_DIR=${ADTRESULTSDIR:-"/tmp/testresults"}
 export LC_ALL=en_US.UTF-8
 
 mkdir -p $TESTRESULTS_DIR
-$TESTSUITE_DIR/run_xpcshell_tests --own-session --verbose --xunit-file $TESTRESULTS_DIR/xpcshell-package-tests.xml --xunit-suite-name "xpcshell.package" --manifest xpcshell/package-tests/xpcshell.ini
+
+$TESTSUITE_DIR/run_mochitest --own-session --xunit-file $TESTRESULTS_DIR/mochitest-plain-3.xml --chunk-by-dir 4 --total-chunks 5 --this-chunk 3 --xunit-name 'mochitest.plain.3'

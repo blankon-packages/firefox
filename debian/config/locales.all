@@ -1,8 +1,10 @@
 # List of all language packs, past and present. Please don't delete any entries from this file
 af:Afrikaans
+an:Aragonese
 ar:Arabic
 as:Assamese
 ast:Asturian
+az:Azerbaijani
 be:Belarusian
 bg:Bulgarian
 bn:Bengali
@@ -31,6 +33,7 @@ gu:Gujarati
 he:Hebrew
 hi:Hindi
 hr:Croatian
+hsb:Sorbian, Upper
 hu:Hungarian
 hy:Armenian
 id:Indonesian
@@ -51,6 +54,7 @@ mk:Macedonian
 ml:Malayalam
 mn:Mongolian
 mr:Marathi
+ms:Malay
 nb:Bokmål, Norwegian; Norwegian Bokmål
 nl:Dutch; Flemish
 nn:Norwegian Nynorsk; Nynorsk, Norwegian
@@ -75,6 +79,7 @@ th:Thai
 tr:Turkish
 uk:Ukrainian
 vi:Vietnamese
+xh:Xhosa
 zh-hans:Simplified Chinese
 zh-hant:Traditional Chinese
 zu:Zulu

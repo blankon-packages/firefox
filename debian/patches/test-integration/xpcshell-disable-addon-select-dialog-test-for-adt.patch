@@ -3,19 +3,14 @@ Description: Make toolkit/mozapps/extensions/test/xpcshell/test_bug596343.js
 Author: Chris Coulson <chris.coulson@canonical.com>
 Forwarded: no
 
-Index: firefox-trunk-20.0~a1~hg20121130r114518/toolkit/mozapps/extensions/test/xpcshell/test_bug596343.js
+Index: firefox-trunk-32.0~a1~hg20140603r186425/toolkit/mozapps/extensions/test/xpcshell/test_bug596343.js
 ===================================================================
---- firefox-trunk-20.0~a1~hg20121130r114518.orig/toolkit/mozapps/extensions/test/xpcshell/test_bug596343.js	2012-11-30 02:14:18.000000000 +0000
-+++ firefox-trunk-20.0~a1~hg20121130r114518/toolkit/mozapps/extensions/test/xpcshell/test_bug596343.js	2012-11-30 13:14:46.057476721 +0000
-@@ -59,17 +59,27 @@
-     name: "Test Addon 1",
-   }, profileDir);
+--- firefox-trunk-32.0~a1~hg20140603r186425.orig/toolkit/mozapps/extensions/test/xpcshell/test_bug596343.js	2014-06-04 22:26:11.904179780 +0100
++++ firefox-trunk-32.0~a1~hg20140603r186425/toolkit/mozapps/extensions/test/xpcshell/test_bug596343.js	2014-06-05 00:28:50.624218035 +0100
+@@ -71,10 +71,20 @@
+   // an existing profile shows the selection UI
+   Services.prefs.clearUserPref(PREF_SHOWN_SELECTION_UI);
  
--  startupManager();
--
--  // For a new profile it should disable showing the selection UI in the future
--  do_check_true(Services.prefs.getBoolPref(PREF_SHOWN_SELECTION_UI));
--  Services.prefs.clearUserPref(PREF_SHOWN_SELECTION_UI);
 +  // When running on an installed system, the selection UI is disabled in
 +  // vendor-firefox.js. But ensure the selection UI is tested when running
 +  // from the build tree
@@ -23,24 +18,14 @@ Index: firefox-trunk-20.0~a1~hg20121130r114518/toolkit/mozapps/extensions/test/x
 +  try {
 +    selectionUIDisabled = Services.prefs.getBoolPref(PREF_SHOWN_SELECTION_UI);
 +  } catch(e) {}
++
+   restartManager("2");
  
--  gExpectedURL = URI_EXTENSION_SELECT_DIALOG;
--  restartManager("2");
-+  startupManager();
- 
--  do_check_true(Services.prefs.getBoolPref(PREF_SHOWN_SELECTION_UI));
+   do_check_true(Services.prefs.getBoolPref(PREF_SHOWN_SELECTION_UI));
 -  do_check_eq(gExpectedURL, null);
 +  if (!selectionUIDisabled) {
-+    // For a new profile it should disable showing the selection UI in the future
-+    do_check_true(Services.prefs.getBoolPref(PREF_SHOWN_SELECTION_UI));
-+    Services.prefs.clearUserPref(PREF_SHOWN_SELECTION_UI);
-+
-+    gExpectedURL = URI_EXTENSION_SELECT_DIALOG;
-+    restartManager("2");
-+
-+    do_check_true(Services.prefs.getBoolPref(PREF_SHOWN_SELECTION_UI));
 +    do_check_eq(gExpectedURL, null);
 +  }
  
-   gExpectedURL = URI_EXTENSION_UPDATE_DIALOG;
- 
+   // Once we've seen the selection UI once, future upgrades will show the update dialog
+   // but only if this upgrade disabled an add-on
