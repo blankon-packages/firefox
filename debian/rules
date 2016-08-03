@@ -1,116 +1,376 @@
 #!/usr/bin/make -f
+TESTDIR = $(shell dh_testdir || echo no)
+ifeq (,$(TESTDIR))
+include debian/make.mk
+# Use dpkg-buildflags to get hardening flags, exclude non-hardening flags,
+# and disable read-only relocations.
+dpkg_buildflags = $(and $(1),$(shell DEB_BUILD_MAINT_OPTIONS=hardening=-relro DEB_CFLAGS_MAINT_STRIP="$(shell DEB_BUILD_MAINT_OPTIONS=hardening=-all dpkg-buildflags --get $(1))" dpkg-buildflags --get $(1)))
+$(call lazy,CFLAGS,$$(call dpkg_buildflags,CFLAGS))
+$(call lazy,CPPFLAGS,$$(call dpkg_buildflags,CPPFLAGS))
+$(call lazy,LDFLAGS,$$(call dpkg_buildflags,LDFLAGS))
 
-MOZ_PKG_BASENAME	:= firefox
+$(call lazy,DEB_HOST_GNU_TYPE,$$(shell dpkg-architecture -qDEB_HOST_GNU_TYPE))
+$(call lazy,DEB_BUILD_GNU_TYPE,$$(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE))
+$(call lazy,DEB_BUILD_ARCH,$$(shell dpkg-architecture -qDEB_BUILD_ARCH))
 
-include $(CURDIR)/debian/build/config.mk
+PYTHON := python -B
 
-MOZ_APP			:= browser
-MOZ_VENDOR		:= Mozilla
-MOZ_MOZDIR		:=
+PRODUCT := browser
+include debian/upstream.mk
 
-MOZ_APP_SUBDIR	:= browser
-
-MOZ_BRANDING		:= $(CHANNEL)
-ifneq (,$(filter release beta, $(MOZ_BRANDING)))
-MOZ_BRANDING		:= official
+ifneq (,$(filter wheezy jessie,$(BACKPORT)))
+LESS_SYSTEM_LIBS = 1
 endif
-ifeq (1,$(MOZ_FORCE_UNOFFICIAL_BRANDING))
-ifneq (,$(filter official aurora, $(MOZ_BRANDING)))
-MOZ_BRANDING		:= unofficial
+
+ifeq ($(BACKPORT),wheezy)
+CC := gcc-4.7
+CXX := g++-4.7
 endif
-endif
-MOZ_BRANDING_DIR 	:= $(MOZ_APP)/branding/$(MOZ_BRANDING)
-ifeq (official,$(BRANDING))
-MOZ_BRANDING_OPTION	:= --enable-official-branding
+
+OFFICIAL_BRANDING := browser/branding/official
+MOZILLA_OFFICIAL := 1
+# ESR, Beta and Releases use the official branding
+ifneq (,$(filter release beta esr%,$(SHORT_SOURCE_CHANNEL)))
+BRANDING ?= $(OFFICIAL_BRANDING)
 else
-MOZ_BRANDING_OPTION	:= --with-branding=$(MOZ_BRANDING_DIR)
-endif
-
-MOZ_PKGNAME_SUBST_FILES = \
-	debian/usr.bin.$(MOZ_PKG_NAME) \
-	debian/README.Debian \
-	debian/$(MOZ_PKG_NAME)-locale.preinst \
-	debian/$(MOZ_PKG_BASENAME).sh \
-	debian/apport/blacklist \
-	debian/apport/native-origins \
-	debian/apport/source_$(MOZ_PKG_NAME).py \
-	debian/testing/run_mochitest \
-	debian/testing/run_reftest \
-	$(NULL)
-
-MOZ_APPNAME_SUBST_FILES = \
-	debian/$(MOZ_APP_NAME).1 \
-	$(NULL)
-
-MOZ_PKGCONFIG_FILES = \
-	debian/pkgconfig/mozilla-plugin.pc \
-	$(NULL)
-
-include $(CURDIR)/debian/build/rules.mk
-
-MOZ_EXECUTABLES_$(MOZ_PKG_NAME)-testsuite =	$(MOZ_LIBDIR)/testing/run_mochitest \
-						$(MOZ_LIBDIR)/testing/run_reftest \
-						$(MOZ_LIBDIR)/testing/run_xpcshell_tests \
-						$(MOZ_LIBDIR)/xpcshell \
-						$(MOZ_LIBDIR)/testing/filter_results \
-						$(NULL)
-
-debian/usr.bin.firefox.in:
-	if [ '$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)' -ge '1410' ]; then \
-		cp $(CURDIR)/debian/usr.bin.firefox.apparmor.14.10 $(CURDIR)/debian/usr.bin.firefox.in ; \
-	elif [ '$(DISTRIB_VERSION_MAJOR)$(DISTRIB_VERSION_MINOR)' -ge '1310' ]; then \
-		cp $(CURDIR)/debian/usr.bin.firefox.apparmor.13.10 $(CURDIR)/debian/usr.bin.firefox.in ; \
-	else \
-		cp $(CURDIR)/debian/usr.bin.firefox.apparmor.12.04 $(CURDIR)/debian/usr.bin.firefox.in ; \
-	fi
-
-ifeq (firefox, $(MOZ_APP_NAME))
-ifneq (,$(filter precise, $(DISTRIB_CODENAME)))
-PLUGIN_BREAKS := flashplugin-installer (<= 11.1.102.63ubuntu1), adobe-flashplugin (<= 11.1.102.63-0precise1)
-PLUGIN_CONFLICTS := gcu-plugin (<= 0.12.10-1ubuntu1)
-endif
-endif
-
-WRITE_SUBSTVARS = $(shell echo "$(2)=$(3)" | sed 's/[ \t\n]\+/ /g' >> debian/$(1).substvars)
-
-ifeq (firefox, $(MOZ_PKG_NAME))
-ifeq (,$(filter precise, $(DISTRIB_CODENAME)))
-install/firefox::
-	$(call WRITE_SUBSTVARS,firefox,transitional:Replaces,kubuntu-firefox-installer)
+ifneq (,$(filter aurora,$(SHORT_SOURCE_CHANNEL)))
+BRANDING ?= browser/branding/aurora
 else
-FIREFOX_REPLACES = abrowser, abrowser-branding, firefox-branding, kubuntu-firefox-installer
-FIREFOX_BREAKS = abrowser (<= 4.0~b11+build3+nobinonly-0ubuntu1), abrowser-branding (<= 4.0~b11+build3+nobinonly-0ubuntu1), \
-		 firefox-branding (<= 4.0~b11+build3+nobinonly-0ubuntu1), $(PLUGIN_BREAKS)
-install/firefox::
-	$(call WRITE_SUBSTVARS,firefox,transitional:Replaces,$(FIREFOX_REPLACES))
-	$(call WRITE_SUBSTVARS,firefox,transitional:Breaks,$(FIREFOX_BREAKS))
-	$(call WRITE_SUBSTVARS,firefox,transitional:Conflicts,$(PLUGIN_CONFLICTS))
+ifneq (,$(filter central,$(SHORT_SOURCE_CHANNEL)))
+BRANDING ?= browser/branding/nightly
+else
+$(error $(PRODUCT_NAME) branding for $(SOURCE_CHANNEL) is unsupported)
+endif
 endif
 endif
 
-$(patsubst %,binary-post-install/%,$(MOZ_LOCALE_PKGS)) :: binary-post-install/%:
-	$(foreach xpi,$($(notdir $(wildcard debian/$*/$(MOZ_ADDONDIR)/extensions/*.xpi))), \
-		dh_link -p$* $(MOZ_ADDONDIR)/extensions/$(xpi) $(MOZ_LIBDIR)/webapprt/extensions/$(xpi);)
+#GTK3 ?= $(shell grep -q "platform_choices = .'cairo-gtk3'" toolkit/moz.configure && echo 1)
 
-make-langpack-preinsts:: $(foreach langpack,$(MOZ_LOCALE_PKGS),debian/$(langpack).preinst)
-$(patsubst %,debian/%.preinst,$(MOZ_LOCALE_PKGS)) :: debian/%.preinst : debian/$(MOZ_PKG_NAME)-locale.preinst
-	cp $< $@
-
-pre-build:: make-langpack-preinsts
-
-monkey-patch-upstream-files::
-ifneq ($(MOZ_APP_BASENAME),$(MOZ_DEFAULT_APP_BASENAME))
-	@echo "Setting MOZ_APP_UA_NAME to $(MOZ_DEFAULT_APP_BASENAME)"
-	$(call moz_monkey_patch_file,$(DEB_SRCDIR)/$(MOZ_BRANDING_DIR)/configure.sh, \
-		echo "MOZ_APP_UA_NAME=$(MOZ_DEFAULT_APP_BASENAME)" >>)
-
-	@echo "Setting UAName to $(MOZ_DEFAULT_APP_BASENAME)"
-	$(call moz_monkey_patch_file,$(DEB_SRCDIR)/webapprt/application.ini.in, \
-		sed -ri 's/@MOZ_APP_BASENAME@/$(MOZ_DEFAULT_APP_BASENAME)/g')
+ifeq (firefox-esr,$(DEBIAN_SOURCE))
+TRANSITION = 1
 endif
 
-clean::
-	rm -f debian/$(MOZ_PKG_NAME)-locale-*.preinst
-	rm -f debian/usr.bin.firefox.in
+BRANDING_CONFIGURE_FLAG = $(if $(filter $(BRANDING),$(OFFICIAL_BRANDING)),--enable-official-branding,--with-branding=$(BRANDING))
 
-.PHONY: make-langpack-preinsts
+# Define PRODUCT, product and Product variables (replacing product with the
+# actual value of $(PRODUCT))
+$(PRODUCT) := $(call lc,$(PRODUCT_NAME))
+uc_first = $(strip $(eval __tmp := $(1))$(foreach l,$(letters),$(eval __tmp := $(subst $(l),$(l) ,$(__tmp))))$(call uc,$(firstword $(__tmp)))$(1:$(firstword $(__tmp))%=%))
+DISPLAY_NAME := $(call uc_first,$(PRODUCT_DOWNLOAD_NAME))$(if $(filter %-esr,$(PRODUCT_NAME)), ESR)
+$(call uc,$(PRODUCT)) := $(call uc,$(DISPLAY_NAME))
+Product := $(call uc_first,$(PRODUCT))
+$(Product) := $(DISPLAY_NAME)
+
+LIB_DIR := /usr/lib/$($(PRODUCT))
+SHARE_DIR := /usr/share/$($(PRODUCT))
+
+LDFLAGS :=
+# ld crashes for some files because of --as-needed :(
+ifeq (,$(filter ia64,$(DEB_BUILD_ARCH)))
+LDFLAGS += -Wl,--as-needed
+endif
+
+# Reduce memory usage of the linker at the expense of processing time
+# This should help on lower-end architectures like arm and mips, which
+# spend an immense amount of time swapping.
+LDFLAGS += -Wl,--reduce-memory-overheads
+# Somehow, this breaks the build on ia64.
+ifeq (,$(filter ia64,$(DEB_BUILD_ARCH)))
+LDFLAGS += -Wl,--no-keep-memory
+endif
+# Also add execution time and memory usage stats in the logs
+LDFLAGS += -Wl,--stats
+
+AUTOCONF_DIRS := build/autoconf
+
+ifneq (,$(filter noopt,$(DEB_BUILD_OPTIONS)))
+	CONFIGURE_FLAGS += --disable-optimize
+endif
+
+ifeq ($(DEB_BUILD_ARCH),ppc64)
+	CFLAGS += -mminimal-toc
+endif
+
+ifneq (,$(filter kfreebsd-% hurd-%,$(DEB_BUILD_ARCH)))
+	CONFIGURE_FLAGS += --disable-necko-wifi
+endif
+
+ifneq (,$(filter mips,$(DEB_BUILD_ARCH)))
+	CONFIGURE_FLAGS += --disable-ion
+endif
+
+ifneq (,$(filter armel,$(DEB_BUILD_ARCH)))
+	CFLAGS += -D__ARM_PCS
+endif
+
+ifneq (,$(filter ia64,$(DEB_BUILD_ARCH)))
+	CONFIGURE_FLAGS += --enable-optimize=-O2
+endif
+
+ifneq (,$(filter debug,$(DEB_BUILD_OPTIONS)))
+	CONFIGURE_FLAGS += --enable-debug
+endif
+ifeq (,$(filter debug noopt,$(DEB_BUILD_OPTIONS)))
+	GENSYMBOLS_FLAGS := -c4
+endif
+ifneq (,$(filter %i386 %amd64,$(DEB_BUILD_ARCH)))
+	MOZ_FFVPX = 1
+endif
+
+ifeq (default,$(origin CC))
+CC := gcc
+endif
+ifeq (default,$(origin CXX))
+CXX := g++
+endif
+
+CXXFLAGS = $(CFLAGS)
+
+EXPORTS := CC CXX CFLAGS CXXFLAGS CPPFLAGS LDFLAGS MOZILLA_OFFICIAL
+$(call lazy,CONFIGURE_ENV,$$(foreach export,$(EXPORTS),$$(export)="$$($$(export))"))
+
+IN_FILES := $(wildcard debian/*.in)
+ifeq ($(PRODUCT_NAME),firefox)
+IN_FILES := $(filter-out debian/$($(PRODUCT)).in,$(IN_FILES))
+endif
+preprocessed_filename = $(subst $(PRODUCT),$($(PRODUCT)),$(subst GRE_VERSION,$(GRE_VERSION),$(1:.in=)))
+define preprocess
+$(call preprocessed_filename,$(1)): $(1)
+PREPROCESSED_FILES += $(call preprocessed_filename,$(1))
+endef
+$(foreach f,$(IN_FILES),$(eval $(call preprocess, $(f))))
+
+GENERATED_FILES += $(PREPROCESSED_FILES) debian/l10n/$(PRODUCT)-l10n.control
+debian/control: debian/rules debian/changelog debian/l10n/$(PRODUCT)-l10n.control
+
+$(call lazy,L10N_PACKAGES,$$(foreach lang,$$(L10N_LANGS),$($(PRODUCT))-l10n-$$(call lc,$$(lang))))
+$(call lazy,L10N_PACKAGES_DEPS,$$(shell echo $$(L10N_PACKAGES) | sed 's/ /, /g'))
+
+debian/l10n/$(PRODUCT)-l10n.control: %: %.in
+	$(PYTHON) debian/l10n/gen $(L10N_LANGS) > $@
+
+DICT_DIR := /usr/share/hunspell
+
+$(PREPROCESSED_FILES): VARS = GRE_VERSION DICT_DIR $(PRODUCT) $(call uc,$(PRODUCT)) $(Product) LESS_SYSTEM_LIBS SHORT_SOURCE_CHANNEL GTK3 BACKPORT TRANSITION MOZ_FFVPX
+debian/control: VARS += L10N_PACKAGES_DEPS PRODUCT
+$(PREPROCESSED_FILES):
+	$(PYTHON) python/mozbuild/mozbuild/preprocessor.py --marker % -Fsubstitution $(foreach var,$(VARS),-D$(var)="$($(var))" )$< > $@
+
+ifdef TRANSITION
+MAINTSCRIPTS := $(addprefix debian/,$(addsuffix .maintscript,$(shell awk -F/ '$$1 != "searchplugins" { next } $$2 == "locale" && $$3 != "en-US" { p="iceweasel-l10n-" $$3 } $$2 == "common" || ($$2 "/" $$3 == "locale/en-US") { p="iceweasel" } !done[p] { print p; done[p] = 1 }' debian/removed_conffiles)))
+
+GENERATED_FILES += $(MAINTSCRIPTS)
+
+debian/iceweasel.maintscript: debian/removed_conffiles
+	(grep -v searchplugins/locale $<; grep searchplugins/locale/en-US $<) | awk '{print "rm_conffile /etc/iceweasel/" $$0, "45.0esr-2~", "iceweasel"}' > $@
+
+debian/iceweasel-l10n-%.maintscript: debian/removed_conffiles
+	grep -i searchplugins/locale/$* $< | awk '{print "rm_conffile /etc/iceweasel/" $$0, "45.0esr-2~", "iceweasel-l10n-$*"}' > $@
+endif
+
+%/package-manifest:
+	$(MAKE) -C $*
+
+override_dh_auto_configure:
+
+stamps/prepare-configure:: stamps/dummy
+	for dir in $(AUTOCONF_DIRS); do \
+		for file in config.guess config.sub; do \
+			sed -i '2!b;/^#/ i\exec "/usr/share/misc/'$$file'" "$$@"' $$dir/$$file; \
+		done; \
+	done
+	autoconf2.13
+	cd js/src && autoconf2.13
+	chmod 755 configure js/src/configure
+
+stamps/configure-check-$(PRODUCT):: stamps/configure-$(PRODUCT)
+# Ensure --{with,enable}-system options properly set expected variables
+# according to the definitions in the mozconfig file.
+	@awk -F' *# *| *$$' ' \
+	BEGIN { confs="$(foreach f,autoconf.mk emptyvars.mk,$(CURDIR)/build-$(PRODUCT)/config/$(f))" } \
+	$$1 ~ /system/ { \
+		if (! $$2) { \
+			print FILENAME ": Missing variable for",$$1; \
+			error=1; \
+		} else { \
+			split($$2,var,"="); \
+			cmd = "grep -l " var[1] " " confs; \
+			cmd | getline dir; \
+			sub(/\/[^\/]*$$/, "", dir); \
+			cmd = "$(MAKE) -C " dir " --no-print-directory echo-variable-" var[1]; \
+			cmd | getline value; \
+			if (value != var[2]) { print $$1, "triggered", var[1] "=" value,"instead of",$$2; error=1 } \
+		} \
+	} \
+	END { if (error) { exit 1 }}' debian/$($(PRODUCT)).mozconfig
+
+stamps/configure-$(PRODUCT):: stamps/prepare-configure debian/$($(PRODUCT)).mozconfig
+	$(if $(wildcard build-$(PRODUCT)),,mkdir build-$(PRODUCT))
+	cd build-$(PRODUCT) && \
+	MOZCONFIG=$(CURDIR)/debian/$($(PRODUCT)).mozconfig \
+	ASFLAGS="-g" \
+	$(CONFIGURE_ENV) \
+	../configure --target=$(DEB_HOST_GNU_TYPE) --host=$(DEB_BUILD_GNU_TYPE) --prefix=/usr $(CONFIGURE_FLAGS) \
+		--with-default-mozilla-five-home=$(LIB_DIR) \
+		$(BRANDING_CONFIGURE_FLAG)
+
+stamps/build-$(PRODUCT):: stamps/configure-check-$(PRODUCT)
+	dh_auto_build --parallel --builddirectory=build-$(PRODUCT) -- \
+		_LEAKTEST_FILES=leaktest.py
+
+L10N_BUILD_STAMPS = $(foreach lang,$(L10N_LANGS),stamps/build-l10n-$(lang))
+stamps/build-l10n:: $(L10N_BUILD_STAMPS)
+
+stamps/configure-l10n:: stamps/prepare-configure
+	$(if $(wildcard build-l10n),,mkdir build-l10n)
+	$(if $(wildcard l10n),,mkdir -p l10n)
+	cd build-l10n && \
+	MOZCONFIG=$(CURDIR)/debian/$($(PRODUCT)).mozconfig \
+	$(CONFIGURE_ENV) \
+	../configure --target=$(DEB_HOST_GNU_TYPE) --host=$(DEB_BUILD_GNU_TYPE) --prefix=/usr $(CONFIGURE_FLAGS) \
+		--with-l10n-base=$(CURDIR)/l10n \
+		$(BRANDING_CONFIGURE_FLAG)
+	$(MAKE) -C build-l10n config/host CURRENT_TIER=compile
+
+$(L10N_BUILD_STAMPS):: stamps/build-l10n-%: stamps/configure-l10n
+	$(if $(wildcard l10n/$*),,ln -sf ../l10n-$* l10n/$*)
+	cd $(CURDIR)/build-l10n && PYTHONIOENCODING=utf-8 $(CURDIR)/mach compare-locales --merge-dir $(CURDIR)/build-l10n/l10n-$* $*
+	$(MAKE) -C build-l10n/$(PRODUCT)/locales langpack-$* MOZ_CHROME_FILE_FORMAT=flat MOZ_LANGPACK_EID=langpack-$*@$($(PRODUCT)).mozilla.org PKG_LANGPACK_BASENAME='$$(MOZ_LANGPACK_EID)' PKG_LANGPACK_PATH=xpi/ LOCALE_MERGEDIR=$(CURDIR)/build-l10n/l10n-$*
+
+override_dh_auto_build override_dh_auto_build-arch: stamps/build-$(PRODUCT)
+
+override_dh_auto_build-indep: stamps/build-l10n
+
+ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
+# Disable tests on stable-security
+ifeq (,$(findstring ~deb,$(DEBIAN_RELEASE)))
+include debian/test.mk
+endif
+endif
+
+override_dh_auto_clean::
+	rm -f MPL
+	rm -f $(GENERATED_FILES)
+	rm -f configure js/src/configure
+	rm -rf stamps l10n
+	debian/rules debian/control TESTDIR=
+
+	dh_auto_clean --builddirectory=build-$(PRODUCT)
+	find . -name "*.pyc" -o -name "*.pyo" | xargs --no-run-if-empty rm -f
+
+	for dir in $(AUTOCONF_DIRS); do \
+		for file in config.guess config.sub; do \
+			sed -i '2!b;/^exec "/ d' $$dir/$$file; \
+		done; \
+	done
+
+override_dh_auto_install: stamps/install-$(PRODUCT)
+
+ifdef LESS_SYSTEM_LIBS
+NSPR_VERSION = $(shell awk -F' *= *' '/MOD_[A-Z]*_VERSION/ {v[$$1] = $$2} END {print v["MOD_MAJOR_VERSION"] "." v["MOD_MINOR_VERSION"] "." v["MOD_PATCH_VERSION"]}' build-$(PRODUCT)/nsprpub/config/autoconf.mk)
+debian/mozilla-nspr.pc: VARS += NSPR_VERSION
+debian/mozilla-nspr.pc: stamps/build-$(PRODUCT)
+endif
+
+stamps/install-$(PRODUCT):: build-$(PRODUCT)/debian/installer/package-manifest
+	dh_auto_install --builddirectory=build-$(PRODUCT) -- installdir=$(LIB_DIR) \
+		MOZ_APP_BASE_VERSION=$(GRE_VERSION) \
+		MOZ_PKG_MANIFEST=$(CURDIR)/$< \
+		MOZ_NONLOCALIZED_PKG_LIST="xpcom debian" \
+		MOZ_LOCALIZED_PKG_LIST=en-US \
+		TAR_CREATE_FLAGS="--exclude=.mkdir.done --hard-dereference -chf" \
+		SIGN_NSS=
+
+	# Fixup permissions
+	find debian/tmp/usr/share debian/tmp/usr/include -type f -print0 | xargs -0 chmod 644
+	chmod +x debian/tmp/usr/lib/$($(PRODUCT))-devel-$(GRE_VERSION)/sdk/bin/xpcshell
+
+	# Replace some installed files by symlinks
+	for d in lib bin; do \
+		cd "$(CURDIR)/debian/tmp/usr/lib/$($(PRODUCT))-devel-$(GRE_VERSION)/sdk/$$d"; \
+		for f in *; do \
+			if [ -f "$(CURDIR)/debian/tmp$(LIB_DIR)/$$f" ]; then \
+				rm -f $$f ; ln -s $(LIB_DIR)/$$f $$f; \
+			fi; \
+		done; \
+	done
+
+ifndef LESS_SYSTEM_LIBS
+	for f in /usr/include/nspr/* /usr/include/nss/*; do \
+		ln -s $$f debian/tmp/usr/include/$($(PRODUCT))-$(GRE_VERSION)/$$(basename $$f); \
+	done
+endif
+	for h in $$(grep -l -r EXPORTS build-$(PRODUCT)/media | grep Makefile$ | \
+		while read f; do $(MAKE) --no-print-directory -C $$(dirname $$f) echo-variable-EXPORTS echo-variable-EXPORTS_NAMESPACES; done); do \
+		rm -rf debian/tmp/usr/include/$($(PRODUCT))-$(GRE_VERSION)/$$h; \
+	done
+
+	-TZ=UTC unzip -d debian/tmp$(LIB_DIR)/browser debian/tmp$(LIB_DIR)/browser/omni.ja 'defaults/preferences/*'
+
+MPL-1.1: gfx/cairo/cairo/COPYING-MPL-1.1
+	cp -f $< $@
+
+MPL-2.0: b2g/LICENSE
+	cp -f $< $@
+
+override_dh_installdocs: MPL-1.1 MPL-2.0
+	dh_installdocs -A $^
+
+L10N_DH_INSTALL_STAMPS = $(foreach lang,$(L10N_LANGS),stamps/dh_install-l10n-$(lang))
+stamps/dh_install-l10n:: $(L10N_DH_INSTALL_STAMPS)
+
+$(L10N_DH_INSTALL_STAMPS):: stamps/dh_install-l10n-%: stamps/build-l10n-%
+	dh_install -p$($(PRODUCT))-l10n-$(call lc,$*) build-l10n/dist/xpi/langpack-$*@$($(PRODUCT)).mozilla.org.xpi $(LIB_DIR)/browser/extensions/
+
+branding_icon = $(or $(wildcard $(BRANDING)/$(1)),$(wildcard build-$(PRODUCT)/$(BRANDING)/$(1)))
+
+stamps/dh_install:: debian/noinstall
+	awk '{print "debian/tmp/" $$1 }' < debian/noinstall | xargs rm -r
+	dh_install --fail-missing
+
+# Install icons
+	install -d -m 755 debian/$($(PRODUCT))/usr/share/icons/hicolor/16x16/apps
+	install -m 644 $(call branding_icon,default16.png) \
+		debian/$($(PRODUCT))/usr/share/icons/hicolor/16x16/apps/$($(PRODUCT)).png
+	install -d -m 755 debian/$($(PRODUCT))/usr/share/icons/hicolor/32x32/apps
+	install -m 644 $(call branding_icon,default32.png) \
+		debian/$($(PRODUCT))/usr/share/icons/hicolor/32x32/apps/$($(PRODUCT)).png
+	install -d -m 755 debian/$($(PRODUCT))/usr/share/icons/hicolor/64x64/apps
+	install -m 644 $(call branding_icon,content/icon64.png) \
+		debian/$($(PRODUCT))/usr/share/icons/hicolor/64x64/apps/$($(PRODUCT)).png
+
+CMP_AWK := '$$0 !~ /^\t/ { txt = txt ? txt "\n" $$0 : $$0 } END { if (txt != expected) { print "Expected:\n" expected "\nGot:\n" txt; exit 1 }}'
+
+override_dh_install: stamps/dh_install
+
+override_dh_strip:
+	dh_strip -a --dbg-package=$($(PRODUCT))-dbg
+
+override_dh_shlibdeps:
+	dh_shlibdeps -a -l$(CURDIR)/debian/tmp$(LIB_DIR)
+
+ifdef TRANSITION
+override_dh_gencontrol:
+	dh_gencontrol$(foreach pkg,$(subst $($(PRODUCT)),iceweasel,$(L10N_PACKAGES)) iceweasel-l10n-all, -p$(pkg)) -- -v1:$(DEBIAN_VERSION)
+	dh_gencontrol$(foreach pkg,$(subst $($(PRODUCT)),iceweasel,$(L10N_PACKAGES)) iceweasel-l10n-all, -N$(pkg))
+endif
+
+override_dh_builddeb:
+	dh_builddeb -- -Zxz
+
+install binary binary-arch binary-indep: $(filter-out %.pc,$(GENERATED_FILES))
+
+binary binary-indep: stamps/dh_install-l10n
+
+binary binary-arch binary-indep build build-arch build-indep clean install:
+	dh $@
+
+.PHONY: build clean binary-indep binary-arch binary install
+
+.NOTPARALLEL:
+
+$(eval ALL_STAMPS := $(shell awk -F:: '$$1 ~ /^stamps\// && !/%/ { print $$1 }' debian/rules) stamps/dummy $(L10N_BUILD_STAMPS) $(L10N_DH_INSTALL_STAMPS))
+$(ALL_STAMPS)::
+	@mkdir -p stamps
+	$(if $(wildcard $@),,touch $@)
+endif

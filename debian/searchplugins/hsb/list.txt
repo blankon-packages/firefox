@@ -1,6 +1,0 @@
-[Additions]
-duckduckgo
-
-[Overrides]
-../de/amazondotcom-de
-google
